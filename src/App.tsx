@@ -1,6 +1,7 @@
 import { useState, useMemo, lazy, Suspense } from "react";
 import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier } from "./domain";
-import { loadSavedCharacter, saveCharacter as persistCharacter } from "./storage";
+import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
+import { customItemsLoadFailed } from "./customItemsStorage";
 import { isCustomStoreItem, parseCharacter } from "./validation";
 import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
@@ -19,6 +20,7 @@ const EquipmentStore = lazy(() => import("./components/EquipmentStore").then((mo
 const ForgePanel = lazy(() => import("./components/ForgePanel").then((module) => ({ default: module.ForgePanel })));
 const WandsScrollPanel = lazy(() => import("./components/WandsScrollPanel").then((module) => ({ default: module.WandsScrollPanel })));
 const SpellSheets = lazy(() => import("./components/SpellSheet").then((module) => ({ default: module.SpellSheets })));
+const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItemsWarning"));
 
 export function App() {
   const [activeSheet, setActiveSheet] = useState("character");
@@ -322,6 +324,12 @@ export function App() {
       });
     else setCharacter(update);
   };
+  const updateSpellcastingCharacter = (update: (current: Character) => Character) => {
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update);
+  };
   const updateKnownSpells = (
     knownSpells: string[],
     classId?: ClassId,
@@ -406,13 +414,13 @@ export function App() {
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
       };
     };
-    if (creationOpen && !creationLocked) setCreationDraft(update);
-    else if (levelUpDraft)
-      setLevelUpDraft({ ...levelUpDraft, proposed: update(levelUpDraft.proposed) });
-    else setCharacter(update);
+    updateSpellcastingCharacter(update);
   };
   const updatePreparedSpells = (preparedSpells: string[], classId?: ClassId) => {
     const update = (current: Character) => {
+      if (classId && current.spellPreparationCompletedByClass?.[classId]) {
+        return current;
+      }
       const preparedSpellsByClass = getClassSpellSelections(current, "preparedSpells");
       if (classId) preparedSpellsByClass[classId] = preparedSpells;
       return {
@@ -421,13 +429,7 @@ export function App() {
         preparedSpellsByClass,
       };
     };
-    if (creationOpen && !creationLocked) setCreationDraft(update);
-    else if (levelUpDraft)
-      setLevelUpDraft({
-        ...levelUpDraft,
-        proposed: update(levelUpDraft.proposed),
-      });
-    else setCharacter(update);
+    updateSpellcastingCharacter(update);
   };
   const updateExpendedSpellSlots = (classId: ClassId, slots: Record<string, number[]>) => {
     const update = (current: Character): Character => ({
@@ -435,15 +437,11 @@ export function App() {
       expendedSpellSlotsByClass: { ...current.expendedSpellSlotsByClass, [classId]: slots },
       ...(classId === "cleric" && Object.keys(slots).length === 0 ? { clericDomainExpended: [] } : {}),
     });
-    if (creationOpen && !creationLocked) setCreationDraft(update);
-    else if (levelUpDraft) setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
-    else setCharacter(update);
+    updateSpellcastingCharacter(update);
   };
   const updateClericCasting = (changes: Pick<Character, "clericDomains" | "clericDomainPreparation" | "clericDomainExpended">) => {
     const update = (current: Character): Character => ({ ...current, ...changes });
-    if (creationOpen && !creationLocked) setCreationDraft(update);
-    else if (levelUpDraft) setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
-    else setCharacter(update);
+    updateSpellcastingCharacter(update);
   };
   const withUpdatedEquipment = (current: Character, equipment: Record<string, string>) => {
     const next = { ...current, equipment };
@@ -860,6 +858,7 @@ export function App() {
         </div>
       </header>
       {operationError && <section className="panel status-message" role="alert">{operationError}</section>}
+      {customItemsLoadFailed && <Suspense fallback={null}><CustomStoreItemsWarning /></Suspense>}
       <ScreenBoundary>
       {!spellCatalog.ready ? (
         <section className="panel status-message" role={spellCatalog.status === "error" ? "alert" : "status"}>
@@ -1107,6 +1106,7 @@ export function App() {
               onKnownSpellsChange={updateKnownSpells}
               onSpellAcquisitionChange={updateSpellAcquisition}
               onPreparedSpellsChange={updatePreparedSpells}
+              onCharacterUpdate={updateSpellcastingCharacter}
               onExpendedSpellSlotsChange={updateExpendedSpellSlots}
               onClericCastingChange={updateClericCasting}
               editable={!creationLocked}

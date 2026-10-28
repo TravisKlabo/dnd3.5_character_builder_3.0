@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { cloneCharacter, initialCharacter } from "../src/domain";
-import { parseCharacter } from "../src/validation";
 import { savedCharacterStorageKey } from "../src/storage";
 import { displayNoteDate, formatNoteDate } from "../src/noteDates";
+import { readStoredCharacter } from "./storageTestHelpers";
 
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -46,7 +46,7 @@ it("appends dated notes without replacing existing notes and persists through re
     .toEqual(["An earlier adventure.", "Found the lost map.", "Met a helpful wizard."]);
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  expect(parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).notes).toBe(expected);
+  expect(readStoredCharacter().notes).toBe(expected);
   unmount();
   render(<App />);
   expect([...document.querySelectorAll(".character-note-text")].map((entry) => entry.textContent))
@@ -76,7 +76,7 @@ it("adds creation notes to the creation draft", async () => {
   render(<App />);
   await enterNote("A new beginning.");
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  expect(parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).notes)
+  expect(readStoredCharacter().notes)
     .toContain("A new beginning.");
 });
 

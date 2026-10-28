@@ -32,12 +32,12 @@ export function CastingSummary({ character, onOpenSpells }: {
         </div>
         <div className="casting-dcs" aria-label="Base spell save DCs">
           {levels.length ? levels.map((spellLevel) => <span key={spellLevel}
-            title="10 + spell level + casting ability modifier; spell-specific and conditional bonuses are manual.">
+            title="10 + spell level + casting ability modifier; school-specific DCs are shown in the spell list.">
             L{spellLevel} <strong>DC {getSpellSaveDC(character, classId, spellLevel)}</strong>
           </span>) : <span>No castable spell levels with current class level and ability score.</span>}
         </div>
       </div>;
     })}
-    <p className="casting-summary-note">Base DCs and caster levels; conditional effects are manual. Hover for breakdowns.</p>
+    <p className="casting-summary-note">Base DCs and caster levels; school-specific DCs are shown per spell. Other conditional effects are manual.</p>
   </Panel>;
 }

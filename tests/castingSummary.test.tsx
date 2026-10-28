@@ -5,6 +5,7 @@ import { getArcaneSpellFailure, getSpellSaveDC } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { CastingSummary } from "../src/components/CastingSummary";
 import { savedCharacterStorageKey } from "../src/storage";
+import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
 
 function caster(): Character {
@@ -36,6 +37,14 @@ describe("casting summary", () => {
     expect(screen.getByText("+6")).toBeDefined();
     expect(getSpellSaveDC(caster(), "wizard", 2)).toBe(15);
     expect(getSpellSaveDC(caster(), "cleric", 1)).toBe(13);
+  });
+
+  it("adds the Gnome racial DC bonus only to illusion spells", () => {
+    const gnome = caster();
+    gnome.race = "Gnome";
+    expect(getSpellSaveDC(gnome, "wizard", 1)).toBe(14);
+    expect(getSpellSaveDC(gnome, "wizard", 1, "Illusion (Figment)")).toBe(15);
+    expect(getSpellSaveDC(gnome, "wizard", 1, "Evocation")).toBe(14);
   });
 
   it("does not advertise spell levels blocked by ability or lack of bonus slots", () => {
@@ -109,6 +118,6 @@ describe("casting summary", () => {
     expect(screen.getByText("15%")).toBeDefined();
     fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
     expect(screen.getByText("Save DC 15")).toBeDefined();
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+    expect(readStoredCharacter()).toEqual(character);
   });
 });

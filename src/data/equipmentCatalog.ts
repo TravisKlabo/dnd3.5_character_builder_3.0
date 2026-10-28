@@ -1,4 +1,4 @@
-import { customStoreItemsStorageKey, loadCustomStoreItems } from "../storage";
+import { customStoreItemsStorageKey, loadCustomStoreItems } from "../customItemsStorage";
 import { parseCustomItems } from "../validation";
 import { useSyncExternalStore } from "react";
 import { abilityEquipmentItems } from "../abilityEquipment";

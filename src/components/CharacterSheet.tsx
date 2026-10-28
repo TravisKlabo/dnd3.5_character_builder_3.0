@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type SavingThrowCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
-import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices } from "../rules";
+import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
+import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getRangerCombatStyleStatus } from "../rules";
+import { type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
 import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl } from "./shared";
@@ -82,9 +83,16 @@ export function CharacterSheet({
 }) {
   const [savingThrowConditions, setSavingThrowConditions] = useState<SavingThrowCondition[]>([]);
   const [combatTargetTypes, setCombatTargetTypes] = useState<CombatTargetType[]>([]);
+  const [skillCheckContexts, setSkillCheckContexts] = useState<
+    Partial<Record<string, RacialSkillCondition>>
+  >({});
+  const [skillSynergyCheckContexts, setSkillSynergyCheckContexts] = useState<
+    Partial<Record<string, SkillSynergyContext>>
+  >({});
   const skillDisplayClassId = levelUpOriginal
     ? levelUpClassId ?? getLevelUpClassId(levelUpOriginal, character)
     : undefined;
+  const rangerCombatStyle = getRangerCombatStyleStatus(character);
   const classSummary = character.classLevels
     .filter(
       (level) =>
@@ -282,6 +290,11 @@ export function CharacterSheet({
           value={targetDamageReduction}
           onChange={onTargetDamageReductionChange}
         />
+        {rangerCombatStyle.warning && (
+          <p className="combat-note" role="status">
+            {rangerCombatStyle.warning}
+          </p>
+        )}
         <div className="combat-weapon-row">
           {(["Main Weapon", "Off Hand Weapon", "Ranged Weapon"] as const).map((slot) => {
             const attackPenalty =
@@ -485,11 +498,25 @@ export function CharacterSheet({
         className="skills-panel"
       >
         <p className="skill-use-legend">Checkbox = class skill. Trained = 1+ rank. Blank modifier = no check.
+          Select a context to apply a situational racial bonus or conditional skill synergy.
           Hover or focus a skill for ranks and restrictions.</p>
         <div className="list-grid">
           {skills.map((skill) => {
             const use = getSkillUse(character, skill);
-            const modifier = getSkillCheckModifier(character, skill);
+            const skillContexts = getRacialSkillContextOptions(character, skill);
+            const synergyContexts = getSkillSynergyContextOptions(character, skill);
+            const selectedSkillContext = skillContexts.find(
+              ({ condition }) => condition === skillCheckContexts[skill],
+            )?.condition;
+            const selectedSynergyContext = synergyContexts.find(
+              ({ context }) => context === skillSynergyCheckContexts[skill],
+            )?.context;
+            const modifier = getSkillCheckModifier(
+              character,
+              skill,
+              selectedSkillContext,
+              selectedSynergyContext,
+            );
             const penalties = getSkillCheckPenalties(character, skill);
             return (
             <div className="list-row" key={skill} role="group" aria-label={`${skill} skill`}
@@ -537,9 +564,63 @@ export function CharacterSheet({
                     {penalties.map((entry) => <span key={entry.source}>
                       {entry.name}: {formatModifier(entry.penalty)}{entry.multiplier === 2 ? " (doubled for Swim)" : ""}.<br />
                     </span>)}
-                    Modifiers include ability, whole ranks, racial bonuses, and applicable armor/shield, load, or nonproficiency check penalties.
+                    Modifiers include ability, whole ranks, racial bonuses, skill synergies, and applicable armor/shield, load, or nonproficiency check penalties.
                   </span>
                 </span>
+                {skillContexts.length > 0 && (
+                  <label className="skill-check-context">
+                    <span>Racial bonus context</span>
+                    <select
+                      aria-label={`${skill} racial bonus context`}
+                      value={selectedSkillContext ?? ""}
+                      onChange={(event) => {
+                        const condition = skillContexts.find(
+                          (option) => option.condition === event.currentTarget.value,
+                        )?.condition;
+                        setSkillCheckContexts((current) => {
+                          const next = { ...current };
+                          if (condition) next[skill] = condition;
+                          else delete next[skill];
+                          return next;
+                        });
+                      }}
+                    >
+                      <option value="">No situational bonus</option>
+                      {skillContexts.map(({ condition, label, bonus }) => (
+                        <option key={condition} value={condition}>
+                          {label} ({formatModifier(bonus)})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {synergyContexts.length > 0 && (
+                  <label className="skill-check-context">
+                    <span>Synergy context</span>
+                    <select
+                      aria-label={`${skill} synergy context`}
+                      value={selectedSynergyContext ?? ""}
+                      onChange={(event) => {
+                        const context = synergyContexts.find(
+                          (option) => option.context === event.currentTarget.value,
+                        )?.context;
+                        setSkillSynergyCheckContexts((current) => {
+                          const next = { ...current };
+                          if (context) next[skill] = context;
+                          else delete next[skill];
+                          return next;
+                        });
+                      }}
+                    >
+                      <option value="">No conditional synergy</option>
+                      {synergyContexts.map(({ context, label, bonus }) => (
+                        <option key={context} value={context}>
+                          {label} ({formatModifier(bonus)})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </span>
               {!finalized && <span className="skill-racial">
                 {getRacialSkillBonus(character, skill)
@@ -585,7 +666,12 @@ export function CharacterSheet({
                   +
                 </button>
               </span>}
-              <strong title={getSkillTotalTooltip(character, skill)}>
+              <strong title={getSkillTotalTooltip(
+                character,
+                skill,
+                selectedSkillContext,
+                selectedSynergyContext,
+              )}>
                 {modifier === null ? null : formatModifier(modifier)}
               </strong>
             </div>
@@ -726,18 +812,29 @@ export function CharacterSheet({
           <div className="abilities-column">
             <h3>Special Abilities</h3>
             <div className="special-abilities-list">
-              {specialAbilities.map(({ source, ability }, index) => (
-                <div
-                  className="special-ability"
-                  key={`${source}-${ability}-${index}`}
-                >
-                  <strong>{ability}</strong>
-                  {classFeatureDescriptions[ability] && (
-                    <span> - {classFeatureDescriptions[ability]}</span>
-                  )}
-                  <span>({source})</span>
-                </div>
-              ))}
+              {specialAbilities.map(({ source, ability }, index) => {
+                const skillSynergy = getClassFeatureSkillSynergy(
+                  character,
+                  ability,
+                );
+                return (
+                  <div
+                    className="special-ability"
+                    key={`${source}-${ability}-${index}`}
+                  >
+                    <strong>{ability}</strong>
+                    {classFeatureDescriptions[ability] && (
+                      <span> - {classFeatureDescriptions[ability]}</span>
+                    )}
+                    {skillSynergy && (
+                      <span>
+                        {formatModifier(skillSynergy.bonus)} synergy from {skillSynergy.sourceSkill} to {skillSynergy.checkLabel}
+                      </span>
+                    )}
+                    <span>({source})</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

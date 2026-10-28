@@ -238,11 +238,15 @@ add a fractional check bonus.
 
 Knowledge skills allow only common-knowledge Intelligence checks at DC 10 or lower
 without training. Handle Animal permits limited Charisma checks for domestic
-animals (and a druid/ranger's companion). Sleight of Hand permits limited Dexterity
-checks at DC 10 or lower, with the exception for hiding an object on the body.
-These limitations are explained in the skill-name tooltips. Speak Language leaves
-the modifier blank; its tooltip explains that it has no skill check and points to
-the Languages section.
+animals (and a druid/ranger's companion). Sleight of Hand permits untrained
+Dexterity checks, which cannot succeed above DC 10 except to hide an object on the
+body. Appraise's untrained results, Open Lock's separate force-open option, and
+the language and Trapfinding restrictions for Forgery and Disable Device are
+explained in the skill-name tooltips. Speak Language leaves the modifier blank;
+its tooltip explains that it has no skill check and points to the Languages section.
+At 5 ranks, Handle Animal, Knowledge (history), and Knowledge (religion) also
+show their +2 synergy bonuses for Wild Empathy, Bardic Knowledge, and turning
+checks in the Special Abilities list; those feature checks remain manual.
 
 Status is derived from existing ranks and updates during setup and level-up;
 discarding a draft restores the original training. No extra training flags are
@@ -456,11 +460,16 @@ save DC at each spell level:
 
 Preparation counts allow multiple copies of a spell and enforce capacity
 separately at each spell level. The same spell can be prepared independently by
-two classes. Expended slot checkboxes belong only to their class and spell level;
-**Reset [class] expended slots** clears only that class's usage, not preparation.
-Changing subtabs or screens does not erase tracking. There is no automatic rest
-reset. Preparation and usage are provisional in creation/level-up drafts and are
-included in main Save and JSON Export/Import.
+two classes. Prepared casters can expend slots only after completing daily
+preparation; completion locks ordinary and cleric domain spell choices until the
+next rest/prayer confirmation. Spontaneous casters do not use preparation gates.
+Expended slot checkboxes belong only to their class and spell level. **Confirm
+rest/prayer and recover spell slots** clears all expended slots, including
+cleric domain usage, and unlocks one new preparation period without changing
+known or prepared spells. These are explicit user confirmations; the app does not
+track rest duration, prayer time, or preparation time. Changing subtabs or screens
+does not erase tracking. Preparation and usage are provisional in creation/level-up
+drafts and are included in main Save and JSON Export/Import.
 
 Older class-tagged spell lists are respected, including explicitly empty lists.
 For legacy flat lists without class identity, an explicit old spell-to-class
@@ -493,11 +502,14 @@ domain spells are excluded when the cleric or selected deity is good. Domain
 slots cannot be spontaneously converted to cure/inflict spells.
 
 Preparation and expended checkboxes are independent. Changing a prepared spell or
-domain does not refresh expended slots. **Reset Cleric expended slots** clears
-ordinary and domain usage, not preparation; other classes' reset buttons cannot
-clear cleric usage. No automatic rest reset is implied. Domain data follows
+domain does not refresh expended slots. The global daily-rest/prayer confirmation
+clears all classes' expended slots and cleric domain usage without changing
+preparations. Clerics may change domain preparation until completing daily
+preparation; then domain choices and usage are locked until the next confirmation.
+The app does not track rest duration or prayer time. Domain data follows
 creation/level-up drafts and main Save/JSON Export/Import. Existing saves need no
-migration. Missing choices or unavailable imported preparations produce warnings;
+migration; they can complete daily preparation to enable spell-slot use. Missing
+choices or unavailable imported preparations produce warnings;
 unavailable preparations remain visible for correction rather than disappearing.
 Established domains are locked on a finalized sheet; **Change domains** explicitly
 requires confirmation that this is a DM-approved lasting change, not daily
@@ -573,6 +585,9 @@ verified on the relevant build hosts.
 
 ## Rules and scope
 
+See the [rules coverage matrix](docs/rules-coverage.md) for a feature-level
+snapshot of implemented, partial/manual, and unverified areas.
+
 This is not a certification of all D&D or Dragonlance mechanics. The first combat
 correctness pass intentionally corrects inherited calculations:
 
@@ -628,13 +643,16 @@ race-appropriate bonus-language options. The Halfling's unconditional +1
 racial bonus to all saves is calculated. Situational racial save bonuses are
 applied when their context is selected in the Saving Throws panel. Dwarf and
 Gnome target-specific attack and dodge AC bonuses, plus the Halfling thrown
-weapon/slings attack bonus, use the selected target types and weapon mode.
-Other conditional racial effects may require manual resolution. Optional
-Dragonlance race data is not verified. See the SRD [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
+weapon/slings attack bonus use the selected target types and weapon mode. Small
+creatures receive their size-based Hide bonus, and Gnome illusion spells include
+the +1 racial save DC adjustment. Other features that need encounter or effect
+resolution—such as Dwarf stability, Elf secret-door detection triggers, sleep
+immunity, and spell-like abilities—remain manual. Optional Dragonlance race data
+is not verified. See the SRD [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
 [Gnome](https://www.d20srd.org/srd/races.htm#gnomes), and
 [Halfling](https://www.d20srd.org/srd/races.htm#halflings) rules.
 
-Remaining gaps include other racial combat modifiers and full bonus stacking.
+Remaining gaps include complete racial-feature automation and full bonus stacking.
 Handedness `Ranged` and placement in the ranged slot select Dexterity attacks.
 Ammunition consumption, custom ammunition, and non-material damage-reduction
 qualifiers or special shield/material cases need further verification. Spellcasting still

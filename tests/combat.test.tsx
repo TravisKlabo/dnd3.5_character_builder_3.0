@@ -2,11 +2,12 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails } from "../src/rules";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
 import { savedCharacterStorageKey } from "../src/storage";
+import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
 
 function fighter(str = 16, dex = 18) {
@@ -153,6 +154,53 @@ describe("SRD weapon attack and damage", () => {
       .toMatchObject({ damage: "1d6+1", damageAbility: 1, attackPenalty: -8 });
 
     character.featSelections = { "general-1": "two-weapon-fighting" };
+    expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-2);
+    expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-2);
+  });
+
+  it("disables Ranger combat style in medium or heavy armor, but not light armor", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "ranger", level: 2 }];
+    character.featSelections = { "ranger-style-2": "two-weapon-fighting" };
+
+    expect(getRangerCombatStyleStatus(character)).toMatchObject({
+      hasStyle: true,
+      active: true,
+      warning: undefined,
+    });
+    character.equipment.Armor = "Padded Armor";
+    expect(getRangerCombatStyleStatus(character).active).toBe(true);
+    character.equipment.Armor = "Mithral Breastplate";
+    expect(getRangerCombatStyleStatus(character).active).toBe(true);
+    character.equipment.Armor = "Chainmail";
+    expect(getRangerCombatStyleStatus(character)).toMatchObject({
+      hasStyle: true,
+      active: false,
+      warning: expect.stringContaining("medium or heavy armor"),
+    });
+    character.equipment.Armor = "Full Plate";
+    expect(getRangerCombatStyleStatus(character).active).toBe(false);
+    delete character.equipment.Armor;
+    character.equipment.Shield = "Heavy Steel Shield";
+    expect(getRangerCombatStyleStatus(character).active).toBe(true);
+  });
+
+  it("applies Two-Weapon Fighting from Ranger style only while its armor restriction allows", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "ranger", level: 2 }];
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      "Off Hand Weapon": "Dagger (Medium)",
+    };
+    character.featSelections = { "ranger-style-2": "two-weapon-fighting" };
+
+    expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-2);
+    expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-2);
+    character.equipment.Armor = "Chainmail";
+    expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-4);
+    expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
+
+    character.featSelections["general-1"] = "two-weapon-fighting";
     expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-2);
     expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-2);
   });
@@ -749,7 +797,7 @@ it("stacks sheet columns independently and keeps empty weapon slots compact", ()
   expect(screen.getByText("Damage 1d4+3")).toBeDefined();
   expect(container.querySelector(".ability-card .score-breakdown")).toBeNull();
   expect(container.querySelectorAll(".saving-throws-grid .stat-detail")).toHaveLength(3);
-  expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+  expect(readStoredCharacter()).toEqual(character);
 });
 
 it("shows attack, damage, and critical values for all three equipped weapon slots", () => {
@@ -1291,7 +1339,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
     if (!(shieldSlot instanceof HTMLElement)) throw new Error("Missing shield equipment slot.");
     await user.click(within(shieldSlot).getByRole("button", { name: "Unequip" }));
     expect(screen.queryByRole("checkbox", { name: "Use tower shield for total cover" })).toBeNull();
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null").towerShieldTotalCover).toBe(false);
+    expect(readStoredCharacter().towerShieldTotalCover).toBe(false);
   });
 
   it("lets a character toggle shield bash in Equipment and clears it when the shield is removed", async () => {
@@ -1332,6 +1380,6 @@ describe("touch, flat-footed, and grapple statistics", () => {
     expect(screen.getByText("Touch 11")).toBeDefined();
     expect(screen.getByText("Flat-footed 18")).toBeDefined();
     expect(screen.getByRole("group", { name: "Touch attacks and grapple" }).textContent).toBe(strip.textContent);
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+    expect(readStoredCharacter()).toEqual(character);
   });
 });

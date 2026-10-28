@@ -5,6 +5,7 @@ import { applyHitPointAction, getCurrentHitPoints, getHitPointStatus, getMaximum
 import { parseCharacter } from "../src/validation";
 import { loadSavedCharacter, saveCharacter, savedCharacterStorageKey } from "../src/storage";
 import App from "../src/App";
+import { readStoredCharacter } from "./storageTestHelpers";
 
 describe("in-play HP rules", () => {
   it("defaults older characters to maximum HP without mutating them", () => {
@@ -90,7 +91,7 @@ describe("HP tracker workflow", () => {
     fireEvent.click(tracker.getByRole("button", { name: "Heal" }));
     expect(tracker.getByText("HP 10 / 10")).toBeDefined();
     expect(tracker.getByText("Nonlethal 6")).toBeDefined();
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null").currentHitPoints).toBeUndefined();
+    expect(readStoredCharacter().currentHitPoints).toBeUndefined();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(loadSavedCharacter().character).toMatchObject({ hitPoints: 10, currentHitPoints: 10, nonlethalDamage: 6 });
     view.unmount();

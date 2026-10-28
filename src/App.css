@@ -175,6 +175,8 @@
   .skills-panel .list-row > strong { font-size: .8rem; max-width: 130px; }
 }
 .skill-racial { color: #68736f; font-size: .7rem; white-space: nowrap; }
+.skill-check-context { display: inline-grid; gap: 2px; margin: 4px 0 0 6px; color: #68736f; font-size: .68rem; vertical-align: middle; }
+.skill-check-context select { max-width: 190px; padding: 3px 5px; border: 1px solid #c6c9c2; background: #fff; color: #243447; font: inherit; }
 .skill-ability { color: #68736f; font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .skill-ranks { display: inline-grid; grid-template-columns: 24px 28px 24px; align-items: center; justify-items: center; gap: 4px; }
 .skill-ranks button { width: 24px; height: 24px; padding: 0; border: 1px solid #b9bbb4; background: #fff; color: #243447; line-height: 1; }

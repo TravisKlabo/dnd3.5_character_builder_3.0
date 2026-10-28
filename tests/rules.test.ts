@@ -3,8 +3,12 @@ import { abilityModifier, armorClass, beginLevelUp, changeRace, cloneCharacter,
   hitPointGain, initialCharacter, levelUpHitPointGain, nextClassLevel, validateLevelUp } from "../src/domain";
 import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getEquipmentArmorClass, getEquippedWeaponStats, getLevelUpAlignmentWarnings,
-  getAvailableBonusLanguages, getClassFeatureDisplay, getLanguageBonusSlots,
-  getRacialSkillBonus, formatRaceDetails, getSkillMaximum, getSpentSkillPoints,
+  getAvailableBonusLanguages, getClassFeatureDisplay, getClassFeatureSkillSynergy,
+  getLanguageBonusSlots,
+  getAvailableFeats, getFeatSlots, getLevelUpSkillWarnings, getRacialSkillBonus,
+  getRacialSkillContextOptions, getSkillCheckModifier, getSkillTotalTooltip,
+  formatRaceDetails, getNewLevelUpFeatSlots, getSkillMaximum, getSpentSkillPoints,
+  normalizeFeatSelections,
   getTwoWeaponAttackPenalty, isClassAlignmentAllowed } from "../src/rules";
 import { featCatalog } from "../src/data/characterCatalog";
 import { getClassSpells, loadSpellCatalog, spells } from "../src/data/spellCatalog";
@@ -65,6 +69,18 @@ describe("character rules preserved from 2.0", () => {
     expect(validateLevelUp(draft)).toEqual([]);
   });
 
+  it("counts an Intelligence increase only for the level being gained", () => {
+    const original = cloneCharacter(initialCharacter);
+    original.classLevels = [{ classId: "fighter", level: 3 }];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 4;
+    proposed.abilities.int = 12;
+
+    expect(getLevelUpSkillWarnings(original, proposed)).toEqual([
+      "Spend all new skill points (4 remaining).",
+    ]);
+  });
+
   it("reverses old race modifiers before applying the next race", () => {
     const dwarf = changeRace(initialCharacter, "Dwarf");
     expect(dwarf.abilities.con).toBe(12);
@@ -96,12 +112,50 @@ describe("character rules preserved from 2.0", () => {
     gnome.race = "Gnome";
     expect(getRacialSkillBonus(gnome, "Listen")).toBe(2);
     expect(getRacialSkillBonus(gnome, "Craft")).toBe(0);
+    gnome.skills.Craft = 1;
+    expect(getRacialSkillContextOptions(gnome, "Craft")).toEqual([
+      { condition: "alchemy", label: "Alchemy", bonus: 2 },
+    ]);
+    expect(getSkillCheckModifier(gnome, "Craft")).toBe(1);
+    expect(getSkillCheckModifier(gnome, "Craft", "alchemy")).toBe(3);
+
+    const dwarf = cloneCharacter(initialCharacter);
+    dwarf.race = "Dwarf";
+    dwarf.skills.Search = 1;
+    dwarf.skills.Appraise = 1;
+    dwarf.skills.Craft = 1;
+    expect(getRacialSkillBonus(dwarf, "Search")).toBe(0);
+    expect(getRacialSkillContextOptions(dwarf, "Search")).toEqual([
+      {
+        condition: "unusual-stonework",
+        label: "Unusual stonework (including within 10 ft.)",
+        bonus: 2,
+      },
+    ]);
+    expect(getSkillCheckModifier(dwarf, "Search")).toBe(1);
+    expect(getSkillCheckModifier(dwarf, "Search", "unusual-stonework")).toBe(3);
+    expect(getSkillCheckModifier(dwarf, "Appraise", "stone-or-metal")).toBe(3);
+    expect(getSkillCheckModifier(dwarf, "Craft", "stone-or-metal")).toBe(3);
+    expect(getSkillTotalTooltip(dwarf, "Search", "unusual-stonework")).toContain(
+      "Dwarf (Unusual stonework (including within 10 ft.)): +2",
+    );
 
     const halfElf = cloneCharacter(initialCharacter);
     halfElf.race = "Half-elf";
     expect(getRacialSkillBonus(halfElf, "Search")).toBe(1);
     expect(getRacialSkillBonus(halfElf, "Diplomacy")).toBe(2);
     expect(getRacialSkillBonus(halfElf, "Gather Information")).toBe(2);
+  });
+
+  it("applies the Small-size Hide bonus and includes it in the check breakdown", () => {
+    const halfling = cloneCharacter(initialCharacter);
+    halfling.race = "Halfling";
+    expect(getSkillCheckModifier(halfling, "Hide")).toBe(4);
+    expect(getSkillTotalTooltip(halfling, "Hide")).toContain("Small size (Hide): +4");
+
+    const dwarf = cloneCharacter(initialCharacter);
+    dwarf.race = "Dwarf";
+    expect(getSkillCheckModifier(dwarf, "Hide")).toBe(0);
   });
 
   it("shows size and base speed in core race details", () => {
@@ -167,6 +221,39 @@ describe("character rules preserved from 2.0", () => {
     )).toBe(false);
   });
 
+  it.each([
+    ["bard", 1, "Bardic Knowledge", "Knowledge (history)"],
+    ["druid", 1, "Wild Empathy", "Handle Animal"],
+    ["ranger", 1, "Wild Empathy", "Handle Animal"],
+    ["cleric", 1, "Turn or Rebuke Undead", "Knowledge (religion)"],
+    ["paladin", 4, "Turn Undead", "Knowledge (religion)"],
+  ] as const)(
+    "grants the feature synergy for %s %s only at 5 source ranks",
+    (classId, level, feature, sourceSkill) => {
+      const character = cloneCharacter(initialCharacter);
+      character.classLevels = [{ classId, level }];
+      character.skills[sourceSkill] = 4.5;
+      expect(getClassFeatureSkillSynergy(character, feature)).toBeNull();
+      character.skills[sourceSkill] = 5;
+      expect(getClassFeatureSkillSynergy(character, feature)).toEqual({
+        sourceSkill,
+        bonus: 2,
+        checkLabel: feature === "Turn or Rebuke Undead"
+          ? "turning or rebuking checks against undead"
+          : feature === "Turn Undead"
+            ? "turning checks against undead"
+            : `${feature} checks`,
+      });
+    },
+  );
+
+  it("does not grant a class-feature synergy when the character lacks that feature", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 20 }];
+    character.skills["Knowledge (history)"] = 5;
+    expect(getClassFeatureSkillSynergy(character, "Bardic Knowledge")).toBeNull();
+  });
+
   it("preserves armor dexterity limits, size, and masterwork attack benefits", () => {
     const character = cloneCharacter(initialCharacter);
     character.abilities.dex = 18;
@@ -192,6 +279,33 @@ describe("character rules preserved from 2.0", () => {
     character.equipment = { "Main Weapon": "Longsword (Medium)", "Off Hand Weapon": "Dagger (Medium)" };
     expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-4);
     expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
+  });
+
+  it("checks all direct prerequisites in Great Cleave and Greater Two-Weapon Fighting chains", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 11 }];
+    character.abilities.str = 13;
+    character.abilities.dex = 19;
+    const greatCleave = featCatalog.find((feat) => feat.id === "great-cleave");
+    const greaterTwoWeaponFighting = featCatalog.find(
+      (feat) => feat.id === "greater-two-weapon-fighting",
+    );
+    if (!greatCleave || !greaterTwoWeaponFighting)
+      throw new Error("Missing feat prerequisite fixture.");
+
+    character.featSelections = { "general-1": "cleave" };
+    expect(featQualifies(character, greatCleave, { fighterOnly: false })).toBe(false);
+    character.featSelections["general-2"] = "power-attack";
+    expect(featQualifies(character, greatCleave, { fighterOnly: false })).toBe(true);
+
+    character.featSelections = { "general-1": "improved-two-weapon-fighting" };
+    expect(
+      featQualifies(character, greaterTwoWeaponFighting, { fighterOnly: false }),
+    ).toBe(false);
+    character.featSelections["general-2"] = "two-weapon-fighting";
+    expect(
+      featQualifies(character, greaterTwoWeaponFighting, { fighterOnly: false }),
+    ).toBe(true);
   });
 
   it("uses exact cross-class rank caps and preserves rank costs by class", () => {
@@ -231,6 +345,207 @@ describe("character rules preserved from 2.0", () => {
     if (!combatCasting || !toughness) throw new Error("Missing fighter feat fixture.");
     expect(featQualifies(initialCharacter, combatCasting, { fighterOnly: true })).toBe(false);
     expect(featQualifies(initialCharacter, toughness, { fighterOnly: true })).toBe(false);
+  });
+
+  it("offers Ranger combat-style feats by level and preserves the chosen style", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "ranger", level: 11 }];
+    const styleSlots = getFeatSlots(character).filter(
+      (slot) => slot.rangerStyleLevel !== undefined,
+    );
+    expect(styleSlots.map((slot) => slot.id)).toEqual([
+      "ranger-style-2",
+      "ranger-style-6",
+      "ranger-style-11",
+    ]);
+
+    const choicesAtLevel = (level: 2 | 6 | 11) => {
+      const slot = styleSlots.find((candidate) => candidate.rangerStyleLevel === level);
+      if (!slot) throw new Error(`Missing Ranger style slot at level ${level}.`);
+      return getAvailableFeats(character, slot).map((feat) => feat.id);
+    };
+
+    expect(choicesAtLevel(2)).toEqual(["rapid-shot", "two-weapon-fighting"]);
+    character.featSelections = { "ranger-style-2": "rapid-shot" };
+    expect(choicesAtLevel(6)).toContain("manyshot");
+    expect(choicesAtLevel(6)).not.toContain("improved-two-weapon-fighting");
+    character.featSelections["ranger-style-6"] = "manyshot";
+    expect(choicesAtLevel(11)).toContain("improved-precise-shot");
+    expect(choicesAtLevel(11)).not.toContain("greater-two-weapon-fighting");
+
+    character.featSelections = {
+      "ranger-style-2": "two-weapon-fighting",
+      "ranger-style-6": "improved-two-weapon-fighting",
+    };
+    expect(choicesAtLevel(11)).toContain("greater-two-weapon-fighting");
+    expect(choicesAtLevel(11)).not.toContain("improved-precise-shot");
+  });
+
+  it("enforces Ranger style feat prerequisites for non-style feat slots", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "ranger", level: 11 }];
+    const generalSlot = getFeatSlots(character).find(
+      (slot) => slot.id === "general-3",
+    );
+    if (!generalSlot) throw new Error("Missing general feat fixture.");
+
+    expect(getAvailableFeats(character, generalSlot).map((feat) => feat.id)).not.toContain(
+      "rapid-shot",
+    );
+    character.abilities.dex = 13;
+    character.featSelections = { "general-1": "point-blank-shot" };
+    expect(getAvailableFeats(character, generalSlot).map((feat) => feat.id)).toContain(
+      "rapid-shot",
+    );
+  });
+
+  it("checks prerequisites for the Ranger style feats when chosen normally", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "ranger", level: 11 }];
+    character.abilities.dex = 19;
+    character.featSelections = {
+      "general-1": "point-blank-shot",
+      "general-3": "rapid-shot",
+      "general-6": "precise-shot",
+      "general-9": "two-weapon-fighting",
+      "human-1": "improved-two-weapon-fighting",
+    };
+
+    for (const id of [
+      "rapid-shot",
+      "manyshot",
+      "improved-precise-shot",
+      "two-weapon-fighting",
+      "improved-two-weapon-fighting",
+      "greater-two-weapon-fighting",
+    ]) {
+      const feat = featCatalog.find((candidate) => candidate.id === id);
+      if (!feat) throw new Error(`Missing Ranger feat fixture: ${id}.`);
+      expect(featQualifies(character, feat, { fighterOnly: false })).toBe(true);
+    }
+  });
+
+  it("allows style paths to be backfilled for existing Rangers", () => {
+    const original = cloneCharacter(initialCharacter);
+    original.classLevels = [{ classId: "ranger", level: 5 }];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 6;
+
+    expect(
+      getNewLevelUpFeatSlots(original, proposed)
+        .filter((slot) => slot.rangerStyleLevel !== undefined)
+        .map((slot) => slot.id),
+    ).toEqual(["ranger-style-2", "ranger-style-6"]);
+
+    proposed.featSelections = { "ranger-style-2": "rapid-shot" };
+    const levelSixSlot = getFeatSlots(proposed).find(
+      (slot) => slot.rangerStyleLevel === 6,
+    );
+    if (!levelSixSlot) throw new Error("Missing Ranger level-six style slot.");
+    expect(getAvailableFeats(proposed, levelSixSlot).map((feat) => feat.id)).toContain(
+      "manyshot",
+    );
+  });
+
+  it("preserves a Ranger style choice when the character already has that feat", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.abilities.dex = 15;
+    character.classLevels = [{ classId: "ranger", level: 2 }];
+    character.featSelections = { "general-1": "two-weapon-fighting" };
+
+    expect(
+      normalizeFeatSelections(character, {
+        ...character.featSelections,
+        "ranger-style-2": "two-weapon-fighting",
+      }),
+    ).toMatchObject({
+      "general-1": "two-weapon-fighting",
+      "ranger-style-2": "two-weapon-fighting",
+    });
+  });
+
+  it("offers Monk bonus feats at levels 1, 2, and 6 without their normal prerequisites", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "monk", level: 6 }];
+    const bonusSlots = getFeatSlots(character).filter(
+      (slot) => slot.monkBonusLevel !== undefined,
+    );
+    expect(bonusSlots.map((slot) => slot.id)).toEqual([
+      "monk-1",
+      "monk-2",
+      "monk-6",
+    ]);
+
+    const expectedOptions = [
+      ["improved-grapple", "stunning-fist"],
+      ["combat-reflexes", "deflect-arrows"],
+      ["improved-disarm", "improved-trip"],
+    ];
+    bonusSlots.forEach((slot, index) => {
+      expect(
+        new Set(getAvailableFeats(character, slot).map((feat) => feat.id)),
+      ).toEqual(new Set(expectedOptions[index]));
+    });
+
+    const generalSlot = getFeatSlots(character).find(
+      (slot) => slot.id === "general-1",
+    );
+    if (!generalSlot) throw new Error("Missing general feat fixture.");
+    for (const id of [
+      "improved-grapple",
+      "stunning-fist",
+      "deflect-arrows",
+      "improved-disarm",
+      "improved-trip",
+    ]) {
+      const feat = featCatalog.find((candidate) => candidate.id === id);
+      if (!feat) throw new Error(`Missing Monk feat fixture: ${id}.`);
+      expect(featQualifies(character, feat, generalSlot)).toBe(false);
+    }
+
+    const firstLevelMonk = cloneCharacter(initialCharacter);
+    firstLevelMonk.classLevels = [{ classId: "monk", level: 1 }];
+    firstLevelMonk.abilities.dex = 13;
+    const firstLevelGeneralSlot = getFeatSlots(firstLevelMonk).find(
+      (slot) => slot.id === "general-1",
+    );
+    if (!firstLevelGeneralSlot) throw new Error("Missing first-level general feat.");
+    const regularChoices = getAvailableFeats(firstLevelMonk, firstLevelGeneralSlot)
+      .map((feat) => feat.id);
+    expect(regularChoices).toContain("improved-grapple");
+    expect(regularChoices).toContain("deflect-arrows");
+    expect(regularChoices).not.toContain("stunning-fist");
+  });
+
+  it("backfills missing Monk bonus-feat choices and rejects duplicate feats", () => {
+    const original = cloneCharacter(initialCharacter);
+    original.classLevels = [{ classId: "monk", level: 5 }];
+    original.featSelections = { "monk-1": "stunning-fist" };
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 6;
+
+    expect(
+      getNewLevelUpFeatSlots(original, proposed)
+        .filter((slot) => slot.monkBonusLevel !== undefined)
+        .map((slot) => slot.id),
+    ).toEqual(["monk-2", "monk-6"]);
+
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "monk", level: 2 }];
+    character.featSelections = { "general-1": "combat-reflexes" };
+    const monkSecondLevelSlot = getFeatSlots(character).find(
+      (slot) => slot.id === "monk-2",
+    );
+    if (!monkSecondLevelSlot) throw new Error("Missing Monk second-level bonus feat.");
+    expect(
+      getAvailableFeats(character, monkSecondLevelSlot).map((feat) => feat.id),
+    ).not.toContain("combat-reflexes");
+    expect(
+      normalizeFeatSelections(character, {
+        ...character.featSelections,
+        "monk-2": "combat-reflexes",
+      }),
+    ).toEqual({ "general-1": "combat-reflexes" });
   });
 
   it("enforces core class alignment restrictions on level-up", () => {

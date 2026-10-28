@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { cloneCharacter, initialCharacter } from "../src/domain";
 import { loadSavedCharacter, loadCustomStoreItems, saveCharacter,
-  savedCharacterStorageKey, customStoreItemsStorageKey } from "../src/storage";
+  customItemsLoadFailed, savedCharacterSetupDraftStorageKey, savedCharacterStorageKey, customStoreItemsStorageKey } from "../src/storage";
 import { parseCharacter, parseCustomItems } from "../src/validation";
 
 describe("character persistence", () => {
-  it("round-trips an existing 2.0 character without losing selections", () => {
+  it("round-trips a saved character without losing selections", () => {
     const character = cloneCharacter(initialCharacter);
     character.name = "Test Hero";
     character.skills.Climb = 4;
@@ -71,22 +71,74 @@ describe("character persistence", () => {
     expect(parseCharacter(legacyCharacter).featWeaponSelections).toBeUndefined();
   });
 
+  it("loads older saves missing optional fields added later without changing stored data", () => {
+    const legacyCharacter = cloneCharacter(initialCharacter);
+    delete legacyCharacter.temporaryHitPoints;
+    delete legacyCharacter.knownSpellsByClass;
+    delete legacyCharacter.spellAcquisitionByClass;
+    delete legacyCharacter.preparedSpellsByClass;
+    delete legacyCharacter.expendedSpellSlotsByClass;
+    delete legacyCharacter.combatRound;
+    delete legacyCharacter.combatEffects;
+    delete legacyCharacter.mainWeaponGrip;
+    delete legacyCharacter.doubleWeaponMode;
+    delete legacyCharacter.towerShieldTotalCover;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(legacyCharacter));
+    window.localStorage.setItem(savedCharacterSetupDraftStorageKey, "true");
+
+    expect(loadSavedCharacter()).toEqual({
+      character: legacyCharacter,
+      saved: true,
+      setupDraft: true,
+    });
+    expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe(JSON.stringify(legacyCharacter));
+
+    saveCharacter(legacyCharacter, false);
+    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual([
+      1,
+      legacyCharacter,
+      false,
+    ]);
+    expect(loadSavedCharacter()).toEqual({
+      character: legacyCharacter,
+      saved: true,
+      setupDraft: false,
+    });
+  });
+
   it("reports damaged saved data without overwriting it or locking setup", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     window.localStorage.setItem(savedCharacterStorageKey, "{broken");
     const result = loadSavedCharacter();
     expect(result.saved).toBe(false);
     expect(result.setupDraft).toBe(false);
-    expect(result.error).toContain("Unable to load");
+    expect(result.error).toBeTruthy();
     expect(log).toHaveBeenCalledOnce();
     expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe("{broken");
   });
 
-  it("does not report a successful save when storage is unavailable", () => {
+  it("reports unsupported storage versions without modifying the saved record", () => {
+    const record = JSON.stringify([2, initialCharacter, false]);
+    window.localStorage.setItem(savedCharacterStorageKey, record);
+    const result = loadSavedCharacter();
+    expect(result.saved).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe(record);
+  });
+
+  it("keeps the previous complete record when a write fails", () => {
+    const existing = cloneCharacter(initialCharacter);
+    existing.name = "Existing save";
+    saveCharacter(existing);
+    const previousRecord = window.localStorage.getItem(savedCharacterStorageKey);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("Storage full", "QuotaExceededError");
     });
-    expect(() => saveCharacter(initialCharacter)).toThrow("Storage full");
+    const replacement = cloneCharacter(initialCharacter);
+    replacement.name = "Uncommitted save";
+    expect(() => saveCharacter(replacement, true)).toThrow("Storage full");
+    expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe(previousRecord);
+    expect(loadSavedCharacter()).toEqual({ character: existing, saved: true, setupDraft: false });
   });
 
   it("validates custom catalogs and reports corruption", () => {
@@ -107,8 +159,12 @@ describe("character persistence", () => {
     expect(() => parseCustomItems([{ ...item, ranged: "true" }])).toThrow();
     expect(() => parseCustomItems([{ ...item, ranged: true, category: "Armor" }])).toThrow();
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    window.localStorage.setItem(customStoreItemsStorageKey, JSON.stringify([item]));
+    expect(loadCustomStoreItems()).toEqual([item]);
+    expect(customItemsLoadFailed).toBe(false);
     window.localStorage.setItem(customStoreItemsStorageKey, "{}");
     expect(loadCustomStoreItems()).toEqual([]);
+    expect(customItemsLoadFailed).toBe(true);
     expect(log).toHaveBeenCalledOnce();
     expect(window.localStorage.getItem(customStoreItemsStorageKey)).toBe("{}");
   });

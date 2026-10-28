@@ -10,6 +10,7 @@ import { baseSpellSlots, getCasterLevel, getClassSpellSelections, getDailySpellS
 import { savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 import { SpellSheets } from "../src/components/SpellSheet";
+import { readStoredCharacter } from "./storageTestHelpers";
 
 beforeAll(loadSpellCatalog);
 beforeEach(() => {
@@ -39,7 +40,7 @@ function save(character: Character) {
 }
 
 function stored() {
-  return parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
+  return readStoredCharacter();
 }
 
 async function openSpells(preparation = true) {
@@ -349,9 +350,32 @@ describe("class-specific spell rules", () => {
   ])("rejects malformed imported slot usage %j", (value) => {
     expect(() => parseCharacter({ ...caster(), expendedSpellSlotsByClass: value })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: "completed" },
+    { notAClass: true },
+  ])("rejects malformed daily preparation state %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      spellPreparationCompletedByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
+  it("shows a Gnome's increased DC for individual illusion spells", async () => {
+    const character = caster();
+    character.race = "Gnome";
+    character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
+    character.knownSpells = ["Ghost Sound"];
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const spellRow = within(panel).getByRole("row", { name: /Ghost Sound/ });
+    expect(within(spellRow).getByText("Will disbelief (if interacted with)")).toBeDefined();
+    expect(within(spellRow).getByText("DC 14")).toBeDefined();
+  });
+
   it("shows Wizard 3 and Cleric 1 with separate abilities, levels, slots, DCs and lists", async () => {
     save(caster());
     render(<App />);
@@ -375,30 +399,103 @@ describe("caster class subtabs", () => {
     expect(within(panel).getByRole("heading", { name: "Cleric Domains" })).toBeDefined();
   });
 
-  it("keeps preparation copies and usage independent, persists them, and resets only one class", async () => {
+  it("locks daily preparation, persists usage, and resets it after a rest", async () => {
     save(caster());
     const view = render(<App />);
     await openSpells();
     fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Detect Magic" }), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Wizard daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 0 slot 1" }));
     fireEvent.click(screen.getByRole("tab", { name: "Cleric · 1" }));
     expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Prepare Detect Magic" }).value).toBe("0");
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Expended level 0 slot 1" }).checked).toBe(false);
     fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Detect Magic" }), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 0 slot 2" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(stored().preparedSpellsByClass).toEqual({ wizard: ["Detect Magic", "Detect Magic"], cleric: ["Detect Magic"] });
     expect(stored().expendedSpellSlotsByClass).toEqual({ wizard: { "0": [0] }, cleric: { "0": [1] } });
+    expect(stored().spellPreparationCompletedByClass).toEqual({ wizard: true, cleric: true });
     view.unmount();
     render(<App />);
     await openSpells();
     expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Prepare Detect Magic" }).value).toBe("2");
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Expended level 0 slot 1" }).checked).toBe(true);
     fireEvent.click(screen.getByRole("tab", { name: "Cleric · 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Reset Cleric expended slots" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rest/prayer and recover spell slots" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(stored().expendedSpellSlotsByClass).toEqual({ wizard: { "0": [0] }, cleric: {} });
+    expect(stored().expendedSpellSlotsByClass).toEqual({});
     expect(stored().preparedSpellsByClass?.wizard).toEqual(["Detect Magic", "Detect Magic"]);
+    expect(stored().spellPreparationCompletedByClass).toEqual({});
+  });
+
+  it("requires daily preparation before slot use and locks choices until rest or prayer", async () => {
+    const character = caster();
+    character.preparedSpellsByClass = { wizard: ["Detect Magic"] };
+    save(character);
+    render(<App />);
+    await openSpells();
+
+    const preparedCopies = screen.getByRole<HTMLInputElement>("spinbutton", {
+      name: "Prepare Detect Magic",
+    });
+    const expendedSlot = screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Expended level 0 slot 1",
+    });
+    expect(expendedSlot.disabled).toBe(true);
+    fireEvent.change(preparedCopies, { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Wizard daily preparation" }));
+    expect(preparedCopies.disabled).toBe(true);
+    expect(expendedSlot.disabled).toBe(false);
+    fireEvent.click(expendedSlot);
+    expect(expendedSlot.checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rest/prayer and recover spell slots" }));
+    expect(preparedCopies.disabled).toBe(false);
+    expect(expendedSlot.disabled).toBe(true);
+    expect(expendedSlot.checked).toBe(false);
+    expect(preparedCopies.value).toBe("2");
+  });
+
+  it("recovers all spellcasting classes after rest without changing known or prepared spells", async () => {
+    const character = caster();
+    character.classLevels.push({ classId: "bard", level: 1 }, { classId: "sorcerer", level: 1 });
+    character.knownSpellsByClass = {
+      wizard: ["Magic Missile", "Detect Magic", "Invisibility"],
+      bard: ["Cure Light Wounds"],
+      sorcerer: ["Magic Missile"],
+    };
+    character.preparedSpellsByClass = {
+      wizard: ["Magic Missile", "Detect Magic"],
+      cleric: ["Bless"],
+    };
+    character.expendedSpellSlotsByClass = {
+      wizard: { "0": [0], "1": [0] },
+      cleric: { "0": [0] },
+      bard: { "0": [0] },
+      sorcerer: { "0": [0] },
+    };
+    character.spellPreparationCompletedByClass = {
+      wizard: true,
+      cleric: true,
+    };
+    character.clericDomainExpended = [1];
+    save(character);
+    render(<App />);
+    await openSpells();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Confirm rest/prayer and recover spell slots",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(stored().expendedSpellSlotsByClass).toEqual({});
+    expect(stored().clericDomainExpended).toEqual([]);
+    expect(stored().spellPreparationCompletedByClass).toEqual({});
+    expect(stored().knownSpellsByClass).toEqual(character.knownSpellsByClass);
+    expect(stored().preparedSpellsByClass).toEqual(character.preparedSpellsByClass);
   });
 
   it("enforces preparation capacity by spell level, not across the whole sheet", async () => {
@@ -443,6 +540,7 @@ describe("caster class subtabs", () => {
     await screen.findByRole("tab", { name: "Cleric · 2" });
     expect(screen.getByRole("tab", { name: "Cleric · 2" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Detect Magic" }), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 0 slot 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard Draft" }));
     expect(screen.getByRole("tab", { name: "Cleric · 1" })).toBeDefined();
@@ -519,6 +617,7 @@ describe("caster class subtabs", () => {
     fireEvent.click(screen.getByRole("option", { name: "Cleric" }));
     await openSpells();
     fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Detect Magic" }), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 0 slot 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(stored().preparedSpellsByClass?.cleric).toEqual(["Detect Magic"]);
@@ -528,6 +627,7 @@ describe("caster class subtabs", () => {
   it("exports and imports the complete independent spell state", async () => {
     const character = caster();
     character.expendedSpellSlotsByClass = { wizard: { "2": [1] }, cleric: { "0": [0] } };
+    character.spellPreparationCompletedByClass = { wizard: true, cleric: true };
     character.preparedSpellsByClass = { wizard: ["Invisibility", "Invisibility"], cleric: ["Detect Magic"] };
     character.clericDomains = ["healing", "travel"];
     character.clericDomainPreparation = { 1: { domain: "travel", spell: "Longstrider" } };
@@ -554,6 +654,7 @@ describe("caster class subtabs", () => {
     });
     const exported = parseCharacter(JSON.parse(json));
     expect(exported.expendedSpellSlotsByClass).toEqual(character.expendedSpellSlotsByClass);
+    expect(exported.spellPreparationCompletedByClass).toEqual(character.spellPreparationCompletedByClass);
     expect(exported.preparedSpellsByClass).toEqual(character.preparedSpellsByClass);
     expect(exported.wizardSpellLearning).toEqual(character.wizardSpellLearning);
     expect(exported.clericDomains).toEqual(character.clericDomains);
@@ -577,7 +678,9 @@ describe("caster class subtabs", () => {
     const character = caster();
     character.classLevels = [{ classId: "fighter", level: 2 }, { classId: "wizard", level: 3 }];
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
-      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()} onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
+      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
+      onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
     expect(within(screen.getByRole("tablist", { name: "Spellcasting classes" })).getAllByRole("tab")).toHaveLength(1);
     expect(screen.getByRole("tab", { name: "Wizard · 3" })).toBeDefined();
     expect(screen.queryByRole("tab", { name: /Fighter/ })).toBeNull();
@@ -587,7 +690,9 @@ describe("caster class subtabs", () => {
     const character = caster();
     character.classLevels = [{ classId, level: 3 }];
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
-      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()} onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
+      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
+      onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
     expect(screen.getByText(/spellcasting begins at class level 4/)).toBeDefined();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText("CANTRIPS")).toBeNull();
@@ -597,7 +702,9 @@ describe("caster class subtabs", () => {
     const character = caster();
     character.classLevels = [{ classId, level: 3 }];
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
-      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()} onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
+      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
+      onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
     expect(screen.getByText("Spells Known", { exact: true })).toBeDefined();
     expect(screen.queryByRole("spinbutton")).toBeNull();
     expect(screen.queryByText("LEVEL 2 SPELLS")).toBeNull();

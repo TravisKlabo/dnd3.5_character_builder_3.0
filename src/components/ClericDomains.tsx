@@ -6,9 +6,10 @@ import { clericDomainAllowed, getActiveClericDomains, getClericDomainSlotCount,
 
 export type ClericCastingUpdate = Pick<Character, "clericDomains" | "clericDomainPreparation" | "clericDomainExpended">;
 
-export function ClericDomains({ character, editable, onChange }: {
+export function ClericDomains({ character, editable, preparationComplete = true, onChange }: {
   character: Character;
   editable: boolean;
+  preparationComplete?: boolean;
   onChange: (update: ClericCastingUpdate) => void;
 }) {
   const [changingDomains, setChangingDomains] = useState(false);
@@ -88,7 +89,7 @@ export function ClericDomains({ character, editable, onChange }: {
           const available = getClericDomainSlotCount(character, level) > 0;
           return <div className="cleric-domain-slot" role="group" aria-label={`Level ${level} domain slot`} key={level}>
             <label>Level {level} domain spell
-              <select value={preparation ? `${preparation.domain}:${preparation.spell}` : ""} onChange={(event) => {
+              <select value={preparation ? `${preparation.domain}:${preparation.spell}` : ""} disabled={preparationComplete} onChange={(event) => {
                 const next = { ...character.clericDomainPreparation };
                 const selection = options.find((option) => `${option.domain}:${option.spell}` === event.target.value);
                 if (selection) next[level] = { domain: selection.domain, spell: selection.spell };
@@ -104,7 +105,7 @@ export function ClericDomains({ character, editable, onChange }: {
             </label>
             <label className="domain-slot-expended">
               <input type="checkbox" checked={character.clericDomainExpended?.includes(level) ?? false}
-                disabled={!available && !character.clericDomainExpended?.includes(level)}
+                disabled={!preparationComplete || (!available && !character.clericDomainExpended?.includes(level))}
                 onChange={(event) => onChange({
                   clericDomainExpended: event.target.checked ? [...(character.clericDomainExpended ?? []), level] :
                     (character.clericDomainExpended ?? []).filter((entry) => entry !== level),

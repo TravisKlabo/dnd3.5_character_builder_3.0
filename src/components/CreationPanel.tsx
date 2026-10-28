@@ -135,11 +135,8 @@ export function CreationPanel({
         (ruleset === "core-35-srd"
           ? "core-35-srd"
           : "dragonlance-user-pack") &&
-      (classId === "cleric"
-        ? alignmentDistance(draft.alignment, deity.alignment) <= 1
-        : classId === "paladin"
-          ? deity.alignment === "Lawful Good"
-          : true),
+      (classId !== "cleric" ||
+        alignmentDistance(draft.alignment, deity.alignment) <= 1),
   );
           const dragonlanceRuleset = ruleset !== "core-35-srd";
   const availablePrestigeClasses = Object.values(dragonlancePrestigeClasses).filter(
@@ -222,12 +219,10 @@ export function CreationPanel({
       `${classDefinitions[classId].name} ${getClassAlignmentRestriction(classId)}.`,
     );
   const selectedDeity = deityDefinitions.find((deity) => deity.id === draft.deity);
-  if ((classId === "cleric" || classId === "paladin") && !selectedDeity)
-    creationErrors.push(`${classDefinitions[classId].name} characters must choose a deity.`);
+  if (classId === "cleric" && !selectedDeity)
+    creationErrors.push("Cleric characters must choose a deity.");
   if (selectedDeity && classId === "cleric" && alignmentDistance(draft.alignment, selectedDeity.alignment) > 1)
     creationErrors.push(`Cleric alignment must be within one step of ${selectedDeity.name}.`);
-  if (selectedDeity && classId === "paladin" && selectedDeity.alignment !== "Lawful Good")
-    creationErrors.push("Paladins must choose a Lawful Good deity.");
     if (dragonlanceRuleset && draft.highSorceryOrder &&
       (classId === "wizard" || classId === "sorcerer") &&
       !isHighSorceryAlignmentAllowed(draft.highSorceryOrder, draft.alignment))

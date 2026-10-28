@@ -22,6 +22,7 @@ type SpellSheetProps = {
     record?: WizardSpellLearning,
   ) => void;
   onPreparedSpellsChange: (spells: string[], classId?: ClassId) => void;
+  onCharacterUpdate: (update: (current: Character) => Character) => void;
   onExpendedSpellSlotsChange: (classId: ClassId, slots: Record<string, number[]>) => void;
   onClericCastingChange: (update: ClericCastingUpdate) => void;
   editable: boolean;
@@ -54,6 +55,18 @@ export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">)
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        className="quiet-button"
+        onClick={() => props.onCharacterUpdate((current) => ({
+          ...current,
+          expendedSpellSlotsByClass: {},
+          clericDomainExpended: [],
+          spellPreparationCompletedByClass: {},
+        }))}
+      >
+        Confirm rest/prayer and recover spell slots
+      </button>
       <div role="tabpanel" id={`spell-panel-${activeClass}`} aria-labelledby={`spell-tab-${activeClass}`}>
         <SpellSheet {...props} key={activeClass} spellcastingClassId={activeClass}
           levelUpOriginal={props.levelUpClassId === activeClass ? props.levelUpOriginal : undefined}
@@ -66,7 +79,8 @@ export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">)
 export function SpellSheet({
   character, levelUpOriginal, spellcastingClassId,
   onKnownSpellsChange, onSpellAcquisitionChange, onPreparedSpellsChange,
-  onExpendedSpellSlotsChange, onClericCastingChange, editable,
+  onCharacterUpdate, onExpendedSpellSlotsChange,
+  onClericCastingChange, editable,
 }: SpellSheetProps) {
   const [openSpellLevel, setOpenSpellLevel] = useState<number | null>(null);
   const [wizardView, setWizardView] = useState<"spellbook" | "preparation">("spellbook");
@@ -91,7 +105,18 @@ export function SpellSheet({
   );
   const preparedSpells = getClassSpellSelections(character, "preparedSpells")[spellcastingClass.id] ?? [];
   const expendedSlots = character.expendedSpellSlotsByClass?.[spellcastingClass.id] ?? {};
+  const preparationComplete =
+    character.spellPreparationCompletedByClass?.[spellcastingClass.id] === true;
+  const requiresPreparation = learningMode !== "Spells Known";
+  const preparationView = learningMode !== "Spellbook" || wizardView === "preparation";
   const classSpells = spellcastingClass.id === "wizard" ? getWizardSpellbookSpells() : getClassSpells(spellcastingClass.id);
+  const preparationExceedsSlots = availableLevels.some((level) => {
+    const levelSpells = classSpells.filter((spell) => spell.level === level);
+    const preparedCount = preparedSpells.filter((name) =>
+      levelSpells.some((spell) => spell.name === name),
+    ).length;
+    return preparedCount > getDailySpellSlots(character, spellcastingClass.id, classLevel, level);
+  });
   const originalClassKnownSpells = new Set(
     levelUpOriginal ? getClassSpellSelections(levelUpOriginal, "knownSpells")[spellcastingClass.id] ?? [] : [],
   );
@@ -190,11 +215,34 @@ export function SpellSheet({
         {spellcastingClass.id === "cleric" && <p>Daily slots below are ordinary cleric slots. Domain slots are prepared and tracked separately above the ordinary spell list.</p>}
         {spellcastingClass.id === "mystic" && <p className="spell-rules-notice">Mystic casting is inherited Dragonlance content and has not been source-verified.</p>}
         {availableLevels.length === 0 && <p>{spellcastingClass.name} spellcasting begins at class level 4. No spell slots are available yet.</p>}
-        {(learningMode !== "Spellbook" || wizardView === "preparation") && <button type="button" className="quiet-button" onClick={() => onExpendedSpellSlotsChange(spellcastingClass.id, {})}>
-          Reset {spellcastingClass.name} expended slots
-        </button>}
+        {requiresPreparation && preparationView && (
+          preparationComplete
+            ? <p role="status">Daily preparation complete.</p>
+            : <>
+                <p>Confirm required rest or prayer before preparing.</p>
+                <button
+                  type="button"
+                  className="quiet-button"
+                  disabled={preparationExceedsSlots}
+                  onClick={() => onCharacterUpdate((current) => ({
+                    ...current,
+                    spellPreparationCompletedByClass: {
+                      ...current.spellPreparationCompletedByClass,
+                      [spellcastingClass.id]: true,
+                    },
+                  }))}
+                >
+                  Complete {spellcastingClass.name} daily preparation
+                </button>
+              </>
+        )}
       </div>
-      {spellcastingClass.id === "cleric" && <ClericDomains character={character} editable={editable && !levelUpOriginal} onChange={onClericCastingChange} />}
+      {spellcastingClass.id === "cleric" && <ClericDomains
+        character={character}
+        editable={editable && !levelUpOriginal}
+        preparationComplete={preparationComplete}
+        onChange={onClericCastingChange}
+      />}
       {learningMode === "Spellbook" && <div className="spell-class-tabs" role="tablist" aria-label="Wizard spell views">
         {(["spellbook", "preparation"] as const).map((view) => (
           <button key={view} type="button" role="tab" id={`wizard-${view}-tab`}
@@ -270,6 +318,7 @@ export function SpellSheet({
                   key={index}
                   aria-label={`Expended level ${level} slot ${index + 1}`}
                   checked={(expendedSlots[level] ?? []).includes(index)}
+                  disabled={requiresPreparation && !preparationComplete}
                   onChange={(event) => onExpendedSpellSlotsChange(spellcastingClass.id, {
                     ...expendedSlots,
                     [level]: event.target.checked ? [...(expendedSlots[level] ?? []), index] :
@@ -294,7 +343,7 @@ export function SpellSheet({
                   <th>SPELL NAME</th>
                   <th>DESCRIPTION</th>
                   <th>CONCENTRATION</th>
-                  <th>SAVE</th>
+                  <th>SAVE / DC</th>
                   <th>RANGE</th>
                   <th>CASTING TIME</th>
                   <th>COMPONENTS</th>
@@ -339,6 +388,7 @@ export function SpellSheet({
                             type="number" min={0} max={preparedCount + Math.max(0, dailySlotCount - preparedForLevel)}
                             aria-label={`Prepare ${spellName}`}
                             value={preparedCount}
+                            disabled={preparationComplete}
                             onChange={(event) => {
                               const count = Number(event.target.value);
                               if (!Number.isInteger(count) || count < 0 || count > preparedCount + Math.max(0, dailySlotCount - preparedForLevel)) {
@@ -401,7 +451,10 @@ export function SpellSheet({
                         )}
                       </td>
                       <td />
-                      <td>{spell?.savingThrow || ""}</td>
+                      <td>
+                        {spell?.savingThrow || ""}
+                        {spell?.savingThrow && <small>DC {getSpellSaveDC(character, spellcastingClassId, level, spell.school)}</small>}
+                      </td>
                       <td>{spell?.range || ""}</td>
                       <td>{spell?.castingTime || ""}</td>
                       <td>{spell?.components || ""}</td>

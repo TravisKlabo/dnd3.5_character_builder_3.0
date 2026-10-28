@@ -1,5 +1,5 @@
-import { languageCatalog, dragonlanceLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, startingClassFeatures } from "./data/characterCatalog";
-import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type CombatTargetType, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId } from "./domain";
+import { languageCatalog, dragonlanceLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures } from "./data/characterCatalog";
+import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId } from "./domain";
 import { classFeatureProgression } from "./data/classFeatureProgression";
 import { spellProgressions, bardKnownProgression, sorcererKnownProgression } from "./data/spellProgression";
 import { armorBonuses, findStoreItem, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, type StoreItem, storeItems, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentCatalog";
@@ -82,8 +82,20 @@ export function getCasterLevel(classId: ClassId, classLevel: number) {
     : classLevel;
 }
 
-export function getSpellSaveDC(character: Character, classId: ClassId, spellLevel: number) {
-  return 10 + spellLevel + abilityModifier(getEffectiveAbilityScore(character, getSpellcastingAbility(classId)));
+export function getSpellSaveDC(
+  character: Character,
+  classId: ClassId,
+  spellLevel: number,
+  spellSchool?: string,
+) {
+  const racialBonus =
+    character.race.toLowerCase() === "gnome" &&
+    spellSchool?.toLowerCase().startsWith("illusion")
+      ? 1
+      : 0;
+  return 10 + spellLevel +
+    abilityModifier(getEffectiveAbilityScore(character, getSpellcastingAbility(classId))) +
+    racialBonus;
 }
 
 export function getArcaneSpellFailure(character: Character, classId: ClassId) {
@@ -835,6 +847,34 @@ function getWornArmor(character: Character) {
   return { name, movementCategory, maximumDexterity: baseName ? armorMaximumDexterity[baseName] : item?.maxDexterity ?? Infinity };
 }
 
+export function getRangerCombatStyleStatus(character: Character) {
+  const rangerLevel = character.classLevels
+    .filter((entry) => entry.classId === "ranger")
+    .reduce((total, entry) => total + entry.level, 0);
+  const style = character.featSelections?.["ranger-style-2"];
+  const hasStyle =
+    rangerLevel >= 2 &&
+    (style === "rapid-shot" || style === "two-weapon-fighting");
+  if (!hasStyle) return { hasStyle: false, active: false, warning: undefined };
+
+  const armor = getWornArmor(character);
+  if (!armor.name || armor.movementCategory === "Light")
+    return { hasStyle: true, active: true, warning: undefined };
+  if (armor.movementCategory === "Medium" || armor.movementCategory === "Heavy")
+    return {
+      hasStyle: true,
+      active: false,
+      warning:
+        "Ranger style is inactive in medium or heavy armor; separately selected feats still apply.",
+    };
+  return {
+    hasStyle: true,
+    active: false,
+    warning:
+      "Ranger style is inactive because the equipped armor category is unknown.",
+  };
+}
+
 export function getMovement(character: Character) {
   const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ?? raceDefinitions.human;
   const baseSpeed = race.speed ?? 30;
@@ -1414,7 +1454,12 @@ export function getTwoWeaponAttackPenalty(character: Character, slot: "Main Weap
   const mainWeapon = character.equipment?.["Main Weapon"];
   const offHandWeapon = getEffectiveWeaponKey(character, "Off Hand Weapon");
   if (!mainWeapon || !offHandWeapon) return 0;
-  const hasFeat = getChosenFeats(character).includes("two-weapon-fighting");
+  const hasFeat = Object.entries(character.featSelections ?? {}).some(
+    ([slotId, featId]) =>
+      featId === "two-weapon-fighting" &&
+      (!slotId.startsWith("ranger-style-") ||
+        getRangerCombatStyleStatus(character).active),
+  );
   const offHandName = getInventoryEntryDetails(offHandWeapon).name;
   const offHandItem = findStoreItem(offHandName);
   const offHandSize = getWeaponSizeHandling(character, offHandWeapon, "Off Hand Weapon");
@@ -1517,7 +1562,8 @@ export function isWeaponProficient(
       ([slotId, featId]) =>
         slotId !== excludingFeatSlot &&
         featId === "exotic-weapon-proficiency" &&
-        character.featWeaponSelections?.[slotId] === weaponType,
+        character.featWeaponSelections?.[slotId] === weaponType &&
+        meetsExoticWeaponStrengthPrerequisite(character, weaponType),
     )
   )
   return true;
@@ -1684,13 +1730,19 @@ export function getLevelUpClassId(original: Character, proposed: Character): Cla
 
 export function getNewLevelUpFeatSlots(original: Character, proposed: Character) {
   const originalSlots = new Set(getFeatSlots(original).map((slot) => slot.id));
-  return getFeatSlots(proposed).filter((slot) => !originalSlots.has(slot.id));
+  return getFeatSlots(proposed).filter(
+    (slot) =>
+      !originalSlots.has(slot.id) ||
+      (slot.rangerStyleLevel !== undefined &&
+        !original.featSelections?.[slot.id]) ||
+      (slot.monkBonusLevel !== undefined &&
+        !original.featSelections?.[slot.id]),
+  );
 }
 
 export function getLevelUpSkillWarnings(original: Character, proposed: Character) {
   const classId = getLevelUpClassId(original, proposed);
-  const newSkillPoints =
-    getAvailableSkillCount(proposed) - getAvailableSkillCount(original);
+  const newSkillPoints = getSkillPointsPerLevel(proposed, classId);
   const newSkillRanks =
     getLevelUpSpentSkillPoints(original, proposed, classId) -
     getSpentSkillPoints(original);
@@ -1829,8 +1881,80 @@ export function getClassFeatureDisplay(character: Character) {
   return [...earnedFeatures, ...recordedFeatures];
 }
 
+const classFeatureSynergySources: Record<
+  string,
+  { sourceSkill: string; checkLabel: string }
+> = {
+  "Bardic Knowledge": {
+    sourceSkill: "Knowledge (history)",
+    checkLabel: "Bardic Knowledge checks",
+  },
+  "Wild Empathy": {
+    sourceSkill: "Handle Animal",
+    checkLabel: "Wild Empathy checks",
+  },
+  "Turn or Rebuke Undead": {
+    sourceSkill: "Knowledge (religion)",
+    checkLabel: "turning or rebuking checks against undead",
+  },
+  "Turn Undead": {
+    sourceSkill: "Knowledge (religion)",
+    checkLabel: "turning checks against undead",
+  },
+};
+
+export function getClassFeatureSkillSynergy(
+  character: Character,
+  feature: string,
+) {
+  const synergy = classFeatureSynergySources[feature];
+  if (
+    !synergy ||
+    !getClassFeatureDisplay(character).some((entry) => entry.ability === feature) ||
+    getSkillUse(character, synergy.sourceSkill).ranks < 5
+  ) {
+    return null;
+  }
+  return { ...synergy, bonus: 2 };
+}
+
+type RangerCombatStyleLevel = 2 | 6 | 11;
+type MonkBonusFeatLevel = 1 | 2 | 6;
+
+type FeatEligibilitySlot = {
+  fighterOnly: boolean;
+  rangerStyleLevel?: RangerCombatStyleLevel;
+  monkBonusLevel?: MonkBonusFeatLevel;
+};
+
+type FeatSlot = FeatEligibilitySlot & {
+  id: string;
+  label: string;
+};
+
+const rangerCombatStyleFeats: Record<RangerCombatStyleLevel, readonly string[]> = {
+  2: ["rapid-shot", "two-weapon-fighting"],
+  6: ["manyshot", "improved-two-weapon-fighting"],
+  11: ["improved-precise-shot", "greater-two-weapon-fighting"],
+};
+
+const monkBonusFeats: Record<MonkBonusFeatLevel, readonly string[]> = {
+  1: ["improved-grapple", "stunning-fist"],
+  2: ["combat-reflexes", "deflect-arrows"],
+  6: ["improved-disarm", "improved-trip"],
+};
+
+const rangerCombatStylePaths: Record<string, "archery" | "two-weapon"> = {
+  "rapid-shot": "archery",
+  manyshot: "archery",
+  "improved-precise-shot": "archery",
+  "two-weapon-fighting": "two-weapon",
+  "improved-two-weapon-fighting": "two-weapon",
+  "greater-two-weapon-fighting": "two-weapon",
+};
+
 export function getFeatSlots(character: Character) {
-  const slots: { id: string; label: string; fighterOnly: boolean }[] = [];
+  const slots: FeatSlot[] = [];
   const level = character.classLevels.reduce(
     (total, entry) => total + entry.level,
     0,
@@ -1861,6 +1985,30 @@ export function getFeatSlots(character: Character) {
           });
       }
     });
+  const rangerLevel = character.classLevels
+    .filter((entry) => entry.classId === "ranger")
+    .reduce((total, entry) => total + entry.level, 0);
+  ([2, 6, 11] as const).forEach((classLevel) => {
+    if (rangerLevel >= classLevel)
+      slots.push({
+        id: `ranger-style-${classLevel}`,
+        label: `Ranger combat style feat (ranger level ${classLevel})`,
+        fighterOnly: false,
+        rangerStyleLevel: classLevel,
+      });
+  });
+  const monkLevel = character.classLevels
+    .filter((entry) => entry.classId === "monk")
+    .reduce((total, entry) => total + entry.level, 0);
+  ([1, 2, 6] as const).forEach((classLevel) => {
+    if (monkLevel >= classLevel)
+      slots.push({
+        id: `monk-${classLevel}`,
+        label: `Monk bonus feat (monk level ${classLevel})`,
+        fighterOnly: false,
+        monkBonusLevel: classLevel,
+      });
+  });
   return slots;
 }
 
@@ -1868,6 +2016,11 @@ export function getChosenFeats(character: Character, excludingSlot?: string) {
   const chosenFeats = Object.entries(character.featSelections ?? {})
     .filter(([slotId, featId]) => slotId !== excludingSlot && featId)
     .map(([, featId]) => featId);
+  if (
+    character.classLevels.some((entry) => entry.classId === "monk") &&
+    !chosenFeats.includes("improved-unarmed-strike")
+  )
+    chosenFeats.push("improved-unarmed-strike");
   if (getWarDomainWeapon(character) && !chosenFeats.includes("weapon-focus"))
     chosenFeats.push("weapon-focus");
   return chosenFeats;
@@ -1879,6 +2032,17 @@ const repeatableWeaponFeats = new Set([
   "weapon-specialization",
 ]);
 const weaponSelectionFeats = new Set(repeatableWeaponFeats);
+const strength13ExoticWeapons = new Set(["Bastard Sword", "Dwarven Waraxe"]);
+
+function meetsExoticWeaponStrengthPrerequisite(
+  character: Character,
+  weaponType: string,
+) {
+  return (
+    !strength13ExoticWeapons.has(weaponType) ||
+    getEffectiveAbilityScore(character, "str") >= 13
+  );
+}
 
 function getWeaponFeatTypeName(name: string) {
   return /^(?:Spiked )?(?:Light|Heavy) Shield Bash$/.test(name)
@@ -1942,7 +2106,8 @@ export function getAvailableFeatWeaponChoices(
     .filter(([weaponType, item]) =>
       (featId === "exotic-weapon-proficiency"
         ? getWeaponProficiencyCategory(character, item) === "Exotic" &&
-          !isWeaponProficient(character, item, excludingSlot)
+          !isWeaponProficient(character, item, excludingSlot) &&
+          meetsExoticWeaponStrengthPrerequisite(character, weaponType)
         : isWeaponProficient(character, item)) &&
       !selectedWeapons.has(weaponType) &&
       (featId !== "weapon-specialization" || focusedWeapons.has(weaponType)),
@@ -1954,9 +2119,26 @@ export function getAvailableFeatWeaponChoices(
 export function featQualifies(
   character: Character,
   feat: FeatDefinition,
-  slot: { fighterOnly: boolean },
+  slot: FeatEligibilitySlot,
   excludingSlot?: string,
 ) {
+  if (slot.monkBonusLevel !== undefined)
+    return monkBonusFeats[slot.monkBonusLevel].includes(feat.id);
+  if (slot.rangerStyleLevel !== undefined) {
+    if (!rangerCombatStyleFeats[slot.rangerStyleLevel].includes(feat.id))
+      return false;
+    if (slot.rangerStyleLevel > 2) {
+      const previousLevel = slot.rangerStyleLevel === 6 ? 2 : 6;
+      const previousFeat =
+        character.featSelections?.[`ranger-style-${previousLevel}`];
+      if (
+        !previousFeat ||
+        rangerCombatStylePaths[previousFeat] !== rangerCombatStylePaths[feat.id]
+      )
+        return false;
+    }
+    return true;
+  }
   if (slot.fighterOnly && !feat.fighterBonus) return false;
   const prerequisites = feat.prerequisites;
   if (
@@ -1999,13 +2181,15 @@ export function featQualifies(
 
 export function getAvailableFeats(
   character: Character,
-  slot: { fighterOnly: boolean },
+  slot: FeatEligibilitySlot,
   excludingSlot?: string,
 ) {
   const chosenFeats = [...getArmorShieldProficiencies(character, excludingSlot)];
   return featCatalog.filter(
     (feat) =>
-      (!chosenFeats.includes(feat.id) || repeatableWeaponFeats.has(feat.id)) &&
+      (!chosenFeats.includes(feat.id) ||
+        repeatableWeaponFeats.has(feat.id) ||
+        slot.rangerStyleLevel !== undefined) &&
       featQualifies(character, feat, slot, excludingSlot) &&
       (!weaponSelectionFeats.has(feat.id) ||
         getAvailableFeatWeaponChoices(character, feat.id, excludingSlot).length > 0),
@@ -2026,7 +2210,9 @@ export function normalizeFeatSelections(
     );
     if (
       feat &&
-      (!chosenFeats.includes(feat.id) || repeatableWeaponFeats.has(feat.id)) &&
+      (!chosenFeats.includes(feat.id) ||
+        repeatableWeaponFeats.has(feat.id) ||
+        slot.rangerStyleLevel !== undefined) &&
       featQualifies(
         { ...character, featSelections: normalized },
         feat,
@@ -2194,13 +2380,18 @@ export function getSkillUse(character: Character, skill: string) {
     : limitedUntrainedSkills[skill];
   const untrainedUse = limitation ? "limited" as const : trainedOnlySkills.has(skill) ? "none" as const : "allowed" as const;
   const usable = trained || untrainedUse !== "none";
+  const baseDescription = trained
+    ? "At least 1 rank invested. Skill-specific task restrictions still apply."
+    : limitation ?? (usable ? "May attempt this skill without ranks." : "At least 1 rank is required to attempt this skill.");
+  const descriptionNotes = [
+    !trained ? untrainedSkillNotes[skill] : undefined,
+    skillTaskNotes[skill],
+  ].filter(Boolean);
   return {
     ranks, trained, untrainedUse, usable,
     label: trained ? "Trained - usable" : untrainedUse === "none" ? "Training required" :
       untrainedUse === "limited" ? "Untrained - limited use" : "Untrained - usable",
-    description: trained
-      ? "At least 1 rank invested. Skill-specific task restrictions still apply."
-      : limitation ?? (usable ? "May attempt this skill without ranks." : "At least 1 rank is required to attempt this skill."),
+    description: [baseDescription, ...descriptionNotes].join(" "),
   };
 }
 
@@ -2208,6 +2399,115 @@ const armorPenaltySkills = new Set([
   "Balance", "Climb", "Escape Artist", "Hide", "Jump", "Move Silently",
   "Sleight of Hand", "Tumble", "Swim",
 ]);
+
+export type SkillSynergyContext =
+  | "appraise-related-craft"
+  | "disguise-in-character"
+  | "scroll-use"
+  | "rope-bindings"
+  | "secret-doors"
+  | "survival-underground"
+  | "survival-navigation"
+  | "survival-natural"
+  | "survival-other-planes"
+  | "survival-tracking"
+  | "scroll-deciphering"
+  | "climbing-ropes"
+  | "escape-ropes";
+
+type SkillSynergyRule = {
+  sourceSkill: string;
+  targetSkill: string;
+  context?: SkillSynergyContext;
+};
+
+const skillSynergyRules: readonly SkillSynergyRule[] = [
+  { sourceSkill: "Bluff", targetSkill: "Diplomacy" },
+  { sourceSkill: "Bluff", targetSkill: "Disguise", context: "disguise-in-character" },
+  { sourceSkill: "Bluff", targetSkill: "Intimidate" },
+  { sourceSkill: "Bluff", targetSkill: "Sleight of Hand" },
+  { sourceSkill: "Craft", targetSkill: "Appraise", context: "appraise-related-craft" },
+  { sourceSkill: "Decipher Script", targetSkill: "Use Magic Device", context: "scroll-use" },
+  { sourceSkill: "Escape Artist", targetSkill: "Use Rope", context: "rope-bindings" },
+  { sourceSkill: "Handle Animal", targetSkill: "Ride" },
+  { sourceSkill: "Jump", targetSkill: "Tumble" },
+  { sourceSkill: "Knowledge (arcana)", targetSkill: "Spellcraft" },
+  { sourceSkill: "Knowledge (architecture and engineering)", targetSkill: "Search", context: "secret-doors" },
+  { sourceSkill: "Knowledge (dungeoneering)", targetSkill: "Survival", context: "survival-underground" },
+  { sourceSkill: "Knowledge (geography)", targetSkill: "Survival", context: "survival-navigation" },
+  { sourceSkill: "Knowledge (local)", targetSkill: "Gather Information" },
+  { sourceSkill: "Knowledge (nature)", targetSkill: "Survival", context: "survival-natural" },
+  { sourceSkill: "Knowledge (nobility and royalty)", targetSkill: "Diplomacy" },
+  { sourceSkill: "Knowledge (the planes)", targetSkill: "Survival", context: "survival-other-planes" },
+  { sourceSkill: "Search", targetSkill: "Survival", context: "survival-tracking" },
+  { sourceSkill: "Sense Motive", targetSkill: "Diplomacy" },
+  { sourceSkill: "Spellcraft", targetSkill: "Use Magic Device", context: "scroll-use" },
+  { sourceSkill: "Survival", targetSkill: "Knowledge (nature)" },
+  { sourceSkill: "Tumble", targetSkill: "Balance" },
+  { sourceSkill: "Tumble", targetSkill: "Jump" },
+  { sourceSkill: "Use Magic Device", targetSkill: "Spellcraft", context: "scroll-deciphering" },
+  { sourceSkill: "Use Rope", targetSkill: "Climb", context: "climbing-ropes" },
+  { sourceSkill: "Use Rope", targetSkill: "Escape Artist", context: "escape-ropes" },
+];
+
+const skillSynergyContextLabels: Record<SkillSynergyContext, string> = {
+  "appraise-related-craft": "Appraising an item related to Craft",
+  "disguise-in-character": "Acting in character",
+  "scroll-use": "Using a scroll",
+  "rope-bindings": "Using rope for bindings",
+  "secret-doors": "Searching for secret doors or compartments",
+  "survival-underground": "Survival underground",
+  "survival-navigation": "Avoiding getting lost or hazards",
+  "survival-natural": "Survival in an aboveground natural environment",
+  "survival-other-planes": "Survival on another plane",
+  "survival-tracking": "Following tracks",
+  "scroll-deciphering": "Deciphering a scroll",
+  "climbing-ropes": "Climbing ropes",
+  "escape-ropes": "Escaping from ropes",
+};
+
+const skillSynergyContexts = Object.keys(
+  skillSynergyContextLabels,
+) as SkillSynergyContext[];
+
+function getApplicableSkillSynergies(
+  character: Character,
+  skill: string,
+  context?: SkillSynergyContext,
+) {
+  return skillSynergyRules.filter(
+    (rule) =>
+      rule.targetSkill === skill &&
+      getSkillUse(character, rule.sourceSkill).ranks >= 5 &&
+      (!rule.context || rule.context === context),
+  );
+}
+
+export function getSkillSynergyBonus(
+  character: Character,
+  skill: string,
+  context?: SkillSynergyContext,
+) {
+  return getApplicableSkillSynergies(character, skill, context).length > 0
+    ? 2
+    : 0;
+}
+
+export function getSkillSynergyContextOptions(
+  character: Character,
+  skill: string,
+) {
+  return skillSynergyContexts.flatMap((context) =>
+    skillSynergyRules.some(
+      (rule) =>
+        rule.targetSkill === skill &&
+        rule.context === context &&
+        getSkillUse(character, rule.sourceSkill).ranks >= 5,
+    )
+      ? [{ context, label: skillSynergyContextLabels[context], bonus: 2 }]
+      : [],
+  );
+}
 
 export function getSkillCheckPenalties(character: Character, skill: string) {
   if (!getSkillUse(character, skill).usable) return [];
@@ -2230,21 +2530,72 @@ export function getSkillCheckPenalties(character: Character, skill: string) {
     : equipment;
 }
 
-export function getSkillCheckModifier(character: Character, skill: string): number | null {
+function getSmallSizeHideBonus(character: Character, skill: string) {
+  return skill === "Hide" && sizeModifier(character) === 1 ? 4 : 0;
+}
+
+export function getSkillCheckModifier(
+  character: Character,
+  skill: string,
+  condition?: RacialSkillCondition,
+  synergyContext?: SkillSynergyContext,
+): number | null {
   const use = getSkillUse(character, skill);
   if (!use.usable) return null;
   const ability = getSkillAbility(skill);
   const abilityBonus = ability ? abilityModifier(getEffectiveAbilityScore(character, ability)) : 0;
   const penalty = getSkillCheckPenalties(character, skill).reduce((total, entry) => total + entry.penalty, 0);
   const activeChecks = getCombatEffectModifier(character, "checks");
-  if (!use.trained && use.untrainedUse === "limited") return abilityBonus + penalty + activeChecks;
-  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill) + penalty + activeChecks;
+  const synergyBonus = getSkillSynergyBonus(character, skill, synergyContext);
+  const sizeBonus = getSmallSizeHideBonus(character, skill);
+  if (!use.trained && use.untrainedUse === "limited")
+    return abilityBonus + penalty + activeChecks + synergyBonus;
+  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks;
 }
 
-export function getRacialSkillBonus(character: Character, skill: string) {
+export type RacialSkillContextOption = {
+  condition: RacialSkillCondition;
+  label: string;
+  bonus: number;
+};
+
+const racialSkillConditions: RacialSkillCondition[] = [
+  "unusual-stonework",
+  "stone-or-metal",
+  "alchemy",
+];
+
+const racialSkillConditionLabels: Record<RacialSkillCondition, string> = {
+  "unusual-stonework": "Unusual stonework (including within 10 ft.)",
+  "stone-or-metal": "Stone or metal items",
+  alchemy: "Alchemy",
+};
+
+export function getRacialSkillContextOptions(character: Character, skill: string): RacialSkillContextOption[] {
   const race =
     raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
-  return race?.racialSkillBonuses?.[skill] ?? 0;
+  const bonuses = race?.racialSituationalSkillBonuses?.[skill];
+  return racialSkillConditions.flatMap((condition) => {
+    const bonus = bonuses?.[condition] ?? 0;
+    return bonus
+      ? [{ condition, label: racialSkillConditionLabels[condition], bonus }]
+      : [];
+  });
+}
+
+export function getRacialSkillBonus(
+  character: Character,
+  skill: string,
+  condition?: RacialSkillCondition,
+) {
+  const race =
+    raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
+  return (
+    (race?.racialSkillBonuses?.[skill] ?? 0) +
+    (condition
+      ? race?.racialSituationalSkillBonuses?.[skill]?.[condition] ?? 0
+      : 0)
+  );
 }
 
 export function getCharacterRace(character: Character) {
@@ -2254,12 +2605,26 @@ export function getCharacterRace(character: Character) {
   );
 }
 
-export function getSkillTotalTooltip(character: Character, skill: string) {
+export function getSkillTotalTooltip(
+  character: Character,
+  skill: string,
+  condition?: RacialSkillCondition,
+  synergyContext?: SkillSynergyContext,
+) {
   const ability = getSkillAbility(skill);
   const abilityBonus = ability
     ? abilityModifier(getEffectiveAbilityScore(character, ability))
     : 0;
-  const racialBonus = getRacialSkillBonus(character, skill);
+  const racialBonus = getRacialSkillBonus(character, skill, condition);
+  const sizeBonus = getSmallSizeHideBonus(character, skill);
+  const racialContext = getRacialSkillContextOptions(character, skill).find(
+    (option) => option.condition === condition,
+  );
+  const synergySources = getApplicableSkillSynergies(
+    character,
+    skill,
+    synergyContext,
+  );
   const ranks = Number(character.skills[skill] || 0);
   const rankBreakdown = Object.entries(character.skillRanksByClass ?? {})
     .map(([classId, classSkills]) => ({
@@ -2281,7 +2646,11 @@ export function getSkillTotalTooltip(character: Character, skill: string) {
       : []),
     ...getCombatEffectDetails(character, "checks"),
     racialBonus
-      ? `${getCharacterRace(character)}: ${formatModifier(racialBonus)}`
+      ? `${getCharacterRace(character)}${racialContext ? ` (${racialContext.label})` : ""}: ${formatModifier(racialBonus)}`
+      : "",
+    sizeBonus ? `Small size (Hide): ${formatModifier(sizeBonus)}` : "",
+    synergySources.length
+      ? `Skill synergy ${formatModifier(2)}: ${[...new Set(synergySources.map((entry) => entry.sourceSkill))].join(", ")}`
       : "",
     ...(rankBreakdown.length
       ? rankBreakdown.map(

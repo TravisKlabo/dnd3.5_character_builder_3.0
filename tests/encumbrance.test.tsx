@@ -6,6 +6,7 @@ import { getArmorClassRestrictions, getCarriedWeight, getEncumbrance, getEquipme
   getMovement, getSkillCheckModifier, getSkillCheckPenalties } from "../src/rules";
 import { savedCharacterStorageKey } from "../src/storage";
 import App from "../src/App";
+import { readStoredCharacter } from "./storageTestHelpers";
 
 function hero(weight = 0) {
   const character = cloneCharacter(initialCharacter);
@@ -165,7 +166,7 @@ it("uses the same load, AC, and speed on both sheets and preserves saved data", 
     expect(statValue("Armor Class")).toBe("11");
     expect(statValue("Speed")).toBe("20 ft.");
     expect(screen.getByText("Carried Weight", { selector: ".stat > small" }).parentElement?.textContent).toContain("67 lb.");
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+    expect(readStoredCharacter()).toEqual(character);
   } finally {
     deleteCustomStoreItem("Load test ballast");
   }

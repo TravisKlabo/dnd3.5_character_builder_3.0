@@ -8,6 +8,7 @@ import { getArmorNonproficiencyPenalties, getAvailableFeats, getEquippedWeaponSt
   isArmorShieldProficient, isWeaponProficient, normalizeFeatSelections,
   normalizeFeatWeaponSelections } from "../src/rules";
 import { savedCharacterStorageKey } from "../src/storage";
+import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
 
 function hero(classId: ClassId = "wizard") {
@@ -356,6 +357,33 @@ describe("armor and shield proficiency", () => {
     expect(screen.getByText("Exotic Weapon Proficiency (Spiked Chain)")).toBeDefined();
   });
 
+  it("requires Strength 13 for Exotic Weapon Proficiency with a bastard sword or dwarven waraxe", () => {
+    const character = hero("fighter");
+    character.abilities.str = 12;
+    const bastardSword: StoreItem = {
+      name: "Bastard Sword",
+      category: "Weapons",
+      custom: true,
+      proficiency: "Exotic",
+      price: 35,
+      weight: "6 lb.",
+    };
+    character.customItems = [bastardSword];
+    const availableChoices = () =>
+      getAvailableFeatWeaponChoices(character, "exotic-weapon-proficiency");
+    expect(availableChoices()).not.toContain("Bastard Sword");
+    expect(availableChoices()).not.toContain("Dwarven Waraxe");
+
+    character.abilities.str = 13;
+    expect(availableChoices()).toContain("Bastard Sword");
+    expect(availableChoices()).toContain("Dwarven Waraxe");
+    character.featSelections = { "general-1": "exotic-weapon-proficiency" };
+    character.featWeaponSelections = { "general-1": "Bastard Sword" };
+    expect(isWeaponProficient(character, bastardSword)).toBe(true);
+    character.abilities.str = 12;
+    expect(isWeaponProficient(character, bastardSword)).toBe(false);
+  });
+
   it("permits heavy and tower feats only after their prerequisites and not armor feats in fighter slots", () => {
     const character = hero("barbarian");
     const ids = getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id);
@@ -487,7 +515,7 @@ it("shows compact nonproficiency causes, adjusts initiative, and agrees on both 
   fireEvent.click(screen.getByRole("button", { name: "Equipment" }));
   await screen.findByText("EQUIPMENT SLOTS");
   expect(screen.getByText(/Attack: -2 .*nonproficiency/)).toBeDefined();
-  expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+  expect(readStoredCharacter()).toEqual(character);
 });
 
 it("updates penalties provisionally on multiclass level-up and restores them on discard", () => {

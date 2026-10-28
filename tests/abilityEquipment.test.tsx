@@ -9,6 +9,7 @@ import { equipInventoryItem, featQualifies, getArmorClassRestrictions, getArmorC
   getSkillCheckModifier, getSkillTotalTooltip, getSpecialAttackBonuses, getSpellSaveDC, getWizardFreeSpellAllowance } from "../src/rules";
 import { featCatalog } from "../src/data/characterCatalog";
 import { loadSavedCharacter, savedCharacterStorageKey } from "../src/storage";
+import { readStoredCharacter } from "./storageTestHelpers";
 import { applyHitPointAction, getCurrentHitPoints, getMaximumHitPoints, getStoredCurrentHitPoints } from "../src/hitPoints";
 import App from "../src/App";
 
@@ -208,6 +209,22 @@ describe("situational racial saving throws", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Fear" }));
     expect(willSave()).toBe("+3");
   });
+
+  it("applies dwarf stonecunning only when the Search check context is selected", async () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Dwarf";
+    character.skills.Search = 1;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    const searchSkill = await screen.findByRole("group", { name: "Search skill" });
+    const modifier = () => within(searchSkill).getByRole("strong").textContent;
+    expect(modifier()).toBe("+1");
+    fireEvent.change(within(searchSkill).getByRole("combobox", { name: "Search racial bonus context" }), {
+      target: { value: "unusual-stonework" },
+    });
+    expect(modifier()).toBe("+3");
+  });
 });
 
 describe("effective score display and persistence", () => {
@@ -278,7 +295,7 @@ describe("effective score display and persistence", () => {
     fireEvent.click(screen.getByRole("button", { name: "Manage spells" }));
     expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Spellcasting Ability" })).value).toBe("INT 14");
     expect(screen.getByText("10 + spell level + 2")).toBeDefined();
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+    expect(readStoredCharacter()).toEqual(character);
   });
 
   it("updates Constitution-derived HP, saves, and Concentration on the live character sheet", async () => {

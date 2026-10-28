@@ -132,6 +132,8 @@ export function assertCharacter(value: unknown): asserts value is Character {
         !isMap(value.knownSpellClasses, (entry) => isString(entry) && Object.hasOwn(classDefinitions, entry))) ||
       !["knownSpellsByClass", "preparedSpellsByClass"].every((key) =>
         value[key] === undefined || isClassMap(value[key], isStringList)) ||
+      (value.spellPreparationCompletedByClass !== undefined &&
+        !isClassMap(value.spellPreparationCompletedByClass, (entry) => typeof entry === "boolean")) ||
       (value.expendedSpellSlotsByClass !== undefined &&
         !isClassMap(value.expendedSpellSlotsByClass, (levels) =>
           isRecord(levels) && Object.entries(levels).every(([level, slots]) =>

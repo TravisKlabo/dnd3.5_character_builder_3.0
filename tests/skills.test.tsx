@@ -1,13 +1,133 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { cloneCharacter, initialCharacter } from "../src/domain";
-import { skills, trainedOnlySkills } from "../src/data/characterCatalog";
-import { getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getSkillTotalTooltip, getSkillAbility, isClassSkill } from "../src/rules";
+import { cloneCharacter, initialCharacter, type ClassId } from "../src/domain";
+import { classSkills, skills, trainedOnlySkills } from "../src/data/characterCatalog";
+import { getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getSkillTotalTooltip, getSkillAbility, getSkillSynergyBonus, getSkillSynergyContextOptions, isClassSkill, type SkillSynergyContext } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { savedCharacterStorageKey } from "../src/storage";
 import App from "../src/App";
+import { readStoredCharacter } from "./storageTestHelpers";
+
+const performSkills = [
+  "Perform (act)",
+  "Perform (comedy)",
+  "Perform (dance)",
+  "Perform (keyboard instruments)",
+  "Perform (mime)",
+  "Perform (oratory)",
+  "Perform (percussion instruments)",
+  "Perform (sing)",
+  "Perform (string instruments)",
+  "Perform (wind instruments)",
+];
+
+const coreSkillSynergyCases: {
+  sourceSkill: string;
+  targetSkill: string;
+  context?: SkillSynergyContext;
+}[] = [
+  { sourceSkill: "Bluff", targetSkill: "Diplomacy" },
+  { sourceSkill: "Bluff", targetSkill: "Disguise", context: "disguise-in-character" },
+  { sourceSkill: "Bluff", targetSkill: "Intimidate" },
+  { sourceSkill: "Bluff", targetSkill: "Sleight of Hand" },
+  { sourceSkill: "Craft", targetSkill: "Appraise", context: "appraise-related-craft" },
+  { sourceSkill: "Decipher Script", targetSkill: "Use Magic Device", context: "scroll-use" },
+  { sourceSkill: "Escape Artist", targetSkill: "Use Rope", context: "rope-bindings" },
+  { sourceSkill: "Handle Animal", targetSkill: "Ride" },
+  { sourceSkill: "Jump", targetSkill: "Tumble" },
+  { sourceSkill: "Knowledge (arcana)", targetSkill: "Spellcraft" },
+  { sourceSkill: "Knowledge (architecture and engineering)", targetSkill: "Search", context: "secret-doors" },
+  { sourceSkill: "Knowledge (dungeoneering)", targetSkill: "Survival", context: "survival-underground" },
+  { sourceSkill: "Knowledge (geography)", targetSkill: "Survival", context: "survival-navigation" },
+  { sourceSkill: "Knowledge (local)", targetSkill: "Gather Information" },
+  { sourceSkill: "Knowledge (nature)", targetSkill: "Survival", context: "survival-natural" },
+  { sourceSkill: "Knowledge (nobility and royalty)", targetSkill: "Diplomacy" },
+  { sourceSkill: "Knowledge (the planes)", targetSkill: "Survival", context: "survival-other-planes" },
+  { sourceSkill: "Search", targetSkill: "Survival", context: "survival-tracking" },
+  { sourceSkill: "Sense Motive", targetSkill: "Diplomacy" },
+  { sourceSkill: "Spellcraft", targetSkill: "Use Magic Device", context: "scroll-use" },
+  { sourceSkill: "Survival", targetSkill: "Knowledge (nature)" },
+  { sourceSkill: "Tumble", targetSkill: "Balance" },
+  { sourceSkill: "Tumble", targetSkill: "Jump" },
+  { sourceSkill: "Use Magic Device", targetSkill: "Spellcraft", context: "scroll-deciphering" },
+  { sourceSkill: "Use Rope", targetSkill: "Climb", context: "climbing-ropes" },
+  { sourceSkill: "Use Rope", targetSkill: "Escape Artist", context: "escape-ropes" },
+];
+
+const coreClassSkillExpectations: readonly [ClassId, readonly string[]][] = [
+  ["barbarian", ["Climb", "Craft", "Handle Animal", "Intimidate", "Jump", "Listen", "Ride", "Survival", "Swim"]],
+  ["bard", [
+    "Appraise", "Balance", "Bluff", "Climb", "Concentration", "Craft",
+    "Decipher Script", "Diplomacy", "Disguise", "Escape Artist",
+    "Gather Information", "Hide", "Jump", "Knowledge (arcana)",
+    "Knowledge (architecture and engineering)", "Knowledge (dungeoneering)",
+    "Knowledge (geography)", "Knowledge (history)", "Knowledge (local)",
+    "Knowledge (nature)", "Knowledge (nobility and royalty)",
+    "Knowledge (religion)", "Knowledge (the planes)", "Listen",
+    "Move Silently", ...performSkills, "Profession", "Sense Motive",
+    "Sleight of Hand", "Speak Language", "Spellcraft", "Swim", "Tumble",
+    "Use Magic Device", "Use Rope",
+  ]],
+  ["cleric", [
+    "Concentration", "Craft", "Diplomacy", "Heal", "Knowledge (arcana)",
+    "Knowledge (history)", "Knowledge (religion)", "Knowledge (the planes)",
+    "Profession", "Spellcraft",
+  ]],
+  ["druid", [
+    "Concentration", "Craft", "Diplomacy", "Handle Animal", "Heal",
+    "Knowledge (nature)", "Listen", "Profession", "Ride", "Spellcraft",
+    "Spot", "Survival", "Swim",
+  ]],
+  ["fighter", ["Climb", "Craft", "Handle Animal", "Intimidate", "Jump", "Ride", "Swim"]],
+  ["monk", [
+    "Balance", "Climb", "Concentration", "Craft", "Diplomacy", "Escape Artist",
+    "Hide", "Jump", "Knowledge (arcana)", "Knowledge (religion)", "Listen",
+    "Move Silently", ...performSkills, "Profession", "Sense Motive", "Spot",
+    "Swim", "Tumble",
+  ]],
+  ["paladin", [
+    "Concentration", "Craft", "Diplomacy", "Handle Animal", "Heal",
+    "Knowledge (nobility and royalty)", "Knowledge (religion)", "Profession",
+    "Ride", "Sense Motive",
+  ]],
+  ["ranger", [
+    "Climb", "Concentration", "Craft", "Handle Animal", "Heal", "Hide",
+    "Jump", "Knowledge (dungeoneering)", "Knowledge (geography)",
+    "Knowledge (nature)", "Listen", "Move Silently", "Profession", "Ride",
+    "Search", "Spot", "Survival", "Swim", "Use Rope",
+  ]],
+  ["rogue", [
+    "Appraise", "Balance", "Bluff", "Climb", "Craft", "Decipher Script",
+    "Diplomacy", "Disable Device", "Disguise", "Escape Artist", "Forgery",
+    "Gather Information", "Hide", "Intimidate", "Jump", "Knowledge (local)",
+    "Listen", "Move Silently", "Open Lock", ...performSkills, "Search",
+    "Sense Motive", "Sleight of Hand", "Spot", "Swim", "Tumble",
+    "Use Magic Device", "Use Rope",
+  ]],
+  ["sorcerer", [
+    "Bluff", "Concentration", "Craft", "Knowledge (arcana)", "Profession",
+    "Spellcraft",
+  ]],
+  ["wizard", [
+    "Concentration", "Craft", "Decipher Script", "Knowledge (arcana)",
+    "Knowledge (architecture and engineering)", "Knowledge (dungeoneering)",
+    "Knowledge (geography)", "Knowledge (history)", "Knowledge (local)",
+    "Knowledge (nature)", "Knowledge (nobility and royalty)",
+    "Knowledge (religion)", "Knowledge (the planes)", "Profession",
+    "Spellcraft",
+  ]],
+];
 
 describe("skill training and untrained use", () => {
+  it.each(coreClassSkillExpectations)(
+    "matches the SRD class-skill list for %s",
+    (classId, expected) => {
+      expect([...(classSkills[classId] ?? [])].sort()).toEqual(
+        [...expected].sort(),
+      );
+    },
+  );
+
   it.each(["Listen", "Spot", "Climb", "Craft", "Perform (sing)", "Search", "Bluff"])(
     "allows %s at zero ranks without making it trained", (skill) => {
       expect(getSkillUse(initialCharacter, skill)).toMatchObject({ trained: false, usable: true, untrainedUse: "allowed" });
@@ -25,6 +145,18 @@ describe("skill training and untrained use", () => {
     character.skills[skill] = 1;
     expect(getSkillUse(character, skill)).toMatchObject({ trained: true, usable: true, untrainedUse: "none" });
     expect(getSkillCheckModifier(character, skill)).not.toBeNull();
+  });
+
+  it("matches the core SRD trained-only skill list", () => {
+    expect([...trainedOnlySkills].sort()).toEqual([
+      "Decipher Script",
+      "Disable Device",
+      "Open Lock",
+      "Profession",
+      "Spellcraft",
+      "Tumble",
+      "Use Magic Device",
+    ]);
   });
 
   it.each(skills.filter((skill) => skill.startsWith("Knowledge (")))(
@@ -47,11 +179,25 @@ describe("skill training and untrained use", () => {
     expect(getSkillUse(character, "Handle Animal").description).toContain("domestic animals");
     expect(getSkillUse(character, "Handle Animal").description).toContain("animal companion");
     expect(getSkillCheckModifier(character, "Handle Animal")).toBe(3);
-    expect(getSkillUse(character, "Sleight of Hand").description).toContain("except hiding an object");
+    expect(getSkillUse(character, "Sleight of Hand").description).toContain("except when hiding an object");
     expect(getSkillCheckModifier(character, "Sleight of Hand")).toBe(2);
     character.skills["Sleight of Hand"] = 1;
     expect(getSkillUse(character, "Sleight of Hand").label).toBe("Trained - usable");
   });
+
+  it.each([
+    ["Appraise", "allowed", "rough estimate"],
+    ["Forgery", "allowed", "literacy in that document's language"],
+    ["Open Lock", "none", "force it open"],
+    ["Disable Device", "none", "Trapfinding class feature"],
+  ] as const)(
+    "describes the SRD task restriction for %s",
+    (skill, untrainedUse, note) => {
+      const character = cloneCharacter(initialCharacter);
+      expect(getSkillUse(character, skill)).toMatchObject({ untrainedUse });
+      expect(getSkillUse(character, skill).description).toContain(note);
+    },
+  );
 
   it("does not equate class skills with training or cross-class skills with unusability", () => {
     expect(isClassSkill(initialCharacter, "Climb")).toBe(true);
@@ -65,6 +211,75 @@ describe("skill training and untrained use", () => {
     character.skills["Speak Language"] = 2;
     expect(getSkillUse(character, "Speak Language")).toMatchObject({ trained: true, untrainedUse: "special", label: "No skill check" });
     expect(getSkillCheckModifier(character, "Speak Language")).toBeNull();
+  });
+
+  it.each(coreSkillSynergyCases)(
+    "applies the 5-rank synergy from $sourceSkill to $targetSkill",
+    ({ sourceSkill, targetSkill, context }) => {
+      const character = cloneCharacter(initialCharacter);
+      character.skills[sourceSkill] = 4.5;
+      expect(getSkillSynergyBonus(character, targetSkill, context)).toBe(0);
+      character.skills[sourceSkill] = 5;
+      expect(getSkillSynergyBonus(character, targetSkill, context)).toBe(2);
+      if (context)
+        expect(getSkillSynergyBonus(character, targetSkill)).toBe(0);
+    },
+  );
+
+  it("applies at most one +2 synergy bonus when several skills qualify", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.skills.Diplomacy = 1;
+    character.skills.Bluff = 5;
+    character.skills["Sense Motive"] = 5;
+    character.skills["Knowledge (nobility and royalty)"] = 5;
+
+    expect(getSkillSynergyBonus(character, "Diplomacy")).toBe(2);
+    expect(getSkillCheckModifier(character, "Diplomacy")).toBe(3);
+  });
+
+  it("offers only conditional synergy contexts whose source skill has five ranks", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.skills.Search = 1;
+    character.skills["Knowledge (architecture and engineering)"] = 4.5;
+    expect(getSkillSynergyContextOptions(character, "Search")).toEqual([]);
+    character.skills["Knowledge (architecture and engineering)"] = 5;
+    expect(getSkillSynergyContextOptions(character, "Search")).toEqual([
+      {
+        context: "secret-doors",
+        label: "Searching for secret doors or compartments",
+        bonus: 2,
+      },
+    ]);
+    expect(getSkillCheckModifier(character, "Search")).toBe(1);
+    expect(
+      getSkillCheckModifier(character, "Search", undefined, "secret-doors"),
+    ).toBe(3);
+  });
+
+  it("shows a selected skill synergy context in the skill modifier and tooltip", async () => {
+    const character = cloneCharacter(initialCharacter);
+    character.skills.Search = 1;
+    character.skills["Knowledge (architecture and engineering)"] = 5;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    const searchSkill = await screen.findByRole("group", { name: "Search skill" });
+    const modifier = () => skillRow("Search").getByRole("strong").textContent;
+    expect(modifier()).toBe("+1");
+    fireEvent.change(
+      within(searchSkill).getByRole("combobox", { name: "Search synergy context" }),
+      { target: { value: "secret-doors" } },
+    );
+    expect(modifier()).toBe("+3");
+    expect(skillRow("Search").getByRole("strong").getAttribute("title"))
+      .toContain("Skill synergy +2: Knowledge (architecture and engineering)");
+  });
+
+  it("applies an unconditional synergy to a limited untrained check", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.abilities.dex = 14;
+    character.skills.Bluff = 5;
+    expect(getSkillCheckModifier(character, "Sleight of Hand")).toBe(4);
   });
 
   it("uses correct key abilities and whole ranks with racial bonuses", () => {
@@ -167,7 +382,7 @@ describe("armor and shield skill penalties", () => {
     expect(screen.getByRole("group", { name: "Hide skill" }).querySelector(":scope > strong")?.textContent).toBe("-7");
     expect(screen.getByRole("group", { name: "Listen skill" }).querySelector(".skill-penalty")).toBeNull();
     expect(screen.getByRole("group", { name: "Tumble skill" }).querySelector(".skill-penalty")).toBeNull();
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+    expect(readStoredCharacter()).toEqual(character);
   });
 });
 
@@ -188,9 +403,22 @@ it("shows training, untrained permissions and blocked totals on a finalized shee
   const knowledgeTooltip = skillRow("Knowledge (arcana)").getAllByRole("tooltip").find((tooltip) => tooltip.textContent?.includes("Untrained - limited use"));
   expect(knowledgeTooltip?.textContent).toContain("common knowledge only");
   expect(knowledgeTooltip?.parentElement?.tabIndex).toBe(0);
-  expect(skillRow("Sleight of Hand").getAllByRole("tooltip").some((tooltip) => tooltip.textContent?.includes("except hiding an object"))).toBe(true);
+  expect(skillRow("Sleight of Hand").getAllByRole("tooltip").some((tooltip) => tooltip.textContent?.includes("except when hiding an object"))).toBe(true);
   expect(screen.getByRole("group", { name: "Speak Language skill" }).querySelector(":scope > strong")?.textContent).toBe("");
-  expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(character);
+  expect(readStoredCharacter()).toEqual(character);
+});
+
+it("shows a qualifying class-feature synergy in the Special Abilities list", async () => {
+  const character = cloneCharacter(initialCharacter);
+  character.classLevels = [{ classId: "bard", level: 1 }];
+  character.skills["Knowledge (history)"] = 5;
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  render(<App />);
+
+  const feature = await screen.findByText("Bardic Knowledge", { selector: "strong" });
+  expect(feature.parentElement?.textContent).toContain(
+    "+2 synergy from Knowledge (history) to Bardic Knowledge checks",
+  );
 });
 
 it("updates training immediately when assigning or removing a rank during setup", () => {

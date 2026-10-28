@@ -16,7 +16,17 @@ export const trainedOnlySkills = new Set([
 
 export const limitedUntrainedSkills: Record<string, string> = {
   "Handle Animal": "Charisma checks to handle or push domestic animals only; no teaching, rearing, or training. Druids and rangers can also handle or push their animal companion.",
-  "Sleight of Hand": "Dexterity checks at DC 10 or lower, except hiding an object on your body is also allowed at higher DCs.",
+  "Sleight of Hand": "An untrained check is a Dexterity check and cannot succeed against a DC higher than 10, except when hiding an object on your body.",
+};
+
+export const untrainedSkillNotes: Record<string, string> = {
+  Appraise: "For common items, an untrained failure gives no estimate; for rare items, an untrained success gives only a rough estimate (50% to 150% of the item's value).",
+  "Open Lock": "An untrained character cannot pick a lock, though they might force it open.",
+};
+
+export const skillTaskNotes: Record<string, string> = {
+  "Disable Device": "Disarming a magic trap requires the Trapfinding class feature.",
+  Forgery: "Forging or detecting a document requires literacy in that document's language.",
 };
 
 export const skills = [
@@ -202,9 +212,23 @@ export const skillDescriptions: Record<string, string> = {
   "Use Rope": "Tie knots, secure ropes, and work with rope-based tools.",
 };
 
+const performSkills = [
+  "Perform (act)",
+  "Perform (comedy)",
+  "Perform (dance)",
+  "Perform (keyboard instruments)",
+  "Perform (mime)",
+  "Perform (oratory)",
+  "Perform (percussion instruments)",
+  "Perform (sing)",
+  "Perform (string instruments)",
+  "Perform (wind instruments)",
+];
+
 export const classSkills: Partial<Record<ClassId, string[]>> = {
   barbarian: [
     "Climb",
+    "Craft",
     "Handle Animal",
     "Intimidate",
     "Jump",
@@ -239,16 +263,7 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Knowledge (the planes)",
     "Listen",
     "Move Silently",
-    "Perform (act)",
-    "Perform (comedy)",
-    "Perform (dance)",
-    "Perform (keyboard instruments)",
-    "Perform (mime)",
-    "Perform (oratory)",
-    "Perform (percussion instruments)",
-    "Perform (sing)",
-    "Perform (string instruments)",
-    "Perform (wind instruments)",
+    ...performSkills,
     "Profession",
     "Sense Motive",
     "Sleight of Hand",
@@ -300,6 +315,7 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Climb",
     "Concentration",
     "Craft",
+    "Diplomacy",
     "Escape Artist",
     "Hide",
     "Jump",
@@ -307,8 +323,10 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Knowledge (religion)",
     "Listen",
     "Move Silently",
+    ...performSkills,
     "Profession",
     "Sense Motive",
+    "Spot",
     "Swim",
     "Tumble",
   ],
@@ -350,6 +368,7 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Balance",
     "Bluff",
     "Climb",
+    "Craft",
     "Decipher Script",
     "Diplomacy",
     "Disable Device",
@@ -364,10 +383,11 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Listen",
     "Move Silently",
     "Open Lock",
-    "Perform (act)",
+    ...performSkills,
     "Search",
     "Sense Motive",
     "Sleight of Hand",
+    "Spot",
     "Swim",
     "Tumble",
     "Use Magic Device",
@@ -497,6 +517,13 @@ export const featCatalog: FeatDefinition[] = [
       "+4 bonus on Concentration checks for defensive casting or casting while grappled.",
   },
   {
+    id: "combat-reflexes",
+    name: "Combat Reflexes",
+    source: "core-35-srd",
+    description: "Make additional attacks of opportunity based on Dexterity.",
+    fighterBonus: true,
+  },
+  {
     id: "combat-expertise",
     name: "Combat Expertise",
     source: "core-35-srd",
@@ -542,6 +569,17 @@ export const featCatalog: FeatDefinition[] = [
     prerequisites: { feats: ["endurance"] },
   },
   {
+    id: "deflect-arrows",
+    name: "Deflect Arrows",
+    source: "core-35-srd",
+    description: "Deflect one ranged weapon attack each round.",
+    prerequisites: {
+      abilities: { dex: 13 },
+      feats: ["improved-unarmed-strike"],
+    },
+    fighterBonus: true,
+  },
+  {
     id: "great-cleave",
     name: "Great Cleave",
     source: "core-35-srd",
@@ -549,7 +587,19 @@ export const featCatalog: FeatDefinition[] = [
     prerequisites: {
       abilities: { str: 13 },
       baseAttackBonus: 4,
-      feats: ["cleave"],
+      feats: ["cleave", "power-attack"],
+    },
+    fighterBonus: true,
+  },
+  {
+    id: "improved-two-weapon-fighting",
+    name: "Improved Two-Weapon Fighting",
+    source: "core-35-srd",
+    description: "Gain a second off-hand attack when using two weapons.",
+    prerequisites: {
+      abilities: { dex: 17 },
+      baseAttackBonus: 6,
+      feats: ["two-weapon-fighting"],
     },
     fighterBonus: true,
   },
@@ -558,6 +608,18 @@ export const featCatalog: FeatDefinition[] = [
     name: "Great Fortitude",
     source: "core-35-srd",
     description: "+2 bonus on Fortitude saves.",
+  },
+  {
+    id: "greater-two-weapon-fighting",
+    name: "Greater Two-Weapon Fighting",
+    source: "core-35-srd",
+    description: "Gain a third off-hand attack when using two weapons.",
+    prerequisites: {
+      abilities: { dex: 19 },
+      baseAttackBonus: 11,
+      feats: ["improved-two-weapon-fighting", "two-weapon-fighting"],
+    },
+    fighterBonus: true,
   },
   {
     id: "improved-bull-rush",
@@ -602,6 +664,18 @@ export const featCatalog: FeatDefinition[] = [
     fighterBonus: true,
   },
   {
+    id: "improved-precise-shot",
+    name: "Improved Precise Shot",
+    source: "core-35-srd",
+    description: "Ignore less than total concealment and cover when making ranged attacks.",
+    prerequisites: {
+      abilities: { dex: 19 },
+      baseAttackBonus: 11,
+      feats: ["point-blank-shot", "precise-shot"],
+    },
+    fighterBonus: true,
+  },
+  {
     id: "improved-sunder",
     name: "Improved Sunder",
     source: "core-35-srd",
@@ -642,6 +716,18 @@ export const featCatalog: FeatDefinition[] = [
     name: "Lightning Reflexes",
     source: "core-35-srd",
     description: "+2 bonus on Reflex saves.",
+  },
+  {
+    id: "manyshot",
+    name: "Manyshot",
+    source: "core-35-srd",
+    description: "Fire multiple arrows as a single attack against one target.",
+    prerequisites: {
+      abilities: { dex: 17 },
+      baseAttackBonus: 6,
+      feats: ["point-blank-shot", "rapid-shot"],
+    },
+    fighterBonus: true,
   },
   {
     id: "magical-aptitude",
@@ -708,6 +794,14 @@ export const featCatalog: FeatDefinition[] = [
     fighterBonus: true,
   },
   {
+    id: "rapid-shot",
+    name: "Rapid Shot",
+    source: "core-35-srd",
+    description: "Make one extra ranged attack during a full attack.",
+    prerequisites: { abilities: { dex: 13 }, feats: ["point-blank-shot"] },
+    fighterBonus: true,
+  },
+  {
     id: "run",
     name: "Run",
     source: "core-35-srd",
@@ -735,6 +829,18 @@ export const featCatalog: FeatDefinition[] = [
       abilities: { dex: 13 },
       baseAttackBonus: 4,
       feats: ["dodge", "mobility"],
+    },
+    fighterBonus: true,
+  },
+  {
+    id: "stunning-fist",
+    name: "Stunning Fist",
+    source: "core-35-srd",
+    description: "Stun a target with an unarmed strike.",
+    prerequisites: {
+      abilities: { dex: 13, wis: 13 },
+      baseAttackBonus: 8,
+      feats: ["improved-unarmed-strike"],
     },
     fighterBonus: true,
   },
@@ -849,6 +955,12 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Inspire Courage +2": inspireCourageDescription,
   "Inspire Courage +3": inspireCourageDescription,
   "Inspire Courage +4": inspireCourageDescription,
+  "Combat Style":
+    "Choose Rapid Shot or Two-Weapon Fighting as a bonus feat. Combat style benefits function only in light or no armor.",
+  "Improved Combat Style":
+    "Choose Manyshot or Improved Two-Weapon Fighting as a bonus feat, following your combat style. Combat style benefits function only in light or no armor.",
+  "Combat Style Mastery":
+    "Choose Improved Precise Shot or Greater Two-Weapon Fighting as a bonus feat, following your combat style. Combat style benefits function only in light or no armor.",
 };
 
 export const pointBuyCosts: Record<number, number> = {

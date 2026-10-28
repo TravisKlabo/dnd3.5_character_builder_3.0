@@ -91,6 +91,7 @@ export interface RaceDefinition {
   source: ContentSourceId
   abilityModifiers: Partial<Record<AbilityName, number>>
   racialSkillBonuses?: Partial<Record<string, number>>
+  racialSituationalSkillBonuses?: Partial<Record<string, Partial<Record<RacialSkillCondition, number>>>>
   racialSavingThrowBonus?: number
   racialSituationalSaveBonuses?: Partial<Record<SavingThrowCondition, number>>
   racialAttackBonuses?: Partial<Record<CombatTargetType, number>>
@@ -103,6 +104,7 @@ export interface RaceDefinition {
 }
 
 export type SavingThrowCondition = 'fear' | 'poison' | 'spell' | 'enchantment' | 'illusion'
+export type RacialSkillCondition = 'unusual-stonework' | 'stone-or-metal' | 'alchemy'
 export type CombatTargetType = 'orc' | 'goblinoid' | 'kobold' | 'giant'
 
 export interface PrestigeClassDefinition {
@@ -174,6 +176,7 @@ export interface Character {
   wizardSpellLearning?: Record<string, WizardSpellLearning>
   preparedSpells: string[]
   preparedSpellsByClass?: Partial<Record<ClassId, string[]>>
+  spellPreparationCompletedByClass?: Partial<Record<ClassId, boolean>>
   clericDomains?: import('./data/clericDomains').ClericDomainId[]
   clericDomainPreparation?: Record<string, import('./data/clericDomains').ClericDomainSpell>
   clericDomainExpended?: number[]
@@ -221,10 +224,10 @@ export const classDefinitions: Record<ClassId, ClassDefinition> = {
 
 export const raceDefinitions: Record<string, RaceDefinition> = {
   human: { id: 'human', name: 'Human', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, specialAbilities: ['Bonus feat', 'Extra skill points'] },
-  dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability', 'Waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. orcs/goblinoids; +4 dodge AC vs. giants', 'Stone/metal Appraise/Craft +2'] },
+  dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability', 'Waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. orcs/goblinoids; +4 dodge AC vs. giants', 'Stone/metal Appraise/Craft +2'] },
   elf: { id: 'elf', name: 'Elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision', 'Sleep immunity', 'Enchantment saves +2', 'Elf weapon proficiencies'] },
   halfling: { id: 'halfling', name: 'Halfling', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { dex: 2, str: -2 }, racialSkillBonuses: { Climb: 2, Jump: 2, Listen: 2, 'Move Silently': 2 }, racialSavingThrowBonus: 1, racialSituationalSaveBonuses: { fear: 2 }, specialAbilities: ['All saves +1; fear +2', 'Thrown/slings attacks +1'] },
-  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2', 'Spell-like abilities (1/day)'] },
+  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSkillBonuses: { Craft: { alchemy: 2 } }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2', 'Spell-like abilities (1/day)'] },
   'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Orc blood'] },
   'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision', 'Sleep immunity', 'Enchantment saves +2', 'Elven blood'] },
   kender: { id: 'kender', name: 'Kender', source: 'dragonlance-user-pack', size: 'Small', speed: 20, abilityModifiers: { str: -2, dex: 2, cha: 2 }, traits: ['Fearless', 'Kender Pockets', 'Taunt', 'Curiosity'] },

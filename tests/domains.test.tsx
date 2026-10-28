@@ -12,6 +12,7 @@ import { parseCharacter } from "../src/validation";
 import { savedCharacterStorageKey } from "../src/storage";
 import { ClericDomains } from "../src/components/ClericDomains";
 import App from "../src/App";
+import { readStoredCharacter } from "./storageTestHelpers";
 
 beforeAll(loadSpellCatalog);
 beforeEach(() => vi.spyOn(window, "alert").mockImplementation(() => {}));
@@ -28,7 +29,7 @@ function save(character: Character) {
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
 }
 function stored() {
-  return parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
+  return readStoredCharacter();
 }
 async function openCleric() {
   fireEvent.click(await screen.findByRole("button", { name: "Spells" }));
@@ -361,6 +362,7 @@ describe("cleric domain UI and lifecycle", () => {
       "Not prepared", "Cure Light Wounds (Healing)", "Longstrider (Travel)",
     ]);
     fireEvent.change(domainSlot, { target: { value: "travel:Longstrider" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 1 domain slot" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 1 slot 1" }));
     expect(screen.queryByRole("spinbutton", { name: "Prepare Longstrider" })).toBeNull();
@@ -373,10 +375,8 @@ describe("cleric domain UI and lifecycle", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Wizard · 1" }));
     expect(screen.queryByRole("heading", { name: "Cleric Domains" })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
-    fireEvent.click(screen.getByRole("button", { name: "Reset Wizard expended slots" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rest/prayer and recover spell slots" }));
     fireEvent.click(screen.getByRole("tab", { name: "Cleric · 3" }));
-    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Expended level 1 domain slot" }).checked).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Reset Cleric expended slots" }));
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Expended level 1 domain slot" }).checked).toBe(false);
     expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Level 1 domain spell" }).value).toBe("travel:Longstrider");
     view.unmount();
@@ -409,6 +409,7 @@ describe("cleric domain UI and lifecycle", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Domain 1" }), { target: { value: "travel" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Domain 2" }), { target: { value: "healing" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Level 1 domain spell" }), { target: { value: "travel:Longstrider" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 1 domain slot" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(stored().clericDomains).toEqual(["travel", "healing"]);
@@ -427,6 +428,7 @@ describe("cleric domain UI and lifecycle", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Domain 1" }), { target: { value: "travel" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Domain 2" }), { target: { value: "healing" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Level 1 domain spell" }), { target: { value: "travel:Longstrider" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Expended level 1 domain slot" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard Draft" }));
     await openCleric();

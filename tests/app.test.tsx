@@ -7,6 +7,7 @@ import { deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatal
 import { loadSpellCatalog } from "../src/data/spellCatalog";
 import { loadSavedCharacter, savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
+import { readStoredCharacter } from "./storageTestHelpers";
 
 function savedHero() {
   const character = cloneCharacter(initialCharacter);
@@ -25,7 +26,7 @@ describe("application workflows", () => {
     fireEvent.change(screen.getByRole("textbox", { name: saved ? "Weight:" : "Weight" }), { target: { value: "82.5 kg" } });
     expect(screen.queryByRole("button", { name: /(?:Increase|Decrease) (?:age|weight)/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const character = parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
+    const character = readStoredCharacter();
     expect(character.age).toBe("about 30");
     expect(character.weight).toBe("82.5 kg");
     view.unmount();
@@ -37,7 +38,7 @@ describe("application workflows", () => {
     fireEvent.change(screen.getByRole("textbox", { name: savedFieldLabel }), { target: { value: "" } });
     fireEvent.change(screen.getByRole("textbox", { name: savedWeightLabel }), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const cleared = parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
+    const cleared = readStoredCharacter();
     expect(cleared.age).toBe("");
     expect(cleared.weight).toBe("");
   });
@@ -49,7 +50,7 @@ describe("application workflows", () => {
     fireEvent.change(field, { target: { value: height } });
     expect(screen.queryByRole("textbox", { name: "Height in feet" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const saved = parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
+    const saved = readStoredCharacter();
     expect(saved.height).toBe(height);
     expect(screen.getByText(height, { exact: true })).toBeDefined();
   });
@@ -60,7 +61,7 @@ describe("application workflows", () => {
     render(<App />);
     fireEvent.change(screen.getByRole("textbox", { name: "Height:" }), { target: { value: "180 cm" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).height).toBe("180 cm");
+    expect(readStoredCharacter().height).toBe("180 cm");
     expect(screen.queryByRole("button", { name: "Increase height" })).toBeNull();
   });
 
@@ -112,7 +113,7 @@ describe("application workflows", () => {
     expect(screen.getByText("Level-Up Draft")).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Discard Draft" }));
     expect(screen.queryByText("Level-Up Draft")).toBeNull();
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(original);
+    expect(readStoredCharacter()).toEqual(original);
   });
 
   it("keeps an unconfirmed level-up out of save and export", async () => {
@@ -127,7 +128,7 @@ describe("application workflows", () => {
     expect(exportButton.hasAttribute("disabled")).toBe(true);
     await user.click(save);
     await user.click(exportButton);
-    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(original);
+    expect(readStoredCharacter()).toEqual(original);
   });
 
   it("creates, advances, saves, exports, and reimports a core fighter", async () => {
@@ -204,9 +205,7 @@ describe("application workflows", () => {
     expect(screen.getByText("Skills (20/20)", { exact: true })).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenCalledWith("Character saved.");
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       name: "Audit Fighter",
       player: "Audit Player",
@@ -258,9 +257,7 @@ describe("application workflows", () => {
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByRole("heading", { name: "Audit Fighter (Audit Player)" });
     expect(
-      parseCharacter(
-        JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-      ),
+      readStoredCharacter(),
     ).toMatchObject({
       classLevels: [{ classId: "fighter", level: 2 }],
       hitPoints: 24,
@@ -358,9 +355,7 @@ describe("application workflows", () => {
 
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       name: "Milestone Fighter",
       player: "Milestone Player",
@@ -559,9 +554,7 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
 
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       classLevels: [
         { classId: "fighter", level: 1 },
@@ -660,9 +653,7 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
 
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       classLevels: [
         { classId: "fighter", level: 1 },
@@ -794,9 +785,7 @@ describe("application workflows", () => {
     fighterRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
-    const afterFighterLevel = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const afterFighterLevel = readStoredCharacter();
     expect(afterFighterLevel).toMatchObject({
       classLevels: [
         { classId: "wizard", level: 1 },
@@ -865,9 +854,7 @@ describe("application workflows", () => {
 
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       classLevels: [
         { classId: "wizard", level: 2 },
@@ -885,6 +872,121 @@ describe("application workflows", () => {
         "general-3": "endurance",
       },
     });
+  });
+
+  it("selects and saves a Ranger combat-style feat on level-up", async () => {
+    const user = userEvent.setup();
+    const original = savedHero();
+    original.classLevels = [{ classId: "ranger", level: 1 }];
+    original.hitPoints = 8;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Character sheets" });
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "ranger");
+    const tabs = within(
+      await screen.findByRole("navigation", { name: "Character sheets" }),
+    );
+    await user.click(tabs.getByRole("button", { name: "Character" }));
+    for (const skill of [
+      "Climb",
+      "Handle Animal",
+      "Hide",
+      "Listen",
+      "Ride",
+      "Spot",
+      "Survival",
+    ]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Ranger combat style feat (ranger level 2)",
+      }),
+    );
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+        "option",
+        { name: "Rapid Shot" },
+      ),
+    );
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    random.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const saved = readStoredCharacter();
+    expect(saved).toMatchObject({
+      classLevels: [{ classId: "ranger", level: 2 }],
+      featSelections: { "ranger-style-2": "rapid-shot" },
+    });
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+  });
+
+  it("warns when Ranger combat-style benefits are disabled by medium armor", async () => {
+    const original = savedHero();
+    original.classLevels = [{ classId: "ranger", level: 2 }];
+    original.featSelections = { "ranger-style-2": "rapid-shot" };
+    original.equipment.Armor = "Chainmail";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        /Ranger style is inactive in medium or heavy armor/,
+      ),
+    ).toBeDefined();
+  });
+
+  it("selects Monk bonus feats without their usual prerequisites", async () => {
+    const user = userEvent.setup();
+    const original = savedHero();
+    original.alignment = "Lawful Good";
+    original.classLevels = [{ classId: "monk", level: 1 }];
+    original.hitPoints = 8;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Character sheets" });
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "monk");
+    for (const skill of ["Balance", "Climb", "Listen", "Spot", "Tumble"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    await chooseFeat("Monk bonus feat (monk level 1)", "Stunning Fist");
+    await chooseFeat("Monk bonus feat (monk level 2)", "Deflect Arrows");
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    random.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const saved = readStoredCharacter();
+    expect(saved).toMatchObject({
+      classLevels: [{ classId: "monk", level: 2 }],
+      featSelections: {
+        "monk-1": "stunning-fist",
+        "monk-2": "deflect-arrows",
+      },
+    });
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
   });
 
   it("creates, resumes, finalizes, exports, and imports a wizard with spellbook choices", async () => {
@@ -971,9 +1073,7 @@ describe("application workflows", () => {
     await user.click(finalize);
     expect(screen.getByRole("heading", { name: "Audit Wizard (Audit Player)" })).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Save" }));
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       race: "Human",
       classLevels: [{ classId: "wizard", level: 1 }],
@@ -1148,9 +1248,7 @@ describe("application workflows", () => {
     expect(screen.getByRole("heading", { name: "Audit Cleric (Audit Player)" })).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       race: "Human",
       alignment: "Neutral Good",
@@ -1313,9 +1411,7 @@ describe("application workflows", () => {
     expect(screen.getByRole("heading", { name: "Audit Sorcerer (Audit Player)" })).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    const saved = parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    );
+    const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       race: "Human",
       alignment: "Neutral Good",
@@ -1389,6 +1485,40 @@ describe("application workflows", () => {
     expect(await screen.findByText(
       "Cannot take a Paladin level with Chaotic Good; this class must be Lawful Good.",
     )).toBeDefined();
+  });
+
+  it("allows a Lawful Good paladin to follow an ideal or choose a non-Lawful-Good deity", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("button", { name: "Class" });
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Lawful Good" },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Class" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: "Paladin" },
+      ),
+    );
+
+    expect((await screen.findByRole("button", { name: "Class" })).textContent).toContain("Paladin");
+    expect(screen.queryByText("Paladin characters must choose a deity.")).toBeNull();
+    expect(screen.queryByText("Paladins must choose a Lawful Good deity.")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Deity" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Deity choices" })).getByRole(
+        "option",
+        { name: /^Pelor \(Neutral Good\)/ },
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Deity" }).textContent).toContain("Pelor");
+    expect(screen.queryByText("Paladins must choose a Lawful Good deity.")).toBeNull();
   });
 
   it("shows spell sheets for a saved multiclass caster", async () => {
@@ -1488,7 +1618,7 @@ describe("application workflows", () => {
     fireEvent.change(screen.getByRole("combobox", { name: /^Strength/ }), { target: { value: "5" } });
     vi.spyOn(window, "alert").mockImplementation(() => {});
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const saved = parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
+    const saved = readStoredCharacter();
     expect(saved.abilities).toEqual({ str: 3, dex: 15, con: 14, int: 9, wis: 6, cha: 16 });
     expect(saved.hitPoints).toBe(12);
   });
@@ -1546,13 +1676,7 @@ describe("application workflows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
-    expect(
-      parseCharacter(
-        JSON.parse(
-          window.localStorage.getItem(savedCharacterStorageKey) ?? "null",
-        ),
-      ).abilities,
-    ).toEqual({ str: 10, dex: 16, con: 16, int: 13, wis: 12, cha: 13 });
+    expect(readStoredCharacter().abilities).toEqual({ str: 10, dex: 16, con: 16, int: 13, wis: 12, cha: 13 });
   });
 
   it("preserves point-buy costs and base scores when changing races", () => {
@@ -1625,9 +1749,7 @@ describe("application workflows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
-    expect(parseCharacter(
-      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
-    )).toMatchObject({
+    expect(readStoredCharacter()).toMatchObject({
       race: "Human",
       abilities: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
     });
@@ -1734,7 +1856,7 @@ describe("application workflows", () => {
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByRole("heading", { name: "Imported Hero (Player)" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"))).toEqual(character);
+    expect(readStoredCharacter()).toEqual(character);
   });
 
   it("exports portable JSON without using any PDF or preview path", async () => {
@@ -1765,5 +1887,138 @@ describe("application workflows", () => {
     expect(character.name).toBe("Regression Hero");
     expect(character.customItems).toBeDefined();
     expect(TestURL.revokeObjectURL).toHaveBeenCalledWith("blob:test-character");
+  });
+
+  it("round-trips created dwarf ability scores through export and import", async () => {
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+    await user.clear(screen.getAllByRole("textbox", { name: "Character name" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Character name" })[0], "Dwarf Cycle");
+    await user.clear(screen.getAllByRole("textbox", { name: "Player" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Player" })[0], "Cycle Player");
+
+    await user.click(screen.getByRole("button", { name: "Race" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Race choices" })).getByRole(
+        "option",
+        { name: "Dwarf" },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Roll 4d6" }));
+    const dice = [
+      6, 5, 4, 1,
+      6, 5, 5, 1,
+      6, 5, 3, 1,
+      6, 4, 3, 1,
+      5, 4, 3, 1,
+      4, 3, 3, 1,
+    ];
+    let dieIndex = 0;
+    const random = vi.spyOn(Math, "random").mockImplementation(
+      () => (dice[dieIndex++] - 1 + 0.1) / 6,
+    );
+    await user.click(screen.getByRole("button", { name: "Roll Abilities" }));
+    random.mockRestore();
+    expect(
+      screen.getByText(
+        "Rolled: 15, 16, 14, 13, 12, 10. Choose where each result goes below.",
+      ),
+    ).toBeDefined();
+
+    for (const skill of ["Climb", "Craft", "Handle Animal"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      for (let rank = 0; rank < 4; rank += 1)
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    await chooseFeat("General feat (level 1)", "Toughness");
+    await chooseFeat("Fighter bonus feat (fighter level 1)", "Power Attack");
+
+    const tabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(tabs.getByRole("button", { name: "Store" }));
+    await screen.findByRole("heading", { name: "General Store" });
+    await user.click(screen.getAllByRole("button", { name: "Choose an item..." })[0]);
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Equipment choices" })).getByRole(
+        "option",
+        { name: /^Longsword —/ },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Purchase Longsword" }));
+    await user.click(screen.getByRole("button", { name: "Equip" }));
+    await user.click(tabs.getByRole("button", { name: "Character" }));
+
+    const finalize = screen.getByRole("button", { name: "Finalize Character" });
+    expect(finalize.hasAttribute("disabled")).toBe(false);
+    await user.click(finalize);
+    await screen.findByRole("heading", { name: "Dwarf Cycle (Cycle Player)" });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    expect(
+      readStoredCharacter(),
+    ).toMatchObject({
+      race: "Dwarf",
+      abilities: { str: 15, dex: 16, con: 16, int: 13, wis: 12, cha: 8 },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:dwarf-cycle";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No dwarf character JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(parseCharacter(JSON.parse(exportedJson))).toMatchObject({
+      race: "Dwarf",
+      abilities: { str: 15, dex: 16, con: 16, int: 13, wis: 12, cha: 8 },
+    });
+
+    view.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "dwarf-cycle.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    await screen.findByRole("heading", { name: "Dwarf Cycle (Cycle Player)" });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    expect(
+      readStoredCharacter(),
+    ).toMatchObject({
+      race: "Dwarf",
+      abilities: { str: 15, dex: 16, con: 16, int: 13, wis: 12, cha: 8 },
+    });
+    importedView.unmount();
   });
 });

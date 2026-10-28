@@ -254,6 +254,7 @@ describe("class-specific spell rules", () => {
 
     it("adds starting cantrips and free spells without copying costs and allows revising draft choices", async () => {
       render(<App />);
+      await screen.findByRole("button", { name: "Class" });
       fireEvent.click(screen.getByRole("button", { name: "Class" }));
       fireEvent.click(screen.getByRole("option", { name: "Wizard" }));
       await openSpells(false);

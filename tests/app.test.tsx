@@ -18,10 +18,11 @@ function savedHero() {
 }
 
 describe("application workflows", () => {
-  it.each([false, true])("preserves free-form age and weight in setup/finalized mode (saved: %s)", (saved) => {
+  it.each([false, true])("preserves free-form age and weight in setup/finalized mode (saved: %s)", async (saved) => {
     if (saved) savedHero();
     vi.spyOn(window, "alert").mockImplementation(() => {});
     const view = render(<App />);
+    await screen.findByRole("textbox", { name: saved ? "Age:" : "Age" });
     fireEvent.change(screen.getByRole("textbox", { name: saved ? "Age:" : "Age" }), { target: { value: "about 30" } });
     fireEvent.change(screen.getByRole("textbox", { name: saved ? "Weight:" : "Weight" }), { target: { value: "82.5 kg" } });
     expect(screen.queryByRole("button", { name: /(?:Increase|Decrease) (?:age|weight)/ })).toBeNull();
@@ -33,6 +34,7 @@ describe("application workflows", () => {
     render(<App />);
     const savedFieldLabel = saved ? "Age:" : "Age";
     const savedWeightLabel = saved ? "Weight:" : "Weight";
+    await screen.findByRole("textbox", { name: savedFieldLabel });
     expect(screen.getByRole<HTMLInputElement>("textbox", { name: savedFieldLabel }).value).toBe("about 30");
     expect(screen.getByRole<HTMLInputElement>("textbox", { name: savedWeightLabel }).value).toBe("82.5 kg");
     fireEvent.change(screen.getByRole("textbox", { name: savedFieldLabel }), { target: { value: "" } });
@@ -43,10 +45,10 @@ describe("application workflows", () => {
     expect(cleared.weight).toBe("");
   });
 
-  it.each(["5 ft 7 in", "170 cm"])("accepts and saves height as one text field: %s", (height) => {
+  it.each(["5 ft 7 in", "170 cm"])("accepts and saves height as one text field: %s", async (height) => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
-    const field = screen.getByRole("textbox", { name: "Height" });
+    const field = await screen.findByRole("textbox", { name: "Height" });
     fireEvent.change(field, { target: { value: height } });
     expect(screen.queryByRole("textbox", { name: "Height in feet" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -65,9 +67,9 @@ describe("application workflows", () => {
     expect(screen.queryByRole("button", { name: "Increase height" })).toBeNull();
   });
 
-  it("opens setup for new characters and has no print or PDF controls", () => {
+  it("opens setup for new characters and has no print or PDF controls", async () => {
     render(<App />);
-    expect(screen.getByRole("heading", { name: "Create Character" })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Create Character" })).toBeDefined();
     expect(screen.queryByPlaceholderText("Background, goals, allies, and other details.")).toBeNull();
     expect(screen.getByRole("heading", { name: "Character Notes" })).toBeDefined();
     expect(screen.queryByRole("button", { name: /print|pdf/i })).toBeNull();
@@ -80,6 +82,7 @@ describe("application workflows", () => {
     const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
     const user = userEvent.setup();
     const view = render(<App />);
+    await screen.findAllByRole("textbox", { name: "Character name" });
     fireEvent.change(screen.getAllByRole("textbox", { name: "Character name" })[0], {
       target: { value: "Saved Setup Draft" },
     });

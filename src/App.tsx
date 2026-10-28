@@ -7,7 +7,6 @@ import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeat
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
 import { storeItems, addCustomStoreItems } from "./data/equipmentCatalog";
-import { CreationPanel } from "./components/CreationPanel";
 import { CharacterSheet } from "./components/CharacterSheet";
 import { ScreenBoundary } from "./components/ScreenBoundary";
 import "./App.css";
@@ -20,6 +19,7 @@ const EquipmentStore = lazy(() => import("./components/EquipmentStore").then((mo
 const ForgePanel = lazy(() => import("./components/ForgePanel").then((module) => ({ default: module.ForgePanel })));
 const WandsScrollPanel = lazy(() => import("./components/WandsScrollPanel").then((module) => ({ default: module.WandsScrollPanel })));
 const SpellSheets = lazy(() => import("./components/SpellSheet").then((module) => ({ default: module.SpellSheets })));
+const CreationPanel = lazy(() => import("./components/CreationPanel").then((module) => ({ default: module.CreationPanel })));
 const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItemsWarning"));
 
 export function App() {
@@ -993,39 +993,41 @@ export function App() {
       {visibleSheet === "character" && (
         <>
           {!creationLocked && (
-            <CreationPanel
-              draft={creationDraft}
-              open={creationOpen}
-              locked={creationLocked}
-              method={abilityMethod}
-              rolledScores={rolledScores}
-              onRolledScoresChange={setRolledScores}
-              rolledAssignments={rolledAssignments}
-              onRolledAssignmentsChange={setRolledAssignments}
-              onToggle={() => setCreationOpen(!creationOpen)}
-              onMethodChange={changeAbilityMethod}
-              onChange={updateCreationDraft}
-              onClassChange={updateCreationClass}
-              onRaceChange={updateCreationRace}
-              ruleset={ruleset}
-              onRulesetChange={(nextRuleset) => {
-                if (
-                  nextRuleset !== ruleset &&
-                  !window.confirm(
-                    "Changing the ruleset will reset all character creation choices, including abilities, class, race, deity, skills, feats, and spells. Continue?",
-                  )
-                ) {
-                  return;
-                }
-                setRuleset(nextRuleset);
-                setCreationDraft(cloneCharacter(initialCharacter));
-                setAbilityMethod("manual");
-                setRolledScores(null);
-                setRolledAssignments(null);
-              }}
-              onAbilityChange={updateCreationAbility}
-              onCreate={createCharacter}
-            />
+            <Suspense fallback={<section className="panel status-message" role="status">Loading character setup...</section>}>
+              <CreationPanel
+                draft={creationDraft}
+                open={creationOpen}
+                locked={creationLocked}
+                method={abilityMethod}
+                rolledScores={rolledScores}
+                onRolledScoresChange={setRolledScores}
+                rolledAssignments={rolledAssignments}
+                onRolledAssignmentsChange={setRolledAssignments}
+                onToggle={() => setCreationOpen(!creationOpen)}
+                onMethodChange={changeAbilityMethod}
+                onChange={updateCreationDraft}
+                onClassChange={updateCreationClass}
+                onRaceChange={updateCreationRace}
+                ruleset={ruleset}
+                onRulesetChange={(nextRuleset) => {
+                  if (
+                    nextRuleset !== ruleset &&
+                    !window.confirm(
+                      "Changing the ruleset will reset all character creation choices, including abilities, class, race, deity, skills, feats, and spells. Continue?",
+                    )
+                  ) {
+                    return;
+                  }
+                  setRuleset(nextRuleset);
+                  setCreationDraft(cloneCharacter(initialCharacter));
+                  setAbilityMethod("manual");
+                  setRolledScores(null);
+                  setRolledAssignments(null);
+                }}
+                onAbilityChange={updateCreationAbility}
+                onCreate={createCharacter}
+              />
+            </Suspense>
           )}
           <CharacterSheet
             onOpenSpells={() => setActiveSheet("spells")}

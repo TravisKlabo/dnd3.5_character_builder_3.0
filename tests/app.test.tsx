@@ -737,6 +737,156 @@ describe("application workflows", () => {
     importedView.unmount();
   });
 
+  it("advances Wizard spells only when the Wizard class level increases", async () => {
+    const original = savedHero();
+    original.name = "Multiclass Wizard";
+    original.player = "Spellcasting Player";
+    original.abilities = { ...original.abilities, int: 11, con: 12 };
+    original.classLevels = [{ classId: "wizard", level: 1 }];
+    original.hitPoints = 5;
+    original.skills = {
+      Concentration: 4,
+      "Knowledge (arcana)": 4,
+      Spellcraft: 4,
+    };
+    original.skillRanksByClass = {
+      wizard: {
+        Concentration: 4,
+        "Knowledge (arcana)": 4,
+        Spellcraft: 4,
+      },
+    };
+    original.feats = ["Toughness", "Improved Initiative"];
+    original.featSelections = {
+      "general-1": "toughness",
+      "human-1": "improved-initiative",
+    };
+    const startingWizardSpells = ["Mage Armor", "Magic Missile", "Shield"];
+    original.knownSpells = [...startingWizardSpells];
+    original.knownSpellsByClass = { wizard: [...startingWizardSpells] };
+    original.spellAcquisitionByClass = {
+      wizard: Object.fromEntries(startingWizardSpells.map((spell) => [spell, "starting"])),
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "fighter");
+    for (const skill of ["Climb", "Jump", "Ride"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+    await chooseFeat("Fighter bonus feat (fighter level 1)", "Blind-Fight");
+    const fighterRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    fighterRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const afterFighterLevel = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(afterFighterLevel).toMatchObject({
+      classLevels: [
+        { classId: "wizard", level: 1 },
+        { classId: "fighter", level: 1 },
+      ],
+      knownSpellsByClass: { wizard: startingWizardSpells },
+    });
+
+    const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
+    await user.click(tabs.getByRole("button", { name: "Spells" }));
+    await screen.findByLabelText("Spellcasting Class and Level");
+    expect(screen.getByLabelText<HTMLInputElement>("Spellcasting Class and Level").value)
+      .toBe("Wizard 1");
+    const firstCasterLevel = screen.getByText("Caster Level", {
+      selector: ".stat > small",
+    }).parentElement;
+    if (!firstCasterLevel) throw new Error("Missing Wizard caster-level summary.");
+    expect(within(firstCasterLevel).getByRole("strong").textContent).toBe("1");
+    for (const spell of startingWizardSpells)
+      expect(screen.getByText(spell, { exact: true })).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "wizard");
+    const freeSpellChoices = screen.getByLabelText<HTMLSelectElement>("Free wizard spell");
+    const newSpells = [...freeSpellChoices.options]
+      .map((option) => option.value)
+      .filter(Boolean)
+      .slice(0, 2);
+    expect(newSpells).toHaveLength(2);
+    for (const spell of newSpells) {
+      await user.selectOptions(
+        screen.getByLabelText("Free wizard spell"),
+        spell,
+      );
+      await user.click(screen.getByRole("button", { name: "Add free spell" }));
+    }
+    expect(screen.getByText(/Free level-up spells: 2\/2/)).toBeDefined();
+
+    const characterTabs = within(await screen.findByRole("navigation", {
+      name: "Character sheets",
+    }));
+    await user.click(characterTabs.getByRole("button", { name: "Character" }));
+    for (const skill of ["Concentration", "Knowledge (arcana)", "Spellcraft"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+    await chooseFeat("General feat (level 3)", "Endurance");
+    const wizardRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    wizardRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+
+    await user.click(
+      within(await screen.findByRole("navigation", { name: "Character sheets" })).getByRole(
+        "button",
+        { name: "Spells" },
+      ),
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Spellcasting Class and Level").value)
+      .toBe("Wizard 2");
+    const secondCasterLevel = screen.getByText("Caster Level", {
+      selector: ".stat > small",
+    }).parentElement;
+    if (!secondCasterLevel) throw new Error("Missing Wizard caster-level summary.");
+    expect(within(secondCasterLevel).getByRole("strong").textContent).toBe("2");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      classLevels: [
+        { classId: "wizard", level: 2 },
+        { classId: "fighter", level: 1 },
+      ],
+      hitPoints: 21,
+      knownSpellsByClass: {
+        wizard: expect.arrayContaining([...startingWizardSpells, ...newSpells]),
+      },
+      spellAcquisitionByClass: {
+        wizard: Object.fromEntries(newSpells.map((spell) => [spell, "level-up"])),
+      },
+      featSelections: {
+        "fighter-1": "blind-fight",
+        "general-3": "endurance",
+      },
+    });
+  });
+
   it("creates, resumes, finalizes, exports, and imports a wizard with spellbook choices", async () => {
     const user = userEvent.setup();
     const alert = vi.spyOn(window, "alert").mockImplementation(() => {});

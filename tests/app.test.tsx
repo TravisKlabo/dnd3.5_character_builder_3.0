@@ -5,7 +5,7 @@ import App from "../src/App";
 import { cloneCharacter, initialCharacter } from "../src/domain";
 import { deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatalog";
 import { loadSpellCatalog } from "../src/data/spellCatalog";
-import { savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
+import { loadSavedCharacter, savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 
 function savedHero() {
@@ -432,6 +432,174 @@ describe("application workflows", () => {
     expect(screen.getByText("48 / 48", { exact: true })).toBeDefined();
     expect(alert).toHaveBeenLastCalledWith("Character imported.");
     importedView.unmount();
+  });
+
+  it("awards total-level milestones without granting fighter-only feats to a multiclass character", async () => {
+    const original = savedHero();
+    original.name = "Multiclass Milestone Hero";
+    original.player = "Milestone Player";
+    original.alignment = "Lawful Good";
+    original.abilities = { ...original.abilities, str: 13, con: 13, int: 12 };
+    original.classLevels = [
+      { classId: "fighter", level: 1 },
+      { classId: "paladin", level: 1 },
+    ];
+    original.hitPoints = 22;
+    original.skills = {
+      Climb: 4,
+      Craft: 4,
+      "Handle Animal": 4,
+      Intimidate: 4,
+      Diplomacy: 1,
+      Heal: 1,
+      "Knowledge (nobility and royalty)": 1,
+      "Sense Motive": 1,
+    };
+    original.skillRanksByClass = {
+      fighter: {
+        Climb: 4,
+        Craft: 4,
+        "Handle Animal": 4,
+        Intimidate: 4,
+      },
+      paladin: {
+        Diplomacy: 1,
+        Heal: 1,
+        "Knowledge (nobility and royalty)": 1,
+        "Sense Motive": 1,
+      },
+    };
+    original.feats = ["Toughness", "Improved Initiative", "Power Attack"];
+    original.featSelections = {
+      "general-1": "toughness",
+      "human-1": "improved-initiative",
+      "fighter-1": "power-attack",
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    expect(loadSavedCharacter()).toMatchObject({
+      saved: true,
+      setupDraft: false,
+      character: { classLevels: original.classLevels },
+    });
+
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    const addPaladinSkillRanks = async () => {
+      for (const skill of [
+        "Diplomacy",
+        "Heal",
+        "Knowledge (nobility and royalty)",
+        "Sense Motive",
+      ]) {
+        const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+      }
+    };
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "paladin");
+    await user.click(
+      within(await screen.findByRole("navigation", { name: "Character sheets" })).getByRole(
+        "button",
+        { name: "Character" },
+      ),
+    );
+    expect(screen.getByRole("button", { name: "General feat (level 3)" })).toBeDefined();
+    expect(
+      screen.queryByRole("button", { name: "Fighter bonus feat (fighter level 2)" }),
+    ).toBeNull();
+    await addPaladinSkillRanks();
+    await chooseFeat("General feat (level 3)", "Endurance");
+    const thirdLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    thirdLevelRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    expect(screen.getByText("33 / 33", { exact: true })).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "paladin");
+    await user.click(
+      within(await screen.findByRole("navigation", { name: "Character sheets" })).getByRole(
+        "button",
+        { name: "Character" },
+      ),
+    );
+    expect(
+      screen.getByRole("combobox", { name: /Ability score increase at level 4/ }),
+    ).toBeDefined();
+    expect(screen.queryByRole("button", { name: "General feat (level 4)" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Fighter bonus feat (fighter level 2)" }),
+    ).toBeNull();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /Ability score increase at level 4/ }),
+      "str",
+    );
+    await addPaladinSkillRanks();
+    const fourthLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    fourthLevelRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+
+    expect(screen.getByText("44 / 44", { exact: true })).toBeDefined();
+    const strength = screen.getByText("STR").parentElement;
+    if (!strength) throw new Error("Missing Strength score summary.");
+    expect(within(strength).getByText("14", { exact: true })).toBeDefined();
+    expect(within(strength).getByText("+2", { exact: true })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      classLevels: [
+        { classId: "fighter", level: 1 },
+        { classId: "paladin", level: 3 },
+      ],
+      abilities: { str: 14, con: 13, int: 12 },
+      hitPoints: 44,
+      featSelections: {
+        "general-1": "toughness",
+        "human-1": "improved-initiative",
+        "fighter-1": "power-attack",
+        "general-3": "endurance",
+      },
+      skills: {
+        Climb: 4,
+        Craft: 4,
+        "Handle Animal": 4,
+        Intimidate: 4,
+        Diplomacy: 3,
+        Heal: 3,
+        "Knowledge (nobility and royalty)": 3,
+        "Sense Motive": 3,
+      },
+      skillRanksByClass: {
+        fighter: {
+          Climb: 4,
+          Craft: 4,
+          "Handle Animal": 4,
+          Intimidate: 4,
+        },
+        paladin: {
+          Diplomacy: 3,
+          Heal: 3,
+          "Knowledge (nobility and royalty)": 3,
+          "Sense Motive": 3,
+        },
+      },
+    });
   });
 
   it("adds a Rogue level to a Fighter and preserves multiclass skills and HP", async () => {

@@ -160,7 +160,11 @@ export function CreationPanel({
       (ruleset === "dragonlance-monster-classes" || !race.levelAdjustment),
   );
   const pointBuyTotal = abilityNames.reduce(
-    (total, ability) => total + (pointBuyCosts[draft.abilities[ability]] ?? 0),
+    (total, ability) =>
+      total +
+      (pointBuyCosts[
+        draft.abilities[ability] - (selectedRace.abilityModifiers[ability] ?? 0)
+      ] ?? 0),
     0,
   );
   const rollAbilities = () => {
@@ -963,11 +967,15 @@ export function CreationPanel({
               const selectedValue =
                 selectedPoolIndex !== undefined
                   ? String(selectedPoolIndex)
-                  : String(draft.abilities[ability]);
+                  : String(
+                      draft.abilities[ability] -
+                        (selectedRace.abilityModifiers[ability] ?? 0),
+                    );
+              const racialModifier = selectedRace.abilityModifiers[ability] ?? 0;
               const finalScore =
                 selectedPoolIndex !== undefined && rolledScores
                   ? rolledScores[selectedPoolIndex] +
-                    (selectedRace.abilityModifiers[ability] ?? 0)
+                    racialModifier
                   : draft.abilities[ability];
               return (
                 <label key={ability}>
@@ -977,7 +985,10 @@ export function CreationPanel({
                     onChange={(event) =>
                       method === "roll"
                         ? assignRolledScore(ability, Number(event.target.value))
-                        : onAbilityChange(ability, Number(event.target.value))
+                        : onAbilityChange(
+                            ability,
+                            Number(event.target.value) + racialModifier,
+                          )
                     }
                   >
                     {availableScores.map((entry, index) => {
@@ -991,7 +1002,9 @@ export function CreationPanel({
                           disabled={
                             method === "pointBuy" &&
                             pointBuyTotal -
-                              (pointBuyCosts[draft.abilities[ability]] ?? 0) +
+                              (pointBuyCosts[
+                                draft.abilities[ability] - racialModifier
+                              ] ?? 0) +
                               (pointBuyCosts[score] ?? 0) >
                               25
                           }

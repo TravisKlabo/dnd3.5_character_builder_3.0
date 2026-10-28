@@ -269,6 +269,171 @@ describe("application workflows", () => {
     importedView.unmount();
   });
 
+  it("awards the level-three feat and level-four ability increase through level-up", async () => {
+    const original = savedHero();
+    original.name = "Milestone Fighter";
+    original.player = "Milestone Player";
+    original.abilities = { ...original.abilities, str: 13, con: 13, int: 12 };
+    original.classLevels = [{ classId: "fighter", level: 2 }];
+    original.hitPoints = 22;
+    original.skills = {
+      Climb: 5,
+      Craft: 5,
+      "Handle Animal": 5,
+      Intimidate: 5,
+    };
+    original.skillRanksByClass = {
+      fighter: {
+        Climb: 5,
+        Craft: 5,
+        "Handle Animal": 5,
+        Intimidate: 5,
+      },
+    };
+    original.feats = ["Toughness", "Improved Initiative", "Power Attack", "Cleave"];
+    original.featSelections = {
+      "general-1": "toughness",
+      "human-1": "improved-initiative",
+      "fighter-1": "power-attack",
+      "fighter-2": "cleave",
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    const addFighterSkillRanks = async () => {
+      for (const skill of ["Climb", "Craft", "Handle Animal", "Intimidate"]) {
+        const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+      }
+    };
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "fighter");
+    await addFighterSkillRanks();
+    await chooseFeat("General feat (level 3)", "Endurance");
+    expect(screen.getByRole("button", { name: "Confirm Level-Up" }).hasAttribute("disabled"))
+      .toBe(true);
+    const thirdLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    thirdLevelRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    expect(screen.getByText("33 / 33", { exact: true })).toBeDefined();
+    expect(screen.getByText("Skills (24/24)", { exact: true })).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "fighter");
+    const abilityIncrease = screen.getByRole("combobox", {
+      name: /Ability score increase at level 4/,
+    });
+    expect(screen.getByRole("button", { name: "Confirm Level-Up" }).hasAttribute("disabled"))
+      .toBe(true);
+    await user.selectOptions(abilityIncrease, "con");
+    await addFighterSkillRanks();
+    await chooseFeat("Fighter bonus feat (fighter level 4)", "Blind-Fight");
+    const fourthLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    fourthLevelRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+
+    expect(screen.getByText("48 / 48", { exact: true })).toBeDefined();
+    expect(screen.getByText("Skills (28/28)", { exact: true })).toBeDefined();
+    const constitution = screen.getByText("CON").parentElement;
+    if (!constitution) throw new Error("Missing Constitution score summary.");
+    expect(within(constitution).getByText("14", { exact: true })).toBeDefined();
+    expect(within(constitution).getByText("+2", { exact: true })).toBeDefined();
+    const fortitude = screen.getByText("Fortitude", { selector: ".stat > small" }).parentElement;
+    if (!fortitude) throw new Error("Missing Fortitude save summary.");
+    expect(within(fortitude).getByRole("strong").textContent).toBe("+6");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      name: "Milestone Fighter",
+      player: "Milestone Player",
+      classLevels: [{ classId: "fighter", level: 4 }],
+      abilities: { str: 13, con: 14, int: 12 },
+      hitPoints: 48,
+      feats: ["toughness", "endurance", "improved-initiative", "power-attack", "cleave", "blind-fight"],
+      featSelections: {
+        "general-1": "toughness",
+        "human-1": "improved-initiative",
+        "fighter-1": "power-attack",
+        "fighter-2": "cleave",
+        "general-3": "endurance",
+        "fighter-4": "blind-fight",
+      },
+      skills: {
+        Climb: 7,
+        Craft: 7,
+        "Handle Animal": 7,
+        Intimidate: 7,
+      },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:milestone-fighter";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No milestone character JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(parseCharacter(JSON.parse(exportedJson))).toMatchObject({
+      classLevels: [{ classId: "fighter", level: 4 }],
+      abilities: { con: 14 },
+      featSelections: {
+        "general-3": "endurance",
+        "fighter-4": "blind-fight",
+      },
+      hitPoints: 48,
+    });
+
+    view.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "milestone-fighter.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByRole("heading", {
+      name: "Milestone Fighter (Milestone Player)",
+    })).toBeDefined();
+    expect(screen.getByText("48 / 48", { exact: true })).toBeDefined();
+    expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    importedView.unmount();
+  });
+
   it("adds a Rogue level to a Fighter and preserves multiclass skills and HP", async () => {
     const original = savedHero();
     original.name = "Multiclass Hero";

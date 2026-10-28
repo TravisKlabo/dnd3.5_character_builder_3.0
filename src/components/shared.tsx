@@ -91,7 +91,7 @@ export function TargetDamageReductionControl({ value, onChange }: {
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
-      <small>Single material qualifiers only: cold iron, silver, or adamantine. Other DR remains manual; this context is not saved.</small>
+      <small>Supports cold iron, silver, adamantine, magic, and their and/or combinations. Alignment, epic, and other qualifiers remain manual; this context is not saved.</small>
     </div>
   );
 }

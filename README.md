@@ -186,13 +186,15 @@ are unpenalized. Thrown weapons are limited to five increments and projectile
 weapons to ten. Target distance is session-only. Bows, crossbows, slings, and
 darts check inventory for compatible ammunition; the sheets show missing ammo
 and draw/reload action notes, but do not consume ammo or track loaded state.
-The shared target DR context evaluates a single material qualifier for cold
-iron, silver, or adamantine, using weapon material for melee/thrown weapons and
-selected ammunition for bows, crossbows, and slings. Ammunition selection is
-session-only and does not consume inventory. Alchemical-silver melee/thrown
-weapons and selected silver ammunition apply the -1 damage penalty (minimum 1).
-Damage is not automatically reduced by target DR, and compound, magical,
-alignment, and other DR qualifiers remain manual. See the
+The shared target DR context evaluates cold iron, silver, adamantine, and magic
+qualifiers, including `and`/`or` combinations of those types. It uses weapon
+material for melee/thrown weapons and selected ammunition for bows, crossbows,
+and slings; a +1 enhancement on a projectile weapon makes its selected
+ammunition count as magic for DR. Ammunition selection is session-only and does
+not consume inventory. Alchemical-silver melee/thrown weapons and selected
+silver ammunition apply the -1 damage penalty (minimum 1). Damage is not
+automatically reduced by target DR; alignment, epic, and other qualifiers remain
+manual. See the
 SRD [damage reduction](https://www.d20srd.org/srd/specialAbilities.htm#damageReduction)
 and [special materials](https://www.d20srd.org/srd/specialMaterials.htm) rules.
 Custom thrown weapons use Strength for

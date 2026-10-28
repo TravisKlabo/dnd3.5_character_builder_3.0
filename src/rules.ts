@@ -434,7 +434,14 @@ function getRangedAttackDistanceDetails(
 
 type WeaponMaterial = NonNullable<StoreItem["material"]>;
 type AmmunitionProfile = { label: string; pattern: RegExp };
-type CompatibleAmmunition = { key: string; name: string; quantity: number; material?: WeaponMaterial };
+type CompatibleAmmunition = {
+  key: string;
+  name: string;
+  quantity: number;
+  material?: WeaponMaterial;
+  enhancement: number;
+};
+type DamageReductionRequirement = WeaponMaterial | "magic";
 
 function getMaterialFromName(name: string): WeaponMaterial | undefined {
   if (/\badamantine\b/i.test(name)) return "adamantine";
@@ -468,7 +475,13 @@ function getCompatibleAmmunition(
     if (!Number.isSafeInteger(quantity) || quantity <= 0) return [];
     const details = getInventoryEntryDetails(key);
     return details.category === "Ammunition" && ammunition.pattern.test(details.name)
-      ? [{ key, name: details.name, quantity, material: details.material }]
+      ? [{
+          key,
+          name: details.name,
+          quantity,
+          material: details.material,
+          enhancement: Number(details.name.match(/\+(\d+)/)?.[1] ?? 0),
+        }]
       : [];
   });
 }
@@ -517,6 +530,29 @@ function getWeaponAmmunitionReadiness(
   return { ammunitionStatus, reloadNote };
 }
 
+function getDamageReductionRequirement(term: string): DamageReductionRequirement | undefined {
+  if (term === "cold iron") return "cold-iron";
+  if (term === "silver" || term === "alchemical silver") return "alchemical-silver";
+  if (term === "adamantine") return "adamantine";
+  if (term === "magic") return "magic";
+  return undefined;
+}
+
+function parseDamageReductionQualifier(qualifier: string): DamageReductionRequirement[][] | undefined {
+  const groups: DamageReductionRequirement[][] = [];
+  for (const orGroup of qualifier.split(/\s+or\s+/)) {
+    const requirements: DamageReductionRequirement[] = [];
+    for (const rawTerm of orGroup.split(/\s+and\s+/)) {
+      const requirement = getDamageReductionRequirement(rawTerm.trim());
+      if (!requirement) return undefined;
+      requirements.push(requirement);
+    }
+    if (requirements.length === 0) return undefined;
+    groups.push(requirements);
+  }
+  return groups.length > 0 ? groups : undefined;
+}
+
 function getTargetDamageReductionStatus(
   input: string | undefined,
   item: StoreItem,
@@ -525,7 +561,8 @@ function getTargetDamageReductionStatus(
   traits: ReturnType<typeof weaponTraits>,
   ammunition: AmmunitionProfile | undefined,
   compatibleAmmunition: CompatibleAmmunition[],
-  selectedAmmunitionKey: string | undefined,
+  selectedAmmunition: CompatibleAmmunition | undefined,
+  enhancement: number,
 ) {
   if (!input?.trim()) return undefined;
   const match = input.trim().match(/^(?:DR\s*)?(\d+)\s*\/\s*(.+)$/i);
@@ -543,18 +580,16 @@ function getTargetDamageReductionStatus(
   if (amount === 0) {
     return { status: "none" as const, message: "Target DR is 0; no damage reduction applies." };
   }
-  const targetMaterial: WeaponMaterial | undefined =
-    qualifier === "cold iron" ? "cold-iron" :
-      qualifier === "silver" || qualifier === "alchemical silver" ? "alchemical-silver" :
-        qualifier === "adamantine" ? "adamantine" : undefined;
-  if (!targetMaterial) {
+  const requirements = parseDamageReductionQualifier(qualifier);
+  if (!requirements) {
     return {
       status: "manual" as const,
-      message: `DR ${amount}/${match[2].trim()} is not a supported single material qualifier; evaluate it manually.`,
+      message: `DR ${amount}/${match[2].trim()} uses an unsupported qualifier; evaluate it manually.`,
     };
   }
 
-  if (isRanged && !traits.thrown) {
+  const usesAmmunition = isRanged && !traits.thrown;
+  if (usesAmmunition) {
     if (!ammunition) {
       return {
         status: "manual" as const,
@@ -567,33 +602,34 @@ function getTargetDamageReductionStatus(
         message: `DR ${amount}/${qualifier}: no compatible ammunition is in inventory, so bypass cannot be evaluated.`,
       };
     }
-    const selectedAmmunition = compatibleAmmunition.find((entry) => entry.key === selectedAmmunitionKey);
-    if (!selectedAmmunitionKey || !selectedAmmunition) {
+    if (!selectedAmmunition || !compatibleAmmunition.some((entry) => entry.key === selectedAmmunition.key)) {
       return {
         status: "manual" as const,
         message: `DR ${amount}/${qualifier}: select a compatible ammunition package to evaluate this attack.`,
       };
     }
-    return selectedAmmunition.material === targetMaterial
-      ? {
-          status: "bypassed" as const,
-          message: `DR ${amount}/${qualifier} is bypassed by selected ${selectedAmmunition.name}.`,
-        }
-      : {
-          status: "applies" as const,
-          message: `DR ${amount}/${qualifier} applies to selected ${selectedAmmunition.name}.`,
-        };
   }
 
-  if (getWeaponMaterial(item, weaponName) === targetMaterial) {
+  const attackMaterial = usesAmmunition ? selectedAmmunition?.material : getWeaponMaterial(item, weaponName);
+  const bypassesDamageReduction = requirements.some((group) => group.every((requirement) => {
+    if (requirement === "magic") {
+      return enhancement >= 1 ||
+        (usesAmmunition && (selectedAmmunition?.enhancement ?? 0) >= 1);
+    }
+    return attackMaterial === requirement;
+  }));
+  if (bypassesDamageReduction) {
+    const bypassSource = usesAmmunition && selectedAmmunition
+      ? `this weapon and selected ${selectedAmmunition.name}`
+      : "this weapon";
     return {
       status: "bypassed" as const,
-      message: `DR ${amount}/${qualifier} is bypassed by this weapon's material.`,
+      message: `DR ${amount}/${qualifier} is bypassed by ${bypassSource}.`,
     };
   }
   return {
     status: "applies" as const,
-    message: `DR ${amount}/${qualifier} applies to this weapon.`,
+    message: `DR ${amount}/${qualifier} applies to this attack.`,
   };
 }
 
@@ -1274,7 +1310,8 @@ export function getEquippedWeaponStats(
     traits,
     ammunition,
     compatibleAmmunition,
-    selectedAmmunitionKey,
+    selectedAmmunition,
+    enhancement,
   );
   const bucklerAttackPenalty = isBucklerEquipped(character) && !isRanged &&
     (slot === "Off Hand Weapon" || (slot === "Main Weapon" &&

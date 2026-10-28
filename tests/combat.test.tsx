@@ -884,7 +884,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
         character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron",
       )?.damageReductionStatus).toMatchObject({ status: "applies" });
       expect(getEquippedWeaponStats(
-        character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron and magic",
+        character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron and good",
       )?.damageReductionStatus).toMatchObject({ status: "manual" });
 
       character.inventory = { "Masterwork Arrows (20) (Medium)": 1 };
@@ -906,10 +906,47 @@ describe("touch, flat-footed, and grapple statistics", () => {
         materialDamageNote: "Alchemical silver ammunition: -1 damage (minimum 1).",
         damageReductionStatus: {
           status: "bypassed",
-          message: "DR 5/silver is bypassed by selected Silver Arrows (20).",
+          message: "DR 5/silver is bypassed by this weapon and selected Silver Arrows (20).",
         },
       });
       expect(character.inventory["Silver Arrows (20) (Medium)"]).toBe(1);
+    });
+
+    it("evaluates magic and compound damage-reduction qualifiers", () => {
+      const character = fighter();
+      expect(getEquippedWeaponStats(
+        character, "+1 Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/magic",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
+      expect(getEquippedWeaponStats(
+        character, "Masterwork Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/magic",
+      )?.damageReductionStatus).toMatchObject({ status: "applies" });
+      expect(getEquippedWeaponStats(
+        character, "Cold Iron Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron or magic",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
+      expect(getEquippedWeaponStats(
+        character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron or magic",
+      )?.damageReductionStatus).toMatchObject({ status: "applies" });
+      expect(getEquippedWeaponStats(
+        character, "Cold Iron Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron and magic",
+      )?.damageReductionStatus).toMatchObject({ status: "applies" });
+      expect(getEquippedWeaponStats(
+        character, "+1 Cold Iron Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron and magic",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
+      expect(getEquippedWeaponStats(
+        character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron or good",
+      )?.damageReductionStatus).toMatchObject({ status: "manual" });
+
+      character.inventory = { "Masterwork Arrows (20) (Medium)": 1 };
+      expect(getEquippedWeaponStats(
+        character, "+1 Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/magic", "Masterwork Arrows (20) (Medium)",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
+      expect(getEquippedWeaponStats(
+        character, "+1 Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/cold iron and magic", "Masterwork Arrows (20) (Medium)",
+      )?.damageReductionStatus).toMatchObject({ status: "applies" });
+      character.inventory = { "Cold Iron Arrows (20) (Medium)": 1 };
+      expect(getEquippedWeaponStats(
+        character, "+1 Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/cold iron and magic", "Cold Iron Arrows (20) (Medium)",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
     });
 
     it("applies the alchemical-silver damage penalty and custom weapon material metadata", () => {
@@ -1008,7 +1045,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(screen.getByText("Attack +8 / +3")).toBeDefined();
       expect(screen.getByText("Maximum range 1000 ft.")).toBeDefined();
       expect(screen.getByText("At 150 ft.: -2 range penalty.")).toBeDefined();
-      expect(screen.getByText("DR 5/silver is bypassed by selected Silver Arrows (20).")).toBeDefined();
+      expect(screen.getByText("DR 5/silver is bypassed by this weapon and selected Silver Arrows (20).")).toBeDefined();
       expect(screen.getByText("Damage 1d8-1")).toBeDefined();
       expect(screen.getByText("Alchemical silver ammunition: -1 damage (minimum 1).")).toBeDefined();
       await user.click(screen.getByRole("button", { name: "Equipment" }));
@@ -1019,7 +1056,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
         "value",
         "Silver Arrows (20) (Medium)",
       );
-      expect(screen.getByText("DR 5/silver is bypassed by selected Silver Arrows (20).")).toBeDefined();
+      expect(screen.getByText("DR 5/silver is bypassed by this weapon and selected Silver Arrows (20).")).toBeDefined();
       expect(screen.getByText("Compatible arrows in inventory: 1 package; not consumed automatically.")).toBeDefined();
     });
 

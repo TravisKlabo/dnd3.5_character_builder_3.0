@@ -60,20 +60,36 @@ export function App() {
 
   const changeAbilityMethod = (method: "roll" | "pointBuy" | "manual") => {
     setAbilityMethod(method);
-    if (method !== "roll") return;
+    if (method === "roll") {
+      setRolledScores(null);
+      setRolledAssignments(null);
+      setCreationDraft((current) => ({
+        ...current,
+        abilities: {
+          str: 10,
+          dex: 10,
+          con: 10,
+          int: 10,
+          wis: 10,
+          cha: 10,
+        },
+      }));
+      return;
+    }
+    if (abilityMethod === "pointBuy" || method !== "pointBuy") return;
     setRolledScores(null);
     setRolledAssignments(null);
-    setCreationDraft((current) => ({
-      ...current,
-      abilities: {
-        str: 10,
-        dex: 10,
-        con: 10,
-        int: 10,
-        wis: 10,
-        cha: 10,
-      },
-    }));
+    setCreationDraft((current) => {
+      const raceModifiers =
+        raceDefinitions[
+          current.race.toLowerCase().replaceAll(" ", "-")
+        ]?.abilityModifiers;
+      const abilities = { ...current.abilities };
+      abilityNames.forEach((ability) => {
+        abilities[ability] = 10 + (raceModifiers?.[ability] ?? 0);
+      });
+      return { ...current, abilities };
+    });
   };
 
   const startLevelUp = (classId: ClassId) => {

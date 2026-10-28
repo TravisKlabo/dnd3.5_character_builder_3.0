@@ -1493,6 +1493,68 @@ describe("application workflows", () => {
     expect(saved.hitPoints).toBe(12);
   });
 
+  it("preserves rolled assignments and reapplies racial modifiers when changing races", () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Roll 4d6" }));
+    const dice = [
+      6, 5, 4, 1,
+      6, 5, 5, 1,
+      6, 5, 3, 1,
+      6, 4, 3, 1,
+      5, 4, 3, 1,
+      4, 3, 3, 1,
+    ];
+    let dieIndex = 0;
+    vi.spyOn(Math, "random").mockImplementation(
+      () => (dice[dieIndex++] - 1 + 0.1) / 6,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Roll Abilities" }));
+    const rolledPool = screen.getByText(
+      "Rolled: 15, 16, 14, 13, 12, 10. Choose where each result goes below.",
+    );
+    expect(rolledPool).toBeDefined();
+
+    fireEvent.change(screen.getByRole("combobox", { name: /^Strength/ }), {
+      target: { value: "5" },
+    });
+    expect(
+      screen.getByRole<HTMLSelectElement>("combobox", { name: /^Strength/ }).value,
+    ).toBe("5");
+    expect(
+      screen.getByRole<HTMLSelectElement>("combobox", { name: /^Charisma/ }).value,
+    ).toBe("0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Race" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Race choices" })).getByRole(
+        "option",
+        { name: "Dwarf" },
+      ),
+    );
+    expect(
+      screen.getByText(
+        "Rolled: 15, 16, 14, 13, 12, 10. Choose where each result goes below.",
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByRole<HTMLSelectElement>("combobox", { name: /^Strength/ }).value,
+    ).toBe("5");
+    expect(
+      screen.getByRole<HTMLSelectElement>("combobox", { name: /^Charisma/ }).value,
+    ).toBe("0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    expect(
+      parseCharacter(
+        JSON.parse(
+          window.localStorage.getItem(savedCharacterStorageKey) ?? "null",
+        ),
+      ).abilities,
+    ).toEqual({ str: 10, dex: 16, con: 16, int: 13, wis: 12, cha: 13 });
+  });
+
   it("preserves point-buy costs and base scores when changing races", () => {
     const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
@@ -1569,6 +1631,93 @@ describe("application workflows", () => {
       race: "Human",
       abilities: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
     });
+  });
+
+  it("starts a fresh point-buy allocation when switching back from rolled scores", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Race" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Race choices" })).getByRole(
+        "option",
+        { name: "Dwarf" },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Point Buy" }));
+
+    const initialScores = {
+      Charisma: 8,
+      Strength: 15,
+      Dexterity: 14,
+      Constitution: 13,
+      Intelligence: 12,
+    };
+    Object.entries(initialScores).forEach(([ability, score]) => {
+      fireEvent.change(screen.getByRole("combobox", { name: new RegExp(`^${ability}`) }), {
+        target: { value: String(score) },
+      });
+    });
+    expect(screen.getByText("Points used: 25 / 25", { exact: true })).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Roll 4d6" }));
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    fireEvent.click(screen.getByRole("button", { name: "Roll Abilities" }));
+    expect(
+      screen.getByText("Rolled: 18, 18, 18, 18, 18, 18. Choose where each result goes below."),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Point Buy" }));
+    expect(screen.getByText("Points used: 12 / 25", { exact: true })).toBeDefined();
+    for (const ability of ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"]) {
+      expect(
+        screen.getByRole<HTMLSelectElement>("combobox", {
+          name: new RegExp(`^${ability}`),
+        }).value,
+      ).toBe("10");
+    }
+    const constitution = screen.getByRole("combobox", {
+      name: /^Constitution/,
+    }).parentElement;
+    const charisma = screen.getByRole("combobox", {
+      name: /^Charisma/,
+    }).parentElement;
+    if (!constitution || !charisma)
+      throw new Error("Missing racial ability score summaries.");
+    expect(within(constitution).getByText("12 (+1)", {
+      exact: true,
+      selector: ".racial-adjustment",
+    })).toBeDefined();
+    expect(within(charisma).getByText("8 (-1)", {
+      exact: true,
+      selector: ".racial-adjustment",
+    })).toBeDefined();
+  });
+
+  it("starts a usable point-buy allocation when switching from manual scores", () => {
+    render(<App />);
+    for (const ability of ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"]) {
+      fireEvent.change(
+        screen.getByRole("combobox", { name: new RegExp(`^${ability}`) }),
+        { target: { value: "18" } },
+      );
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Point Buy" }));
+    expect(screen.getByText("Points used: 12 / 25", { exact: true })).toBeDefined();
+
+    const pointBuyScores = {
+      Charisma: 8,
+      Strength: 15,
+      Dexterity: 14,
+      Constitution: 13,
+      Intelligence: 12,
+    };
+    Object.entries(pointBuyScores).forEach(([ability, score]) => {
+      fireEvent.change(
+        screen.getByRole("combobox", { name: new RegExp(`^${ability}`) }),
+        { target: { value: String(score) } },
+      );
+    });
+    expect(screen.getByText("Points used: 25 / 25", { exact: true })).toBeDefined();
   });
 
   it("imports and saves a 2.0 character with portable custom items", async () => {

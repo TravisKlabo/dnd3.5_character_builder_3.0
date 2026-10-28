@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { cloneCharacter, initialCharacter } from "../src/domain";
-import { deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatalog";
+import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem, type StoreItem } from "../src/data/equipmentCatalog";
 import { loadSpellCatalog } from "../src/data/spellCatalog";
-import { loadSavedCharacter, savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
+import { customStoreItemsStorageKey, loadSavedCharacter, savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 import { readStoredCharacter } from "./storageTestHelpers";
 
@@ -96,6 +96,60 @@ describe("application workflows", () => {
       .toBe("Saved Setup Draft");
     expect(screen.getByRole("button", { name: "Finalize Character" }).hasAttribute("disabled"))
       .toBe(true);
+  });
+
+  it("round-trips unfinished setup state through character export and import", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    const view = render(<App />);
+    const nameInputs = await screen.findAllByRole<HTMLInputElement>("textbox", { name: "Character name" });
+    await user.clear(nameInputs[0]);
+    await user.type(nameInputs[0], "Portable Setup Draft");
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:portable-setup-draft";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No setup draft JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(JSON.parse(exportedJson).__dnd35CharacterBuilder).toEqual({
+      version: 1,
+      setupDraft: true,
+    });
+    view.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "portable-setup-draft.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    const importedNameInputs = await screen.findAllByRole<HTMLInputElement>("textbox", { name: "Character name" });
+    expect(importedNameInputs[0].value).toBe("Portable Setup Draft");
+    expect(screen.getByRole("button", { name: "Finalize Character" })).toBeDefined();
+    expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"))
+      .toMatchObject([1, { name: "Portable Setup Draft" }, true]);
+    importedView.unmount();
   });
 
   it("preserves existing characters, lazy screens, and level-up cancellation", async () => {
@@ -1603,6 +1657,202 @@ describe("application workflows", () => {
     fireEvent.change(input, { target: { files: [file] } });
     expect((await screen.findByRole("alert")).textContent).toContain("Unable to import");
     expect(screen.getByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
+  });
+
+  it("rejects invalid custom-item imports without partially changing character or catalog data", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const original = savedHero();
+    const originalCharacterStorage = window.localStorage.getItem(savedCharacterStorageKey);
+    const existingItem: StoreItem = {
+      custom: true,
+      name: "Existing Catalog Item",
+      category: "Weapons",
+      price: 12,
+      weight: "2 lb.",
+    };
+    const candidate: StoreItem = {
+      custom: true,
+      name: "Rejected Import Item",
+      category: "Weapons",
+      price: 10,
+      weight: "2 lb.",
+    };
+    addCustomStoreItems([existingItem]);
+    const originalCatalogStorage = window.localStorage.getItem(customStoreItemsStorageKey);
+    const invalidCharacter = {
+      ...cloneCharacter(initialCharacter),
+      customItems: [candidate, { ...candidate, name: "Invalid Imported Item", price: -1 }],
+    };
+    const { container } = render(<App />);
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const json = JSON.stringify(invalidCharacter);
+    const file = new File([json], "invalid-custom-items.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => json });
+
+    try {
+      fireEvent.change(input, { target: { files: [file] } });
+      expect((await screen.findByRole("alert")).textContent).toContain("Unable to import");
+      expect(alert).not.toHaveBeenCalled();
+      expect(screen.getByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
+      expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe(originalCharacterStorage);
+      expect(window.localStorage.getItem(customStoreItemsStorageKey)).toBe(originalCatalogStorage);
+      expect(readStoredCharacter()).toEqual(original);
+      expect(findStoreItem(candidate.name)).toBeUndefined();
+      expect(findStoreItem(existingItem.name)).toEqual(existingItem);
+    } finally {
+      deleteCustomStoreItem(candidate.name);
+      deleteCustomStoreItem(existingItem.name);
+    }
+  });
+
+  it("rejects imported custom items that conflict with an existing catalog entry", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const original = savedHero();
+    const originalCharacterStorage = window.localStorage.getItem(savedCharacterStorageKey);
+    const existingItem: StoreItem = {
+      custom: true,
+      name: "Conflicting Imported Item",
+      category: "Weapons",
+      price: 20,
+      weight: "2 lb.",
+      damage: "1d10",
+      proficiency: "Martial",
+    };
+    const conflictingItem: StoreItem = { ...existingItem, damage: "1d8" };
+    addCustomStoreItems([existingItem]);
+    const originalCatalogStorage = window.localStorage.getItem(customStoreItemsStorageKey);
+    const incomingCharacter = {
+      ...cloneCharacter(initialCharacter),
+      name: "Conflicting Incoming Hero",
+      customItems: [conflictingItem],
+    };
+    const { container } = render(<App />);
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const json = JSON.stringify(incomingCharacter);
+    const file = new File([json], "conflicting-custom-item.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => json });
+
+    try {
+      fireEvent.change(input, { target: { files: [file] } });
+      expect((await screen.findByRole("alert")).textContent).toContain("conflicts with an existing");
+      expect(alert).not.toHaveBeenCalled();
+      expect(screen.getByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
+      expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe(originalCharacterStorage);
+      expect(window.localStorage.getItem(customStoreItemsStorageKey)).toBe(originalCatalogStorage);
+      expect(readStoredCharacter()).toEqual(original);
+      expect(findStoreItem(existingItem.name)).toEqual(existingItem);
+    } finally {
+      deleteCustomStoreItem(existingItem.name);
+    }
+  });
+
+  it("accepts matching custom catalog data after JSON serialization", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const item: StoreItem = {
+      custom: true,
+      name: "Matching Imported Item",
+      category: "Weapons",
+      price: 20,
+      weight: "2 lb.",
+      damage: "1d8",
+      damageSmall: undefined,
+      proficiency: "Martial",
+    };
+    addCustomStoreItems([item]);
+    const character = {
+      ...cloneCharacter(initialCharacter),
+      name: "Matching Item Hero",
+      customItems: [item],
+    };
+    const json = JSON.stringify(character);
+    const file = new File([json], "matching-custom-item.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => json });
+    const { container } = render(<App />);
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+
+    try {
+      fireEvent.change(input, { target: { files: [file] } });
+      expect(await screen.findByRole("heading", { name: "Matching Item Hero (Player)" })).toBeDefined();
+      expect(findStoreItem(item.name)).toMatchObject(item);
+      expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    } finally {
+      deleteCustomStoreItem(item.name);
+    }
+  });
+
+  it("round-trips character-embedded custom items when the catalog entry is missing", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    const item: StoreItem = {
+      custom: true,
+      name: "Embedded Portable Blade",
+      category: "Weapons",
+      price: 15,
+      weight: "3 lb.",
+      damage: "1d8",
+      damageType: "slashing",
+      proficiency: "Martial",
+    };
+    const character = savedHero();
+    character.name = "Portable Item Hero";
+    character.notes = "Keep the family blade safe.";
+    character.equipment["Main Weapon"] = `${item.name} (Medium)`;
+    character.customItems = [item];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    expect(findStoreItem(item.name)).toBeUndefined();
+
+    let importedView: ReturnType<typeof render> | undefined;
+    try {
+      const { unmount } = render(<App />);
+      let exportedBlob: Blob | undefined;
+      class TestURL extends URL {
+        static createObjectURL(blob: Blob) {
+          exportedBlob = blob;
+          return "blob:portable-custom-item";
+        }
+        static revokeObjectURL = vi.fn();
+      }
+      vi.stubGlobal("URL", TestURL);
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+      await user.click(screen.getByRole("button", { name: "Export" }));
+      if (!exportedBlob) throw new Error("No character JSON was exported.");
+      const exportedJson = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(exportedBlob!);
+      });
+      expect(parseCharacter(JSON.parse(exportedJson)).customItems).toContainEqual(item);
+
+      unmount();
+      window.localStorage.removeItem(savedCharacterStorageKey);
+      window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+      importedView = render(<App />);
+      const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!input) throw new Error("Missing import input.");
+      const file = new File([exportedJson], "portable-custom-item.json", {
+        type: "application/json",
+      });
+      Object.defineProperty(file, "text", { value: async () => exportedJson });
+      fireEvent.change(input, { target: { files: [file] } });
+      expect(await screen.findByRole("heading", { name: "Portable Item Hero (Player)" })).toBeDefined();
+      expect(findStoreItem(item.name)).toEqual(item);
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      expect(alert).toHaveBeenLastCalledWith("Character saved.");
+      expect(readStoredCharacter()).toMatchObject({
+        notes: character.notes,
+        equipment: character.equipment,
+        customItems: [item],
+      });
+    } finally {
+      importedView?.unmount();
+      deleteCustomStoreItem(item.name);
+    }
   });
 
   it("keeps rolled assignments and derived character scores synchronized without an effect", () => {

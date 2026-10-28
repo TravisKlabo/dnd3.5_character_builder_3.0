@@ -2,11 +2,11 @@ import { useState, useMemo, lazy, Suspense } from "react";
 import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier } from "./domain";
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
 import { customItemsLoadFailed } from "./customItemsStorage";
-import { isCustomStoreItem, parseCharacter } from "./validation";
+import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
 import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
-import { storeItems, addCustomStoreItems } from "./data/equipmentCatalog";
+import { storeItems, addCustomStoreItems, type StoreItem } from "./data/equipmentCatalog";
 import { CharacterSheet } from "./components/CharacterSheet";
 import { ScreenBoundary } from "./components/ScreenBoundary";
 import "./App.css";
@@ -21,6 +21,16 @@ const WandsScrollPanel = lazy(() => import("./components/WandsScrollPanel").then
 const SpellSheets = lazy(() => import("./components/SpellSheet").then((module) => ({ default: module.SpellSheets })));
 const CreationPanel = lazy(() => import("./components/CreationPanel").then((module) => ({ default: module.CreationPanel })));
 const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItemsWarning"));
+const characterExportMetadataKey = "__dnd35CharacterBuilder";
+
+const customItemKey = (item: StoreItem) =>
+  `${item.category}\0${item.name.trim().toLowerCase()}`;
+const storeItemEntries = (item: StoreItem) =>
+  Object.entries(item)
+    .filter(([, value]) => value !== undefined)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+const storeItemsMatch = (left: StoreItem, right: StoreItem) =>
+  JSON.stringify(storeItemEntries(left)) === JSON.stringify(storeItemEntries(right));
 
 export function App() {
   const [activeSheet, setActiveSheet] = useState("character");
@@ -759,9 +769,19 @@ export function App() {
     }
   };
   const exportCharacter = () => {
+    const customItems = [...storeItems.filter((item) => item.custom)];
+    for (const item of displayedCharacter.customItems ?? []) {
+      if (!customItems.some((existing) =>
+        existing.category === item.category &&
+        existing.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+      )) {
+        customItems.push(item);
+      }
+    }
     const exportData = {
       ...displayedCharacter,
-      customItems: storeItems.filter((item) => item.custom),
+      customItems,
+      [characterExportMetadataKey]: { version: 1, setupDraft: !creationLocked },
     };
     const file = new Blob([JSON.stringify(exportData, null, 2)], {
       type: "application/json",
@@ -780,21 +800,39 @@ export function App() {
     event.target.value = "";
     if (!file) return;
     try {
-      const imported = parseCharacter(JSON.parse(await file.text()));
+      const parsedData: unknown = JSON.parse(await file.text());
+      let characterData = parsedData;
+      let setupDraft = false;
+      if (isRecord(parsedData) && Object.hasOwn(parsedData, characterExportMetadataKey)) {
+        const metadata = parsedData[characterExportMetadataKey];
+        if (!isRecord(metadata) || metadata.version !== 1 || typeof metadata.setupDraft !== "boolean") {
+          throw new Error("The character export metadata is invalid or unsupported.");
+        }
+        const unwrappedData = { ...parsedData };
+        delete unwrappedData[characterExportMetadataKey];
+        characterData = unwrappedData;
+        setupDraft = metadata.setupDraft;
+      }
+      const imported = parseCharacter(characterData);
       const importedCustomItems = (imported.customItems ?? []).filter(isCustomStoreItem);
-      const newCustomItems = importedCustomItems.filter(
-        (item) =>
-          !storeItems.some(
-            (existing) =>
-              existing.category === item.category &&
-              existing.name.trim().toLowerCase() === item.name.trim().toLowerCase(),
-          ),
-      );
+      const newCustomItems: StoreItem[] = [];
+      for (const item of importedCustomItems) {
+        const key = customItemKey(item);
+        const existing = storeItems.find((candidate) => customItemKey(candidate) === key) ??
+          newCustomItems.find((candidate) => customItemKey(candidate) === key);
+        if (existing) {
+          if (!storeItemsMatch(existing, item)) {
+            throw new Error(`An imported item named "${item.name}" conflicts with an existing ${item.category} item.`);
+          }
+          continue;
+        }
+        newCustomItems.push(item);
+      }
       if (newCustomItems.length) addCustomStoreItems(newCustomItems);
       setCharacter(cloneCharacter(imported));
       setCreationDraft(cloneCharacter(imported));
-      setCreationLocked(true);
-      setCreationOpen(false);
+      setCreationLocked(!setupDraft);
+      setCreationOpen(setupDraft);
       setLevelUpDraft(null);
       setOperationError(undefined);
       window.alert("Character imported.");

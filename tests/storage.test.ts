@@ -10,6 +10,7 @@ describe("character persistence", () => {
     character.name = "Test Hero";
     character.skills.Climb = 4;
     character.inventory["Masterwork Longsword (Medium)"] = 1;
+    character.compositeBowStrengthRatings = { "Composite Longbow (Medium)": 3 };
     character.knownSpellsByClass = { wizard: ["Magic Missile"] };
     character.spellAcquisitionByClass = { wizard: { "Magic Missile": "spellbook" } };
     saveCharacter(character);
@@ -34,6 +35,9 @@ describe("character persistence", () => {
     { ...initialCharacter, skills: { Climb: "4" } },
     { ...initialCharacter, featWeaponSelections: { "general-1": 3 } },
     { ...initialCharacter, inventory: { Longsword: -2 } },
+    { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": -1 } },
+    { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": 1.5 } },
+    { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": "3" } },
     { ...initialCharacter, mainWeaponGrip: "two-handed with sword" },
     { ...initialCharacter, doubleWeaponMode: "active" },
     { ...initialCharacter, doubleWeaponPrimaryEnd: "third" },
@@ -74,8 +78,20 @@ describe("character persistence", () => {
   it("validates custom catalogs and reports corruption", () => {
     const item = { name: "Test Blade", category: "Weapons", price: 10, weight: "1 lb.", custom: true };
     expect(parseCustomItems([item])).toEqual([item]);
+    const projectile = {
+      ...item,
+      ranged: true,
+      rangedDamageAbility: "strength",
+      material: "adamantine",
+    };
+    expect(parseCustomItems([projectile])).toEqual([projectile]);
     expect(() => parseCustomItems([{ ...item, price: "free" }])).toThrow();
     expect(() => parseCustomItems([{ ...item, handedness: "Invalid" }])).toThrow();
+    expect(() => parseCustomItems([{ ...projectile, rangedDamageAbility: "invalid" }])).toThrow();
+    expect(() => parseCustomItems([{ ...item, material: "mithral" }])).toThrow();
+    expect(() => parseCustomItems([{ ...item, material: "adamantine", category: "Armor" }])).toThrow();
+    expect(() => parseCustomItems([{ ...item, ranged: "true" }])).toThrow();
+    expect(() => parseCustomItems([{ ...item, ranged: true, category: "Armor" }])).toThrow();
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     window.localStorage.setItem(customStoreItemsStorageKey, "{}");
     expect(loadCustomStoreItems()).toEqual([]);

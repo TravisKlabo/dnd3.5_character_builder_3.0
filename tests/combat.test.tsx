@@ -1,10 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
 import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
+import { EquipmentSheet } from "../src/components/EquipmentSheet";
 import { savedCharacterStorageKey } from "../src/storage";
 import App from "../src/App";
 
@@ -403,6 +404,97 @@ describe("SRD weapon attack and damage", () => {
     expect(getEquippedWeaponStats(fighter(), "Composite Longbow (Medium)")?.damageAbility).toBe(0);
   });
 
+  it("uses composite-bow ratings for flat attack penalties and capped Strength damage", () => {
+    const longbowKey = "Composite Longbow (Medium)";
+    const shortbowKey = "Composite Shortbow (Medium)";
+    const strong = fighter(18);
+    strong.compositeBowStrengthRatings = { [longbowKey]: 3, [shortbowKey]: 2 };
+    expect(getEquippedWeaponStats(strong, longbowKey)).toMatchObject({
+      compositeBowStrengthRating: 3,
+      compositeBowStrengthPenalty: 0,
+      damageAbility: 3,
+    });
+    expect(getEquippedWeaponStats(strong, shortbowKey)?.damageAbility).toBe(2);
+    expect(getInventoryEntryDetails(longbowKey, 3).price).toBe(400);
+    expect(getInventoryEntryDetails(shortbowKey, 2).price).toBe(225);
+
+    const belowRating = fighter(12);
+    belowRating.compositeBowStrengthRatings = { [longbowKey]: 4 };
+    expect(getEquippedWeaponStats(belowRating, longbowKey)).toMatchObject({
+      attack: 3,
+      compositeBowStrengthPenalty: -2,
+      damageAbility: 1,
+    });
+
+    const negativeStrength = fighter(7);
+    negativeStrength.compositeBowStrengthRatings = { [longbowKey]: 4 };
+    expect(getEquippedWeaponStats(negativeStrength, longbowKey)).toMatchObject({
+      compositeBowStrengthPenalty: -2,
+      damageAbility: -2,
+    });
+    expect(getEquippedWeaponStats(fighter(18), "Longbow (Medium)"))
+      .toMatchObject({ compositeBowStrengthRating: undefined, damageAbility: 0 });
+  });
+
+  it("uses saved Strength damage metadata for custom projectiles and Strength for thrown weapons", () => {
+    const names = [
+      "Test Custom Strength Projectile",
+      "Test Custom No-Strength Projectile",
+      "Test Custom Penalty-Only Projectile",
+      "Test Legacy Custom Projectile",
+      "Test Custom Thrown Weapon",
+    ] as const;
+    addCustomStoreItems([
+      {
+        name: names[0], category: "Weapons", custom: true, price: 1, weight: "2 lb.",
+        proficiency: "Simple", handedness: "Two-handed", ranged: true, rangedDamageAbility: "strength",
+        damage: "1d8", damageSmall: "1d6", damageMedium: "1d8", damageLarge: "2d6",
+        damageType: "piercing", rangeSmall: "40 ft.", rangeMedium: "80 ft.", rangeLarge: "160 ft.",
+      },
+      {
+        name: names[1], category: "Weapons", custom: true, price: 1, weight: "1 lb.",
+        proficiency: "Simple", handedness: "One-handed", ranged: true, rangedDamageAbility: "none",
+        damage: "1d6", damageType: "piercing", rangeIncrement: "30 ft.",
+      },
+      {
+        name: names[2], category: "Weapons", custom: true, price: 1, weight: "1 lb.",
+        proficiency: "Simple", handedness: "One-handed", ranged: true,
+        rangedDamageAbility: "strength-penalty-only", damage: "1d6", damageType: "piercing",
+      },
+      {
+        name: names[3], category: "Weapons", custom: true, price: 1, weight: "1 lb.",
+        proficiency: "Simple", handedness: "Ranged", damage: "1d6", damageType: "piercing",
+      },
+      {
+        name: names[4], category: "Weapons", custom: true, price: 1, weight: "1 lb.",
+        proficiency: "Simple", handedness: "One-handed", thrown: true, damage: "1d4",
+        damageType: "piercing", rangeIncrement: "20 ft.",
+      },
+    ]);
+    try {
+      const strong = fighter(16);
+      expect(getEquippedWeaponStats(strong, `${names[0]} (Medium)`, 0, "Ranged Weapon"))
+        .toMatchObject({
+          abilityAttackBonus: 4, damageAbility: 3, damage: "1d8+3",
+          damageType: "piercing", rangeIncrement: "80 ft.",
+        });
+      expect(getEquippedWeaponStats(strong, `${names[0]} (Small)`, 0, "Ranged Weapon"))
+        .toMatchObject({ damageAbility: 3, damage: "1d6+3", rangeIncrement: "40 ft." });
+      expect(getEquippedWeaponStats(fighter(18), `${names[1]} (Medium)`, 0, "Ranged Weapon"))
+        .toMatchObject({ abilityAttackBonus: 4, damageAbility: 0 });
+      expect(getEquippedWeaponStats(fighter(7), `${names[2]} (Medium)`, 0, "Ranged Weapon"))
+        .toMatchObject({ damageAbility: -2 });
+      expect(getEquippedWeaponStats(fighter(18), `${names[3]} (Medium)`, 0, "Ranged Weapon"))
+        .toMatchObject({ damageAbility: 0 });
+      expect(getEquippedWeaponStats(strong, `${names[4]} (Medium)`, 0, "Ranged Weapon"))
+        .toMatchObject({
+          abilityAttackBonus: 4, damageAbility: 3, damage: "1d4+3", rangeIncrement: "20 ft.",
+        });
+    } finally {
+      names.forEach(deleteCustomStoreItem);
+    }
+  });
+
   it("does not invent damage for a net", () => {
     expect(getEquippedWeaponStats(fighter(), "Net (Medium)")?.damage).toBe("—");
   });
@@ -534,6 +626,33 @@ describe("consistent equipment handling", () => {
       onInventoryChange={vi.fn()} onEquipmentAndInventoryChange={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Equip" }));
     expect(update).toHaveBeenCalledWith({ "Ranged Weapon": "Composite Longbow (Medium)" });
+  });
+
+  it("edits a composite bow's saved Strength rating from its equipment summary", () => {
+    const character = fighter();
+    const weaponKey = "Composite Longbow (Medium)";
+    character.equipment["Ranged Weapon"] = weaponKey;
+    const onRatingChange = vi.fn();
+    render(<EquipmentSheet
+      character={character}
+      onEquipmentChange={vi.fn()}
+      rangedTargetDistanceFeet={undefined}
+      onRangedTargetDistanceFeetChange={vi.fn()}
+      targetDamageReduction=""
+      onTargetDamageReductionChange={vi.fn()}
+      onMainWeaponGripChange={vi.fn()}
+      onDoubleWeaponModeChange={vi.fn()}
+      onDoubleWeaponPrimaryEndChange={vi.fn()}
+      onTowerShieldTotalCoverChange={vi.fn()}
+      onShieldBashModeChange={vi.fn()}
+      onCompositeBowStrengthRatingChange={onRatingChange}
+      onEquipmentAndInventoryChange={vi.fn()}
+    />);
+    const ratingInput = screen.getByRole("spinbutton", {
+      name: "Ranged Weapon composite bow Strength rating",
+    });
+    fireEvent.change(ratingInput, { target: { value: "3" } });
+    expect(onRatingChange).toHaveBeenCalledWith(weaponKey, 3);
   });
 });
 
@@ -686,6 +805,119 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(getEquippedWeaponStats(fighter(), `${weapon} (Medium)`)?.rangeIncrement).toBe(increment);
     });
 
+    it("applies range penalties at increment boundaries and enforces projectile maximum range", () => {
+      const character = fighter();
+      const rangedWeapon = (distance: number) =>
+        getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon", [], distance)!;
+      const baseline = getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon")!;
+      expect(rangedWeapon(99)).toMatchObject({
+        rangeAttackPenalty: 0,
+        maximumRangeFeet: 1000,
+        rangeOutOfRange: false,
+      });
+      expect(rangedWeapon(100).rangeAttackPenalty).toBe(-2);
+      expect(rangedWeapon(101)).toMatchObject({
+        rangeAttackPenalty: -2,
+        attack: baseline.attack - 2,
+        attackSequence: baseline.attackSequence.map((attack) => attack - 2),
+      });
+      expect(rangedWeapon(200).rangeAttackPenalty).toBe(-4);
+      expect(rangedWeapon(201).rangeAttackPenalty).toBe(-4);
+      expect(rangedWeapon(1000).rangeOutOfRange).toBe(false);
+      expect(rangedWeapon(1001)).toMatchObject({
+        rangeOutOfRange: true,
+        attackSequence: [],
+        rangeStatusMessage: "Out of range: 1001 ft. exceeds the 1000 ft. maximum.",
+      });
+    });
+
+    it("limits thrown weapons to five increments and does not penalize melee use", () => {
+      const character = fighter();
+      expect(getEquippedWeaponStats(character, "Dagger (Medium)", 0, "Ranged Weapon", [], 25))
+        .toMatchObject({ rangeAttackPenalty: -4, maximumRangeFeet: 50, rangeOutOfRange: false });
+      expect(getEquippedWeaponStats(character, "Dagger (Medium)", 0, "Ranged Weapon", [], 51))
+        .toMatchObject({ rangeOutOfRange: true, attackSequence: [] });
+      expect(getEquippedWeaponStats(character, "Dagger (Medium)", 0, "Main Weapon", [], 100))
+        .toMatchObject({ rangeAttackPenalty: 0, rangeOutOfRange: false });
+    });
+
+    it("checks packaged ammunition and reports crossbow and sling reload actions", () => {
+      const character = fighter();
+      expect(getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon"))
+        .toMatchObject({
+          ammunitionStatus: { status: "missing", message: "No compatible arrows in inventory." },
+          reloadNote: "Drawing an arrow is a free action.",
+        });
+      character.inventory = { "Crossbow Bolts (10)": 1 };
+      expect(getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon")?.ammunitionStatus)
+        .toMatchObject({ status: "missing" });
+      character.inventory["Masterwork Arrows (20)"] = 2;
+      expect(getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon")?.ammunitionStatus)
+        .toMatchObject({ status: "ready", message: expect.stringContaining("2 packages") });
+      expect(getEquippedWeaponStats(character, "Light Crossbow (Medium)", 0, "Ranged Weapon"))
+        .toMatchObject({
+          ammunitionStatus: { status: "ready" },
+          reloadNote: "Reload after each shot: move action; provokes an attack of opportunity.",
+        });
+      expect(getEquippedWeaponStats(character, "Heavy Crossbow (Medium)", 0, "Ranged Weapon")?.reloadNote)
+        .toBe("Reload after each shot: full-round action; provokes an attack of opportunity.");
+      expect(getEquippedWeaponStats(character, "Repeating Heavy Crossbow (Medium)", 0, "Ranged Weapon")?.reloadNote)
+        .toBe("Magazine holds 5 bolts; loading a new case is a full-round action. Shots are not tracked.");
+      character.inventory["Sling Bullets (10)"] = 1;
+      expect(getEquippedWeaponStats(character, "Sling (Medium)", 0, "Ranged Weapon"))
+        .toMatchObject({
+          ammunitionStatus: { status: "ready" },
+          reloadNote: "Load after each shot: move action; provokes an attack of opportunity.",
+        });
+      expect(getEquippedWeaponStats(character, "Dagger (Medium)", 0, "Ranged Weapon")?.ammunitionStatus)
+        .toBeUndefined();
+    });
+
+    it("evaluates single-material DR against weapons and available ammunition", () => {
+      const character = fighter();
+      expect(getEquippedWeaponStats(
+        character, "Cold Iron Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
+      expect(getEquippedWeaponStats(
+        character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron",
+      )?.damageReductionStatus).toMatchObject({ status: "applies" });
+      expect(getEquippedWeaponStats(
+        character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, "5/cold iron and magic",
+      )?.damageReductionStatus).toMatchObject({ status: "manual" });
+
+      character.inventory = { "Masterwork Arrows (20) (Medium)": 1 };
+      expect(getEquippedWeaponStats(
+        character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/silver",
+      )?.damageReductionStatus).toMatchObject({ status: "applies" });
+      character.inventory = { "Silver Arrows (20) (Medium)": 1 };
+      expect(getEquippedWeaponStats(
+        character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/silver",
+      )?.damageReductionStatus).toMatchObject({
+        status: "bypassed",
+        message: expect.stringContaining("ammunition selection is manual"),
+      });
+    });
+
+    it("applies the alchemical-silver damage penalty and custom weapon material metadata", () => {
+      const silverDagger = getEquippedWeaponStats(fighter(), "Silver Dagger (Medium)", 0, "Main Weapon");
+      expect(silverDagger).toMatchObject({
+        damage: "1d4+2",
+        materialDamageNote: "Alchemical silver: -1 damage (minimum 1).",
+      });
+      const name = "Combat Test Adamantine Blade";
+      addCustomStoreItems([{
+        name, category: "Weapons", custom: true, proficiency: "Simple", price: 1,
+        weight: "1 lb.", handedness: "One-handed", damage: "1d8", material: "adamantine",
+      }]);
+      try {
+        expect(getEquippedWeaponStats(
+          fighter(), `${name} (Medium)`, 0, "Main Weapon", [], undefined, "5/adamantine",
+        )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
+      } finally {
+        deleteCustomStoreItem(name);
+      }
+    });
+
     it("distinguishes a thrown increment from a ranged-slot attack", () => {
       const halfling = fighter();
       halfling.race = "Halfling";
@@ -742,6 +974,41 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(screen.getByText("BAB full attack: +10 / +5")).toBeDefined();
       expect(screen.getByText("Range increment: 100 ft.")).toBeDefined();
       expect(screen.getByRole("group", { name: "Space, reach, and load" }).textContent).toBe(movement.textContent);
+    });
+
+    it("applies the selected target distance consistently on both sheets", async () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "fighter", level: 6 }];
+      character.equipment = { "Ranged Weapon": "Longbow (Medium)" };
+      character.inventory = { "Silver Arrows (20) (Medium)": 1 };
+      window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+      const user = userEvent.setup();
+      render(<App />);
+      await user.type(screen.getByRole("spinbutton", { name: "Target distance (ft.)" }), "150");
+      await user.type(screen.getByRole("textbox", { name: "Target damage reduction" }), "5/silver");
+      expect(screen.getByText("Attack +8 / +3")).toBeDefined();
+      expect(screen.getByText("Maximum range 1000 ft.")).toBeDefined();
+      expect(screen.getByText("At 150 ft.: -2 range penalty.")).toBeDefined();
+      expect(screen.getByText(/DR 5\/silver can be bypassed with Silver Arrows/)).toBeDefined();
+      await user.click(screen.getByRole("button", { name: "Equipment" }));
+      await screen.findByText("EQUIPMENT SLOTS");
+      expect(screen.getByText("BAB full attack: +8 / +3")).toBeDefined();
+      expect(screen.getByText("At 150 ft.: -2 range penalty.")).toBeDefined();
+      expect(screen.getByText(/DR 5\/silver can be bypassed with Silver Arrows/)).toBeDefined();
+    });
+
+    it("shows missing ammunition and reload requirements on both sheets", async () => {
+      const character = fighter();
+      character.equipment = { "Ranged Weapon": "Light Crossbow (Medium)" };
+      window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+      const user = userEvent.setup();
+      render(<App />);
+      expect(screen.getByText("No compatible bolts in inventory.")).toBeDefined();
+      expect(screen.getByText("Reload after each shot: move action; provokes an attack of opportunity.")).toBeDefined();
+      await user.click(screen.getByRole("button", { name: "Equipment" }));
+      await screen.findByText("EQUIPMENT SLOTS");
+      expect(screen.getByText("No compatible bolts in inventory.")).toBeDefined();
+      expect(screen.getByText("Reload after each shot: move action; provokes an attack of opportunity.")).toBeDefined();
     });
   });
 

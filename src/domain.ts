@@ -184,6 +184,7 @@ export interface Character {
   doubleWeaponPrimaryEnd?: 'first' | 'second'
   towerShieldTotalCover?: boolean
   shieldBashMode?: boolean
+  compositeBowStrengthRatings?: Record<string, number>
   inventory: Record<string, number>
   languages: string[]
   prestigeClass?: PrestigeClassId

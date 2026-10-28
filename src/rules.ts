@@ -392,6 +392,209 @@ export function getWeaponRangeForSize(item: StoreItem, size: string) {
   return sizedRange ?? item.rangeIncrement ?? (standardRange ? `${standardRange} ft.` : undefined);
 }
 
+function getRangedAttackDistanceDetails(
+  item: StoreItem,
+  rangeIncrement: string | undefined,
+  isRanged: boolean,
+  distanceFeet: number | undefined,
+) {
+  if (!isRanged) {
+    return { attackPenalty: 0, maximumRangeFeet: undefined, outOfRange: false, message: undefined };
+  }
+  const incrementFeetMatch = rangeIncrement?.match(/^\s*(\d+(?:\.\d+)?)\s*(?:ft\.?|feet)\s*$/i);
+  const incrementFeet = incrementFeetMatch ? Number(incrementFeetMatch[1]) : undefined;
+  if (!incrementFeet || !Number.isFinite(incrementFeet) || incrementFeet <= 0) {
+    return {
+      attackPenalty: 0,
+      maximumRangeFeet: undefined,
+      outOfRange: false,
+      message: distanceFeet === undefined
+        ? undefined
+        : "Set a numeric range increment for this weapon to calculate distance penalties.",
+    };
+  }
+  const maximumRangeFeet = incrementFeet * (weaponTraits(item).thrown ? 5 : 10);
+  if (distanceFeet === undefined) {
+    return { attackPenalty: 0, maximumRangeFeet, outOfRange: false, message: undefined };
+  }
+  const fullIncrements = Math.floor(distanceFeet / incrementFeet);
+  const attackPenalty = fullIncrements === 0 ? 0 : -2 * fullIncrements;
+  const outOfRange = distanceFeet > maximumRangeFeet;
+  return {
+    attackPenalty,
+    maximumRangeFeet,
+    outOfRange,
+    message: outOfRange
+      ? `Out of range: ${distanceFeet} ft. exceeds the ${maximumRangeFeet} ft. maximum.`
+      : attackPenalty < 0
+        ? `At ${distanceFeet} ft.: ${formatModifier(attackPenalty)} range penalty.`
+        : `At ${distanceFeet} ft.: no range penalty.`,
+  };
+}
+
+type WeaponMaterial = NonNullable<StoreItem["material"]>;
+type AmmunitionProfile = { label: string; pattern: RegExp };
+type CompatibleAmmunition = { name: string; quantity: number; material?: WeaponMaterial };
+
+function getMaterialFromName(name: string): WeaponMaterial | undefined {
+  if (/\badamantine\b/i.test(name)) return "adamantine";
+  if (/\bcold[\s-]+iron\b/i.test(name)) return "cold-iron";
+  if (/\b(?:alchemical\s+)?silver\b/i.test(name)) return "alchemical-silver";
+  return undefined;
+}
+
+function getWeaponMaterial(item: StoreItem, name: string) {
+  return item.material ?? getMaterialFromName(name) ?? getMaterialFromName(item.name);
+}
+
+function getWeaponAmmunitionProfile(item: StoreItem, isRanged: boolean): AmmunitionProfile | undefined {
+  if (!isRanged) return undefined;
+  const { baseName } = weaponTraits(item);
+  if (baseName.includes("Crossbow")) return { label: "bolts", pattern: /bolts?/i };
+  if (["Shortbow", "Longbow", "Composite Shortbow", "Composite Longbow"].includes(baseName)) {
+    return { label: "arrows", pattern: /arrows?/i };
+  }
+  if (baseName === "Sling") return { label: "sling bullets", pattern: /sling bullets?/i };
+  if (baseName === "Dart") return { label: "darts", pattern: /darts?/i };
+  return undefined;
+}
+
+function getCompatibleAmmunition(
+  character: Character,
+  ammunition: AmmunitionProfile | undefined,
+): CompatibleAmmunition[] {
+  if (!ammunition) return [];
+  return Object.entries(character.inventory ?? {}).flatMap(([key, quantity]) => {
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) return [];
+    const details = getInventoryEntryDetails(key);
+    return details.category === "Ammunition" && ammunition.pattern.test(details.name)
+      ? [{ name: details.name, quantity, material: details.material }]
+      : [];
+  });
+}
+
+function getWeaponAmmunitionReadiness(
+  item: StoreItem,
+  isRanged: boolean,
+  ammunition: AmmunitionProfile | undefined,
+  compatibleAmmunition: CompatibleAmmunition[],
+) {
+  if (!isRanged) return { ammunitionStatus: undefined, reloadNote: undefined };
+  const traits = weaponTraits(item);
+  const { baseName } = traits;
+  let ammunitionStatus: { status: "ready" | "missing" | "manual"; message: string } | undefined;
+  if (ammunition) {
+    const packageCount = compatibleAmmunition.reduce((total, entry) => total + entry.quantity, 0);
+    ammunitionStatus = packageCount > 0
+      ? {
+          status: "ready",
+          message: `Compatible ${ammunition.label} in inventory: ${packageCount} package${packageCount === 1 ? "" : "s"}; not consumed automatically.`,
+        }
+      : { status: "missing", message: `No compatible ${ammunition.label} in inventory.` };
+  } else if (item.custom) {
+    ammunitionStatus = {
+      status: "manual",
+      message: "Custom ranged weapon: ammunition requirements are not configured; verify manually.",
+    };
+  } else if (!traits.thrown) {
+    ammunitionStatus = {
+      status: "manual",
+      message: "Ammunition type is not configured for this ranged weapon; verify manually.",
+    };
+  }
+
+  const reloadNote = baseName === "Light Crossbow" || baseName === "Hand Crossbow"
+    ? "Reload after each shot: move action; provokes an attack of opportunity."
+    : baseName === "Heavy Crossbow"
+      ? "Reload after each shot: full-round action; provokes an attack of opportunity."
+      : baseName.startsWith("Repeating")
+        ? "Magazine holds 5 bolts; loading a new case is a full-round action. Shots are not tracked."
+        : baseName === "Sling"
+          ? "Load after each shot: move action; provokes an attack of opportunity."
+          : ["Shortbow", "Longbow", "Composite Shortbow", "Composite Longbow"].includes(baseName)
+            ? "Drawing an arrow is a free action."
+            : undefined;
+  return { ammunitionStatus, reloadNote };
+}
+
+function getTargetDamageReductionStatus(
+  input: string | undefined,
+  item: StoreItem,
+  weaponName: string,
+  isRanged: boolean,
+  traits: ReturnType<typeof weaponTraits>,
+  ammunition: AmmunitionProfile | undefined,
+  compatibleAmmunition: CompatibleAmmunition[],
+) {
+  if (!input?.trim()) return undefined;
+  const match = input.trim().match(/^(?:DR\s*)?(\d+)\s*\/\s*(.+)$/i);
+  if (!match) {
+    return {
+      status: "manual" as const,
+      message: `Target DR "${input.trim()}" is not in the supported "5/cold iron" format; evaluate it manually.`,
+    };
+  }
+  const amount = Number(match[1]);
+  const qualifier = match[2].trim().toLowerCase().replace(/[-\s]+/g, " ");
+  if (!Number.isSafeInteger(amount)) {
+    return { status: "manual" as const, message: `Target DR "${input.trim()}" has an invalid value; evaluate it manually.` };
+  }
+  if (amount === 0) {
+    return { status: "none" as const, message: "Target DR is 0; no damage reduction applies." };
+  }
+  const targetMaterial: WeaponMaterial | undefined =
+    qualifier === "cold iron" ? "cold-iron" :
+      qualifier === "silver" || qualifier === "alchemical silver" ? "alchemical-silver" :
+        qualifier === "adamantine" ? "adamantine" : undefined;
+  if (!targetMaterial) {
+    return {
+      status: "manual" as const,
+      message: `DR ${amount}/${match[2].trim()} is not a supported single material qualifier; evaluate it manually.`,
+    };
+  }
+
+  if (isRanged && !traits.thrown) {
+    if (!ammunition) {
+      return {
+        status: "manual" as const,
+        message: `DR ${amount}/${qualifier}: this ranged weapon's ammunition material is not configured.`,
+      };
+    }
+    if (compatibleAmmunition.length === 0) {
+      return {
+        status: "manual" as const,
+        message: `DR ${amount}/${qualifier}: no compatible ammunition is in inventory, so bypass cannot be evaluated.`,
+      };
+    }
+    const matchingAmmunition = compatibleAmmunition.filter((entry) => entry.material === targetMaterial);
+    if (matchingAmmunition.length === 0) {
+      return {
+        status: "applies" as const,
+        message: `DR ${amount}/${qualifier} applies with the compatible ammunition in inventory.`,
+      };
+    }
+    const names = [...new Set(matchingAmmunition.map((entry) => entry.name))].join(", ");
+    const silverNote = targetMaterial === "alchemical-silver"
+      ? " Silver ammunition also imposes -1 damage (minimum 1); choose it manually."
+      : "";
+    return {
+      status: "bypassed" as const,
+      message: `DR ${amount}/${qualifier} can be bypassed with ${names}; ammunition selection is manual.${silverNote}`,
+    };
+  }
+
+  if (getWeaponMaterial(item, weaponName) === targetMaterial) {
+    return {
+      status: "bypassed" as const,
+      message: `DR ${amount}/${qualifier} is bypassed by this weapon's material.`,
+    };
+  }
+  return {
+    status: "applies" as const,
+    message: `DR ${amount}/${qualifier} applies to this weapon.`,
+  };
+}
+
 export function getCombatSpace(character: Character) {
   const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ?? raceDefinitions.human;
   const dimensions = {
@@ -443,9 +646,18 @@ export function getStoreItemDescription(item: StoreItem, size = "Medium") {
     const masterworkBenefit = item.name.startsWith("Masterwork ")
       ? " Masterwork: +1 enhancement bonus on attack rolls; this does not add damage."
       : "";
+    const rangedDamageAbility = item.rangedDamageAbility === "strength"
+      ? "Strength modifier to projectile damage"
+      : item.rangedDamageAbility === "strength-penalty-only"
+        ? "negative Strength modifier to projectile damage"
+        : item.ranged || item.handedness === "Ranged"
+          ? "no Strength modifier to projectile damage"
+          : "";
     const properties = [
       item.finesse ? "finesse" : "",
       getWeaponRangeForSize(item, size) ? `range ${getWeaponRangeForSize(item, size)}` : "",
+      item.thrown ? "thrown" : item.ranged ? "projectile" : "",
+      rangedDamageAbility,
       item.reach ? `reach ${item.reach}` : "",
       item.specialProperties ?? "",
     ].filter(Boolean).join(", ");
@@ -505,11 +717,15 @@ export function getSizedStoreWeight(item: StoreItem, size: string) {
   return `${numericWeight * multiplier} lb.`;
 }
 
-export function getInventoryEntryDetails(key: string) {
+export function getInventoryEntryDetails(key: string, compositeBowStrengthRating = 0) {
   const match = key.match(/^(.*) \((Small|Medium|Large)\)$/);
   const name = match?.[1] ?? key;
   const size = match?.[2] ?? "Medium";
   const item = findStoreItem(name);
+  const baseName = item ? getBaseEquipmentName(item.name) : name;
+  const compositeBowRatingCost = baseName === "Composite Longbow"
+    ? 100 * compositeBowStrengthRating
+    : baseName === "Composite Shortbow" ? 75 * compositeBowStrengthRating : 0;
   const spellName = name.match(/^(?:Wand|Scroll) of (.+?) \(CL /)?.[1];
   const spell = spellName
     ? findSpellByName(spellName)
@@ -520,9 +736,12 @@ export function getInventoryEntryDetails(key: string) {
     name,
     size,
     weight,
-    price: item ? getSizedStorePrice(item, size) : undefined,
+    price: item ? getSizedStorePrice(item, size) + compositeBowRatingCost : undefined,
     category: item?.category ?? "Crafted item",
     description: item ? getStoreItemDescription(item, size) : "Inventory item.",
+    material: item?.material ?? (item && (item.category === "Weapons" || item.category === "Ammunition")
+      ? getMaterialFromName(name)
+      : undefined),
     spell,
     numericWeight: Number.isNaN(numericWeight) ? 0 : numericWeight,
     weightKnown: !!item && (weight === "—" || Number.isFinite(numericWeight)),
@@ -644,7 +863,7 @@ function weaponTraits(item: StoreItem) {
   const baseName = getBaseEquipmentName(item.name);
   const light = item.handedness ? item.handedness === "Light" : lightOffHandWeaponNames.has(baseName);
   const twoHanded = item.handedness ? item.handedness === "Two-handed" : twoHandedWeaponNames.has(baseName);
-  const ranged = item.handedness === "Ranged" || projectileWeaponNames.has(baseName) ||
+  const ranged = item.ranged === true || item.handedness === "Ranged" || projectileWeaponNames.has(baseName) ||
     rangedWeaponNames.has(baseName) || baseName === "Net";
   const thrown = item.thrown === true || thrownWeaponNames.has(baseName);
   const finesse = item.finesse ?? (light || ["Rapier", "Whip", "Spiked Chain"].includes(baseName));
@@ -947,6 +1166,8 @@ export function getEquippedWeaponStats(
   attackPenalty = 0,
   slot: WeaponSlot = "Main Weapon",
   targetTypes: CombatTargetType[] = [],
+  targetDistanceFeet?: number,
+  targetDamageReduction?: string,
 ) {
   const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
   const size = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
@@ -1007,6 +1228,12 @@ export function getEquippedWeaponStats(
   );
   const thrownAttackBonus = race?.id === "halfling" && isRanged &&
     (traits.thrown || traits.baseName === "Sling") ? 1 : 0;
+  const compositeBowStrengthRating = traits.baseName === "Composite Longbow" ||
+    traits.baseName === "Composite Shortbow"
+    ? character.compositeBowStrengthRatings?.[key] ?? 0
+    : undefined;
+  const compositeBowStrengthPenalty = compositeBowStrengthRating !== undefined &&
+    strength < compositeBowStrengthRating ? -2 : 0;
   const racialAttackBonus = Math.max(targetAttackBonus, thrownAttackBonus);
   const weaponFeatType = getWeaponFeatTypeName(item.name);
   const weaponFocusBonus = getWarDomainWeapon(character) === weaponFeatType ||
@@ -1026,21 +1253,52 @@ export function getEquippedWeaponStats(
       : []),
     ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
   ];
-  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + racialAttackBonus + weaponFocusBonus + activeAttack;
+  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + weaponFocusBonus + activeAttack;
+  const rangeIncrement = getWeaponRangeForSize(item, size);
+  const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
+  const ammunition = getWeaponAmmunitionProfile(item, isRanged);
+  const compatibleAmmunition = getCompatibleAmmunition(character, ammunition);
+  const rangedReadiness = getWeaponAmmunitionReadiness(item, isRanged, ammunition, compatibleAmmunition);
+  const damageReductionStatus = getTargetDamageReductionStatus(
+    targetDamageReduction,
+    item,
+    name,
+    isRanged,
+    traits,
+    ammunition,
+    compatibleAmmunition,
+  );
   const bucklerAttackPenalty = isBucklerEquipped(character) && !isRanged &&
     (slot === "Off Hand Weapon" || (slot === "Main Weapon" &&
       (twoHandedGrip || Boolean(character.equipment?.["Off Hand Weapon"]) || doubleWeaponMode)))
     ? -1
     : 0;
-  const finalAttack = attack + bucklerAttackPenalty;
+  const finalAttack = attack + bucklerAttackPenalty + rangeDetails.attackPenalty;
   let damageAbility = strength;
-  if (isRanged && projectileWeaponNames.has(traits.baseName)) {
-    damageAbility = traits.baseName === "Sling" ? strength :
-      traits.baseName.includes("bow") && !traits.baseName.includes("Crossbow") ? Math.min(0, strength) : 0;
+  const customProjectile = item.custom === true && !traits.thrown &&
+    (item.ranged === true || item.handedness === "Ranged");
+  if (isRanged && (projectileWeaponNames.has(traits.baseName) || customProjectile)) {
+    if (traits.baseName === "Sling") {
+      damageAbility = strength;
+    } else if (compositeBowStrengthRating !== undefined) {
+      damageAbility = strength > 0 ? Math.min(strength, compositeBowStrengthRating) : strength;
+    } else if (customProjectile) {
+      damageAbility = item.rangedDamageAbility === "strength"
+        ? strength
+        : item.rangedDamageAbility === "strength-penalty-only"
+          ? Math.min(0, strength)
+          : 0;
+    } else {
+      damageAbility = traits.baseName.includes("bow") && !traits.baseName.includes("Crossbow")
+        ? Math.min(0, strength)
+        : 0;
+    }
   } else if (strength > 0) {
     damageAbility = Math.floor(strength * (slot === "Off Hand Weapon" ? 0.5 : !isRanged && twoHandedGrip ? 1.5 : 1));
   }
-  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus;
+  const weaponMaterial = getWeaponMaterial(item, name);
+  const silverDamagePenalty = weaponMaterial === "alchemical-silver" && (!isRanged || traits.thrown) ? -1 : 0;
+  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + silverDamagePenalty;
   const damageDice = getWeaponEndDamageForSize(item, size, usesAlternateEnd ? "off-hand" : "main");
   const elementalProperties = [
     ["Flaming", "fire"],
@@ -1050,16 +1308,23 @@ export function getEquippedWeaponStats(
   return {
     name: displayName,
     attack: finalAttack,
-    attackSequence: Array.from(
+    attackSequence: rangeDetails.outOfRange ? [] : Array.from(
       { length: slot === "Off Hand Weapon" ? 1 : Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5))) },
       (_, index) => finalAttack - index * 5,
     ),
     attackSequenceNote: "BAB-based full attack only; not extra attacks from feats, haste, flurry, or special routines. Off-hand shows one attack. Ranged attacks require ammunition and sufficient reload/draw actions.",
-    rangeIncrement: getWeaponRangeForSize(item, size),
+    rangeIncrement,
     rangeLabel: isRanged ? "Range increment" : "Thrown increment",
+    rangeAttackPenalty: rangeDetails.attackPenalty,
+    maximumRangeFeet: rangeDetails.maximumRangeFeet,
+    rangeOutOfRange: rangeDetails.outOfRange,
+    rangeStatusMessage: rangeDetails.message,
+    ...rangedReadiness,
+    damageReductionStatus,
     reach: isRanged ? undefined : getWeaponReach(character, item),
     damage: damageDice === "—" || damageDice === "varies" ? damageDice :
       `${damageDice}${damageBonus >= 0 ? `+${damageBonus}` : damageBonus}`,
+    materialDamageNote: silverDamagePenalty ? "Alchemical silver: -1 damage (minimum 1)." : undefined,
     damageType: usesAlternateEnd
       ? item.offHandDamageType ?? profile.offHandDamageType ?? item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies"
       : item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies",
@@ -1085,6 +1350,8 @@ export function getEquippedWeaponStats(
     weaponSpecializationBonus,
     damageAbility,
     attackPenalty,
+    compositeBowStrengthRating,
+    compositeBowStrengthPenalty,
     finessePenalty,
     nonproficiencyPenalty,
     nonproficiencyPenalties,
@@ -1130,6 +1397,20 @@ const rogueWeaponNames = new Set([
   "Hand Crossbow", "Rapier", "Sap", "Shortbow", "Composite Shortbow", "Short Sword",
 ]);
 const wizardWeaponNames = new Set(["Club", "Dagger", "Heavy Crossbow", "Light Crossbow", "Quarterstaff"]);
+const broadWeaponPrestigeClasses = new Set<PrestigeClassId>([
+  "arcane-archer", "duelist", "dwarven-defender",
+]);
+const specificPrestigeWeaponNames: Partial<Record<PrestigeClassId, ReadonlySet<string>>> = {
+  assassin: new Set([
+    "Dagger", "Dart", "Hand Crossbow", "Heavy Crossbow", "Light Crossbow",
+    "Rapier", "Sap", "Shortbow", "Composite Shortbow", "Short Sword",
+  ]),
+  shadowdancer: new Set([
+    "Club", "Dagger", "Dart", "Hand Crossbow", "Heavy Crossbow", "Light Crossbow",
+    "Light Mace", "Heavy Mace", "Mace", "Morningstar", "Quarterstaff", "Rapier",
+    "Sap", "Shortbow", "Composite Shortbow", "Short Sword",
+  ]),
+};
 
 function getWeaponProficiencyCategory(character: Character, item: StoreItem) {
   if (item.category !== "Weapons") return undefined;
@@ -1151,6 +1432,23 @@ function getWeaponProficiencyCategory(character: Character, item: StoreItem) {
     proficiency = "Martial";
   }
   return proficiency;
+}
+
+function hasPrestigeClassWeaponProficiency(
+  character: Character,
+  proficiency: string | undefined,
+  baseName: string,
+) {
+  const grantsProficiency = (prestigeClassId: PrestigeClassId) => {
+    if (dragonlancePrestigeClasses[prestigeClassId]?.source !== "core-35-srd") return false;
+    if (broadWeaponPrestigeClasses.has(prestigeClassId)) {
+      return proficiency === "Simple" || proficiency === "Martial";
+    }
+    return specificPrestigeWeaponNames[prestigeClassId]?.has(baseName) ?? false;
+  };
+  return character.classLevels.some((level) =>
+    "prestigeClassId" in level && grantsProficiency(level.prestigeClassId),
+  ) || Boolean(character.prestigeClass && grantsProficiency(character.prestigeClass));
 }
 
 export function isWeaponProficient(
@@ -1175,6 +1473,7 @@ export function isWeaponProficient(
   const baseName = getBaseEquipmentName(item.name);
   const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
   if (race?.id === "elf" && elfWeaponNames.has(baseName)) return true;
+  if (hasPrestigeClassWeaponProficiency(character, proficiency, baseName)) return true;
 
   return character.classLevels.some(({ classId }) => {
     if (martialWeaponClasses.has(classId)) return proficiency === "Simple" || proficiency === "Martial";

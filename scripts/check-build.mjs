@@ -6,7 +6,7 @@ const initialScripts = [...html.matchAll(/(?:src|href)="\.\/([^"]+\.js)"/g)].map
 if (!initialScripts.length) throw new Error("The build has no JavaScript entry point.");
 const initialBytes = (await Promise.all(initialScripts.map(async (file) =>
   (await stat(path.join("dist", file))).size))).reduce((total, bytes) => total + bytes, 0);
-const budget = 453_000;
+const budget = 464_000;
 if (initialBytes > budget) {
   throw new Error(`Initial JavaScript is ${initialBytes} bytes; the budget is ${budget} bytes.`);
 }

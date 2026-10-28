@@ -14,7 +14,10 @@ export type StoreItem = {
   weight: string;
   description?: string;
   custom?: boolean;
+  ranged?: boolean;
   thrown?: boolean;
+  rangedDamageAbility?: "none" | "strength" | "strength-penalty-only";
+  material?: "cold-iron" | "alchemical-silver" | "adamantine";
   damage?: string;
   damageSmall?: string;
   damageMedium?: string;

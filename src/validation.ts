@@ -39,10 +39,12 @@ export function isCustomStoreItem(value: unknown): value is StoreItem {
     "reach", "specialProperties", "armorSpeed"];
   const numberFields = ["armorBonus", "maxDexterity", "armorCheckPenalty", "arcaneSpellFailure",
     "shieldBonus", "shieldCheckPenalty", "shieldSpellFailure"];
-  const booleanFields = ["finesse", "thrown", "towerShieldProficiency", "doubleWeapon"];
+  const booleanFields = ["finesse", "ranged", "thrown", "towerShieldProficiency", "doubleWeapon"];
   const enums: Record<string, string[]> = {
     proficiency: ["Simple", "Martial", "Exotic"],
     handedness: ["Light", "One-handed", "Two-handed", "Ranged"],
+    rangedDamageAbility: ["none", "strength", "strength-penalty-only"],
+    material: ["cold-iron", "alchemical-silver", "adamantine"],
     armorCategory: ["Light", "Medium", "Heavy"],
     shieldType: ["Buckler", "Light", "Heavy", "Tower", "Custom"],
   };
@@ -50,6 +52,9 @@ export function isCustomStoreItem(value: unknown): value is StoreItem {
     numberFields.every((key) => value[key] === undefined || isNumber(value[key])) &&
     booleanFields.every((key) => value[key] === undefined || typeof value[key] === "boolean") &&
     !(value.thrown === true && value.category !== "Weapons") &&
+    !(value.ranged === true && value.category !== "Weapons") &&
+    !(value.rangedDamageAbility !== undefined && value.category !== "Weapons") &&
+    !(value.material !== undefined && !["Weapons", "Ammunition"].includes(String(value.category))) &&
     Object.entries(enums).every(([key, options]) =>
       value[key] === undefined || (isString(value[key]) && options.includes(value[key])));
 }
@@ -96,6 +101,11 @@ export function assertCharacter(value: unknown): asserts value is Character {
       !value.combatEffects.every(isCombatEffect));
   if (invalidCombatRound || invalidCombatEffects) {
     throw new Error("Combat round and active effect data are invalid.");
+  }
+  if (value.compositeBowStrengthRatings !== undefined &&
+      !isMap(value.compositeBowStrengthRatings, (rating) =>
+        isNumber(rating) && Number.isSafeInteger(rating) && rating >= 0)) {
+    throw new Error("Composite bow Strength ratings must be nonnegative whole numbers.");
   }
   const optionalStrings = ["age", "height", "weight", "hairColor", "eyeColor", "skinColor",
     "damageReduction", "spellResistance", "notes", "deity"];

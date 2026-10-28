@@ -38,6 +38,10 @@ export function EquipmentStore({
   const [customProficiency, setCustomProficiency] = useState<StoreItem["proficiency"]>("Simple");
   const [customHandedness, setCustomHandedness] = useState<StoreItem["handedness"]>("One-handed");
   const [customWeaponMode, setCustomWeaponMode] = useState<"Melee" | "Ranged" | "Thrown">("Melee");
+  const [customWeaponMaterial, setCustomWeaponMaterial] =
+    useState<NonNullable<StoreItem["material"]> | "">("");
+  const [customRangedDamageAbility, setCustomRangedDamageAbility] =
+    useState<NonNullable<StoreItem["rangedDamageAbility"]>>("none");
   const [customFinesse, setCustomFinesse] = useState(false);
   const [customRange, setCustomRange] = useState("");
   const [customRangeSmall, setCustomRangeSmall] = useState("");
@@ -149,7 +153,7 @@ export function EquipmentStore({
       description: customItemDescription.trim() || "Custom item.",
       custom: true,
       ...(customItemType === "Weapon"
-        ? { damage: customDamage, damageSmall: customDamageSmall.trim() || undefined, damageMedium: customDamageMedium.trim() || undefined, damageLarge: customDamageLarge.trim() || undefined, damageType: customDamageType, critical: customCritical, proficiency: customProficiency, handedness: customHandedness, thrown: customWeaponMode === "Thrown", finesse: customFinesse, rangeIncrement: customRange.trim() || undefined, rangeSmall: customRangeSmall.trim() || undefined, rangeMedium: customRangeMedium.trim() || undefined, rangeLarge: customRangeLarge.trim() || undefined, reach: customReach.trim() || undefined, specialProperties: customProperties.trim() || undefined }
+        ? { damage: customDamage, damageSmall: customDamageSmall.trim() || undefined, damageMedium: customDamageMedium.trim() || undefined, damageLarge: customDamageLarge.trim() || undefined, damageType: customDamageType, critical: customCritical, proficiency: customProficiency, handedness: customHandedness, ranged: customWeaponMode === "Ranged", thrown: customWeaponMode === "Thrown", rangedDamageAbility: customWeaponMode === "Ranged" ? customRangedDamageAbility : undefined, material: customWeaponMaterial || undefined, finesse: customFinesse, rangeIncrement: customRange.trim() || undefined, rangeSmall: customRangeSmall.trim() || undefined, rangeMedium: customRangeMedium.trim() || undefined, rangeLarge: customRangeLarge.trim() || undefined, reach: customReach.trim() || undefined, specialProperties: customProperties.trim() || undefined }
         : {}),
       ...(customItemType === "Armor"
         ? {
@@ -191,6 +195,7 @@ export function EquipmentStore({
     setCustomProficiency("Simple");
     setCustomHandedness("One-handed");
     setCustomWeaponMode("Melee");
+    setCustomRangedDamageAbility("none");
     setCustomFinesse(false);
     setCustomRange("");
     setCustomRangeSmall("");
@@ -272,8 +277,21 @@ export function EquipmentStore({
                 <label>Proficiency<select value={customProficiency} onChange={(event) => setCustomProficiency(event.target.value as StoreItem["proficiency"])}><option>Simple</option><option>Martial</option><option>Exotic</option></select></label>
                 <label>Handedness<select value={customHandedness} onChange={(event) => setCustomHandedness(event.target.value as StoreItem["handedness"])}><option>Light</option><option>One-handed</option><option>Two-handed</option><option>Ranged</option></select></label>
                 <label>Weapon mode<select value={customWeaponMode} onChange={(event) => setCustomWeaponMode(event.target.value as typeof customWeaponMode)}><option>Melee</option><option>Ranged</option><option>Thrown</option></select></label>
+                <label>Weapon material<select aria-label="Weapon material" value={customWeaponMaterial} onChange={(event) => setCustomWeaponMaterial(event.target.value as typeof customWeaponMaterial)}><option value="">None</option><option value="cold-iron">Cold iron</option><option value="alchemical-silver">Alchemical silver</option><option value="adamantine">Adamantine</option></select></label>
                 <label>Finesse<input type="checkbox" checked={customFinesse} onChange={(event) => setCustomFinesse(event.target.checked)} /></label>
                 {(customWeaponMode === "Ranged" || customWeaponMode === "Thrown") && <label>Range increment<input value={customRange} onChange={(event) => setCustomRange(event.target.value)} placeholder="30 ft." /></label>}
+                {customWeaponMode === "Ranged" && <label>Ranged Strength damage
+                  <select
+                    value={customRangedDamageAbility}
+                    onChange={(event) => setCustomRangedDamageAbility(
+                      event.target.value as NonNullable<StoreItem["rangedDamageAbility"]>,
+                    )}
+                  >
+                    <option value="none">None (crossbow-like)</option>
+                    <option value="strength">Strength modifier (sling-like)</option>
+                    <option value="strength-penalty-only">Negative Strength only (bow-like)</option>
+                  </select>
+                </label>}
                 {(customWeaponMode === "Ranged" || customWeaponMode === "Thrown") && <>
                   <label>Small range<input value={customRangeSmall} onChange={(event) => setCustomRangeSmall(event.target.value)} placeholder="20 ft." /></label>
                   <label>Medium range<input value={customRangeMedium} onChange={(event) => setCustomRangeMedium(event.target.value)} placeholder="30 ft." /></label>

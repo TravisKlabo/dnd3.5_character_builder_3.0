@@ -41,6 +41,61 @@ export function Stat({ label, value, detail, title }: { label: string; value: st
   );
 }
 
+export function RangedDistanceControl({ distanceFeet, onChange }: {
+  distanceFeet: number | undefined;
+  onChange: (distanceFeet: number | undefined) => void;
+}) {
+  return (
+    <label className="ranged-distance-control">
+      Target distance (ft.)
+      <input
+        type="number"
+        min="0"
+        step="1"
+        aria-label="Target distance (ft.)"
+        value={distanceFeet ?? ""}
+        onChange={(event) => {
+          const input = event.currentTarget;
+          if (input.value === "") {
+            input.setCustomValidity("");
+            onChange(undefined);
+            return;
+          }
+          const distance = input.valueAsNumber;
+          if (!input.validity.valid || !Number.isSafeInteger(distance) || distance < 0) {
+            input.setCustomValidity("Enter a nonnegative whole-number distance in feet.");
+            input.reportValidity();
+            return;
+          }
+          input.setCustomValidity("");
+          onChange(distance);
+        }}
+      />
+    </label>
+  );
+}
+
+export function TargetDamageReductionControl({ value, onChange }: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="target-damage-reduction-control">
+      <label>
+        Target damage reduction
+        <input
+          type="text"
+          aria-label="Target damage reduction"
+          placeholder="5/cold iron"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+      <small>Single material qualifiers only: cold iron, silver, or adamantine. Other DR remains manual; this context is not saved.</small>
+    </div>
+  );
+}
+
 export function ArmorClassStat({ character, targetTypes = [] }: {
   character: Character;
   targetTypes?: CombatTargetType[];

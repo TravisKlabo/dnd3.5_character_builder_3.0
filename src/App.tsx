@@ -25,6 +25,8 @@ export function App() {
   const [savedState] = useState(loadSavedCharacter);
   const [operationError, setOperationError] = useState(savedState.error);
   const [character, setCharacter] = useState<Character>(() => savedState.character);
+  const [rangedTargetDistanceFeet, setRangedTargetDistanceFeet] = useState<number | undefined>(undefined);
+  const [targetDamageReduction, setTargetDamageReduction] = useState("");
   const [creationState, setCreationDraft] = useState<Character>(() =>
     cloneCharacter(savedState.character),
   );
@@ -528,6 +530,21 @@ export function App() {
       setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
     else setCharacter(update(character));
   };
+  const updateCompositeBowStrengthRating = (weaponKey: string, rating: number) => {
+    const update = (current: Character) => {
+      const ratings = { ...current.compositeBowStrengthRatings };
+      if (rating === 0) delete ratings[weaponKey];
+      else ratings[weaponKey] = rating;
+      return {
+        ...current,
+        compositeBowStrengthRatings: Object.keys(ratings).length ? ratings : undefined,
+      };
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
   const addCharacterNote = (text: string) => {
     const entry = `[${formatNoteDate(new Date())}]\n${text}`;
     const update = (current: Character): Character => ({
@@ -998,6 +1015,10 @@ export function App() {
             onOpenSpells={() => setActiveSheet("spells")}
             onHitPointAction={updateHitPoints}
             onCombatEffectsChange={updateCombatEffects}
+            rangedTargetDistanceFeet={rangedTargetDistanceFeet}
+            onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
+            targetDamageReduction={targetDamageReduction}
+            onTargetDamageReductionChange={setTargetDamageReduction}
             onAddNote={addCharacterNote}
             character={displayedCharacter}
             levelUpOriginal={levelUpDraft?.original}
@@ -1022,12 +1043,17 @@ export function App() {
         <EquipmentSheet
           key={displayedCharacter.race}
           character={displayedCharacter}
+          rangedTargetDistanceFeet={rangedTargetDistanceFeet}
+          onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
+          targetDamageReduction={targetDamageReduction}
+          onTargetDamageReductionChange={setTargetDamageReduction}
           onEquipmentChange={updateEquipment}
           onMainWeaponGripChange={updateMainWeaponGrip}
           onDoubleWeaponModeChange={updateDoubleWeaponMode}
           onDoubleWeaponPrimaryEndChange={updateDoubleWeaponPrimaryEnd}
           onTowerShieldTotalCoverChange={updateTowerShieldTotalCover}
           onShieldBashModeChange={updateShieldBashMode}
+          onCompositeBowStrengthRatingChange={updateCompositeBowStrengthRating}
           onEquipmentAndInventoryChange={updateEquipmentAndInventory}
         />
       )}

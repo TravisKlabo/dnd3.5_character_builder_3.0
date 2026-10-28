@@ -180,8 +180,25 @@ penalties for successive attacks.
 Weapon rows show BAB-based iterative attacks at BAB 6, 11, and 16, decreasing
 by 5 each time (at most four). Off-hand rows show one attack, not a complete
 two-weapon routine. These sequences do not add haste, flurry, or feat-granted
-attacks, though tracked attack modifiers do apply. Ranged attacks remain subject
-to ammunition and reload/draw actions.
+attacks, though tracked attack modifiers do apply. Each full range increment
+imposes a cumulative -2 attack penalty; targets closer than the first increment
+are unpenalized. Thrown weapons are limited to five increments and projectile
+weapons to ten. Target distance is session-only. Bows, crossbows, slings, and
+darts check inventory for compatible ammunition; the sheets show missing ammo
+and draw/reload action notes, but do not consume ammo or track loaded state.
+The shared target DR context evaluates a single material qualifier for cold
+iron, silver, or adamantine, using weapon material for melee/thrown weapons and
+matching ammunition inventory for bows, crossbows, and slings. A ranged result
+only indicates that bypassing ammunition is available; ammunition is not
+selected automatically. Alchemical-silver melee/thrown weapons show the -1
+damage penalty (minimum 1), while silver ammunition's penalty is noted for
+manual application. Damage is not automatically reduced by target DR, and
+compound, magical, alignment, and other DR qualifiers remain manual. See the
+SRD [damage reduction](https://www.d20srd.org/srd/specialAbilities.htm#damageReduction)
+and [special materials](https://www.d20srd.org/srd/specialMaterials.htm) rules.
+Custom thrown weapons use Strength for
+damage; custom projectiles can select no Strength damage, the full Strength
+modifier, or negative Strength modifiers only.
 Standard ranged/thrown increments and melee weapon reach appear alongside weapon
 details; custom size-specific range and explicit reach values take precedence.
 Reach weapons distinguish normal-reach exclusions, spiked chain, and whip rules.
@@ -314,8 +331,10 @@ the deity's favored weapon and proficiency when that weapon is martial, for
 supported core mappings. This virtual Weapon Focus does not stack with the feat
 and can qualify for Weapon Specialization. Other deity mappings require manual
 resolution.
-Prestige-class weapon proficiencies and Dragonlance-specific weapon lists are
-not yet modeled.
+Core SRD prestige-class weapon proficiencies are modeled for Arcane Archer,
+Assassin, Duelist, Dwarven Defender, and Shadowdancer. Other Core prestige
+classes grant no additional weapon proficiencies. Dragonlance-specific weapon
+lists remain unverified.
 
 References: SRD [weapon proficiency](https://www.d20srd.org/srd/combat/combatModifiers.htm#weaponArmorAndShieldProficiency),
 [Weapon Focus](https://www.d20srd.org/srd/feats.htm#weaponFocus),
@@ -562,7 +581,14 @@ correctness pass intentionally corrects inherited calculations:
 - Character size affects attacks. Halflings and gnomes now have their missing
   Small-size metadata, also correcting their size-dependent AC and carrying limits.
 - Ranged attacks use Dexterity. Slings/thrown weapons use Strength for damage;
-  crossbows do not, and ordinary bows apply only a Strength penalty.
+  crossbows do not, and ordinary bows apply only a Strength penalty. Composite
+  bows save a selectable Strength rating: below-rating attacks take a flat -2,
+  positive Strength damage is capped at the rating, and negative Strength
+  penalties remain. Each rating point adds 100 gp for a longbow or 75 gp for a
+  shortbow; the inventory price reflects this, but currency remains manual.
+- Custom ranged projectile weapons save a damage-ability rule: no Strength,
+  full Strength modifier, or negative Strength modifier only. Custom thrown
+  weapons retain Strength damage.
 - Equipment screens share equipping logic and weapon classification, including
   material/masterwork variants, composite bows, and custom handedness.
 
@@ -572,6 +598,8 @@ character sheets. References: SRD [combat statistics](https://www.d20srd.org/srd
 [Weapon Finesse](https://www.d20srd.org/srd/feats.htm#weaponFinesse),
 [weapons](https://www.d20srd.org/srd/equipment/weapons.htm), and
 [magic weapons](https://www.d20srd.org/srd/magicItems/magicWeapons.htm).
+Composite-bow ratings follow the SRD [composite longbow](https://www.d20srd.org/srd/equipment/weapons.htm#longbowComposite)
+and [composite shortbow](https://www.d20srd.org/srd/equipment/weapons.htm#shortbowComposite) rules.
 
 The class-sheet pass also corrects sorcerer spell access, bard daily/known-spell
 progression, sorcerer spells-known counts, and paladin/ranger slot indexing. Daily
@@ -600,19 +628,15 @@ Dragonlance race data is not verified. See the SRD [Dwarf](https://www.d20srd.or
 [Gnome](https://www.d20srd.org/srd/races.htm#gnomes), and
 [Halfling](https://www.d20srd.org/srd/races.htm#halflings) rules.
 
-Remaining gaps include prestige-class weapon proficiency, other racial combat
-modifiers, and full bonus stacking.
-Composite bows currently have an implicit +0 Strength rating; selectable ratings
-and their attack penalties are not implemented. Custom thrown mode is saved as
-weapon metadata; custom ranged projectile damage still needs further metadata.
+Remaining gaps include other racial combat modifiers and full bonus stacking.
 Handedness `Ranged` and placement in the ranged slot select Dexterity attacks.
-Iterative attacks,
-range/ammunition modifiers and special shield/material cases also need further
-verification. Spellcasting still needs full domain-power automation and verified
-deity associations, wizard specialization/
-prohibited schools, spontaneous known-spell replacement, prestige-class casting
-advancement, and feat/item caster-level/DC/slot adjustments. Slot expenditure is
-manual rather than automatically linked to casting a specific prepared spell.
+Ammunition consumption, custom ammunition, and non-material damage-reduction
+qualifiers or special shield/material cases need further verification. Spellcasting still
+needs additional domain-power automation and broader deity mapping, wizard
+specialization/prohibited schools, spontaneous known-spell replacement,
+prestige-class casting advancement, and feat/item caster-level/DC/slot
+adjustments. Slot expenditure is manual rather than automatically linked to
+casting a specific prepared spell.
 Dragonlance content remains unverified.
 
 The application still rolls hit points **before** level-up confirmation.

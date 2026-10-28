@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { cloneCharacter, initialCharacter, type ClassId } from "../src/domain";
+import { cloneCharacter, initialCharacter, type ClassId, type PrestigeClassId } from "../src/domain";
 import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem, type StoreItem } from "../src/data/equipmentCatalog";
 import { getArmorNonproficiencyPenalties, getAvailableFeats, getEquippedWeaponStats,
   getAvailableFeatWeaponChoices, getFeatWeaponSelectionWarnings,
@@ -16,6 +16,12 @@ function hero(classId: ClassId = "wizard") {
   character.abilities.str = 20;
   character.abilities.dex = 18;
   character.equipment = { Armor: "Chainmail", Shield: "Heavy Steel Shield" };
+  return character;
+}
+
+function prestigeHero(prestigeClassId: PrestigeClassId) {
+  const character = hero();
+  character.classLevels.push({ classId: "wizard", prestigeClassId, level: 1 });
   return character;
 }
 
@@ -45,6 +51,63 @@ describe("armor and shield proficiency", () => {
     expect(isArmorShieldProficient(character, item("Full Plate"))).toBe(heavy);
     expect(isArmorShieldProficient(character, item("Heavy Steel Shield"))).toBe(shield);
     expect(isArmorShieldProficient(character, item("Tower Shield"))).toBe(tower);
+  });
+
+  describe("prestige-class weapon proficiency", () => {
+    it.each(["arcane-archer", "duelist", "dwarven-defender"] as const)(
+      "%s grants simple and martial weapon proficiency, but not exotic proficiency",
+      (prestigeClassId) => {
+        const character = prestigeHero(prestigeClassId);
+        expect(isWeaponProficient(character, item("Longsword"))).toBe(true);
+        expect(isWeaponProficient(character, item("Spear"))).toBe(true);
+        expect(isWeaponProficient(character, item("Spiked Chain"))).toBe(false);
+      },
+    );
+
+    it("grants the assassin's listed weapon proficiencies without implying all simple or martial weapons", () => {
+      const character = prestigeHero("assassin");
+      for (const weapon of [
+        "Dagger", "Dart", "Hand Crossbow", "Heavy Crossbow", "Light Crossbow",
+        "Rapier", "Sap", "Shortbow", "Composite Shortbow", "Short Sword",
+      ]) {
+        expect(isWeaponProficient(character, item(weapon)), weapon).toBe(true);
+      }
+      expect(isWeaponProficient(character, item("Longbow"))).toBe(false);
+      expect(isWeaponProficient(character, item("Spear"))).toBe(false);
+      expect(isWeaponProficient(character, item("Repeating Heavy Crossbow"))).toBe(false);
+    });
+
+    it("grants the shadowdancer's listed weapons and leaves other weapons unproficient", () => {
+      const character = prestigeHero("shadowdancer");
+      for (const weapon of [
+        "Club", "Dagger", "Dart", "Hand Crossbow", "Heavy Crossbow", "Light Crossbow",
+        "Light Mace", "Heavy Mace", "Morningstar", "Quarterstaff", "Rapier", "Sap",
+        "Shortbow", "Composite Shortbow", "Short Sword",
+      ]) {
+        expect(isWeaponProficient(character, item(weapon)), weapon).toBe(true);
+      }
+      expect(isWeaponProficient(character, item("Longbow"))).toBe(false);
+      expect(isWeaponProficient(character, item("Spear"))).toBe(false);
+    });
+
+    it("does not grant weapon proficiency from other core or unverified Dragonlance prestige classes", () => {
+      expect(isWeaponProficient(prestigeHero("eldritch-knight"), item("Longsword"))).toBe(false);
+      expect(isWeaponProficient(prestigeHero("knight-of-the-crown"), item("Longsword"))).toBe(false);
+    });
+
+    it("supports saved prestige-class selections without a prestige class-level entry", () => {
+      const character = hero();
+      character.prestigeClass = "arcane-archer";
+      expect(isWeaponProficient(character, item("Longsword"))).toBe(true);
+    });
+
+    it("removes the nonproficiency warning and attack penalty for a granted martial weapon", () => {
+      const character = prestigeHero("arcane-archer");
+      character.equipment = {};
+      expect(getItemProficiencyWarning(character, item("Longsword"))).toBeNull();
+      expect(getEquippedWeaponStats(character, "Longsword (Medium)"))
+        .toMatchObject({ nonproficiencyPenalty: 0 });
+    });
   });
 
   describe("racial weapon familiarity", () => {

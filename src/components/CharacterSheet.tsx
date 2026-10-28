@@ -3,7 +3,7 @@ import { type Character, type ClassId, type SavingThrowCondition, type CombatTar
 import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -45,6 +45,10 @@ export function CharacterSheet({
   onAddNote,
   onHitPointAction,
   onCombatEffectsChange,
+  rangedTargetDistanceFeet,
+  onRangedTargetDistanceFeetChange,
+  targetDamageReduction,
+  onTargetDamageReductionChange,
   onOpenSpells,
 }: {
   character: Character;
@@ -66,6 +70,10 @@ export function CharacterSheet({
   onAddNote: (text: string) => void;
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
+  rangedTargetDistanceFeet: number | undefined;
+  onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
+  targetDamageReduction: string;
+  onTargetDamageReductionChange: (value: string) => void;
   onOpenSpells: () => void;
 }) {
   const [savingThrowConditions, setSavingThrowConditions] = useState<SavingThrowCondition[]>([]);
@@ -262,6 +270,14 @@ export function CharacterSheet({
             }
           />
         </Suspense>
+        <RangedDistanceControl
+          distanceFeet={rangedTargetDistanceFeet}
+          onChange={onRangedTargetDistanceFeetChange}
+        />
+        <TargetDamageReductionControl
+          value={targetDamageReduction}
+          onChange={onTargetDamageReductionChange}
+        />
         <div className="combat-weapon-row">
           {(["Main Weapon", "Off Hand Weapon", "Ranged Weapon"] as const).map((slot) => {
             const attackPenalty =
@@ -275,17 +291,28 @@ export function CharacterSheet({
               ? getWeaponCompatibilityWarning(character, equippedWeapon, slot)
               : null;
             const stats = equippedWeapon
-              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes)
+              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes, rangedTargetDistanceFeet, targetDamageReduction)
               : null;
             return (
               <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
                 <small>{slot.replace(" Weapon", "")}</small>
                 {stats ? <>
-                <strong title={[stats.attackSequenceNote, stats.weaponSizeDetail, ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
-                  Attack {stats.attackSequence.map(formatModifier).join(" / ")}
+                <strong title={[stats.attackSequenceNote, stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
+                  {stats.rangeOutOfRange ? "Out of range" : `Attack ${stats.attackSequence.map(formatModifier).join(" / ")}`}
                 </strong>
+                {stats.maximumRangeFeet !== undefined && <span>Maximum range {stats.maximumRangeFeet} ft.</span>}
+                {stats.rangeStatusMessage && <span className={stats.rangeOutOfRange ? "combat-warning" : ""} role="status">{stats.rangeStatusMessage}</span>}
+                {stats.ammunitionStatus && <span className={stats.ammunitionStatus.status === "ready" ? "" : "combat-warning"} role={stats.ammunitionStatus.status === "missing" ? "alert" : "status"}>{stats.ammunitionStatus.message}</span>}
+                {stats.damageReductionStatus && <span className={stats.damageReductionStatus.status === "applies" || stats.damageReductionStatus.status === "manual" ? "combat-warning" : ""} role="status">{stats.damageReductionStatus.message}</span>}
+                {stats.reloadNote && <span>{stats.reloadNote}</span>}
+                {stats.compositeBowStrengthRating !== undefined &&
+                  <span>Composite bow rating {formatModifier(stats.compositeBowStrengthRating)}</span>}
+                {stats.compositeBowStrengthPenalty < 0 && <span className="attack-penalty">
+                  {formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating
+                </span>}
                 {stats.weaponFocusBonus > 0 && <span>+1 Weapon Focus</span>}
                 <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
+                {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
                 {stats.weaponSpecializationBonus > 0 && <span>+2 Weapon Specialization damage</span>}
                 <span>Crit {stats.critical}</span>
                 {(stats.rangeIncrement || stats.reach) && <span className="weapon-distance">

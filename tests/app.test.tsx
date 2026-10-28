@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { cloneCharacter, initialCharacter } from "../src/domain";
+import { deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatalog";
 import { savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 
@@ -136,6 +137,31 @@ describe("application workflows", () => {
     expect(within(list).getByText("Ui Test Blade", { exact: true })).toBeDefined();
     await user.click(within(list).getByRole("button", { name: /delete/i }));
     expect(within(list).queryByText("Ui Test Blade", { exact: true })).toBeNull();
+  });
+
+  it("saves the selected projectile Strength damage rule with a custom ranged weapon", async () => {
+    const name = "Custom Test Projectile";
+    const user = userEvent.setup();
+    savedHero();
+    render(<App />);
+    try {
+      await user.click(screen.getByRole("button", { name: "Store" }));
+      await user.click(await screen.findByRole("button", { name: "Create Custom Item" }));
+      const dialog = screen.getByRole("dialog", { name: "Create Custom Item" });
+      await user.type(within(dialog).getByLabelText("Name", { exact: true }), name);
+      await user.selectOptions(within(dialog).getByLabelText("Weapon mode"), "Ranged");
+      await user.selectOptions(within(dialog).getByLabelText("Ranged Strength damage"), "strength");
+      await user.selectOptions(within(dialog).getByLabelText("Weapon material"), "adamantine");
+      await user.click(within(dialog).getByRole("button", { name: "Save to Store" }));
+      expect(findStoreItem(name)).toMatchObject({
+        ranged: true,
+        thrown: false,
+        rangedDamageAbility: "strength",
+        material: "adamantine",
+      });
+    } finally {
+      deleteCustomStoreItem(name);
+    }
   });
 
   it("surfaces storage errors instead of displaying success", async () => {

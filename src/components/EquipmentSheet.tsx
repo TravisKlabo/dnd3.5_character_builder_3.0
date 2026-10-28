@@ -1,15 +1,25 @@
 import { type Character } from "../domain";
 import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine } from "./shared";
-import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
+import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
 import { getEncumbrance, getMovement } from "../rules";
 
 export function EquipmentSheet({
   character,
   onEquipmentChange,
+  onMainWeaponGripChange,
+  onDoubleWeaponModeChange,
+  onDoubleWeaponPrimaryEndChange,
+  onTowerShieldTotalCoverChange,
+  onShieldBashModeChange,
   onEquipmentAndInventoryChange,
 }: {
   character: Character;
   onEquipmentChange: (equipment: Record<string, string>) => void;
+  onMainWeaponGripChange: (grip: "one-handed" | "two-handed") => void;
+  onDoubleWeaponModeChange: (enabled: boolean) => void;
+  onDoubleWeaponPrimaryEndChange: (end: "first" | "second") => void;
+  onTowerShieldTotalCoverChange: (enabled: boolean) => void;
+  onShieldBashModeChange: (enabled: boolean) => void;
   onEquipmentAndInventoryChange: (
     equipment: Record<string, string>,
     inventory: Record<string, number>,
@@ -35,6 +45,9 @@ export function EquipmentSheet({
   const equipment = character.equipment ?? {};
   const encumbrance = getEncumbrance(character);
   const movement = getMovement(character);
+  const doubleWeaponModeState = getDoubleWeaponModeState(character);
+  const towerShieldState = getTowerShieldState(character);
+  const shieldBashState = getShieldBashState(character);
   const setSlot = (slot: string, value: string) =>
     onEquipmentChange({ ...equipment, [slot]: value });
   return (
@@ -93,14 +106,93 @@ export function EquipmentSheet({
       </p>}
       <div className="equipment-combat-summary">
         <h3>Weapon Attacks</h3>
+        {towerShieldState.equipped && (
+          <label className="weapon-grip-control">
+            <input
+              type="checkbox"
+              aria-label="Use tower shield for total cover"
+              checked={towerShieldState.coverActive}
+              onChange={(event) => onTowerShieldTotalCoverChange(event.target.checked)}
+            />
+            Use tower shield for total cover (standard action)
+          </label>
+        )}
+        {towerShieldState.coverActive && (
+          <p className="combat-note" role="status">
+            Total cover lasts until the start of your next turn. Attacks are unavailable; targeted spells can still target the shield. Clear this setting manually at the start of your turn.
+          </p>
+        )}
+        {shieldBashState.hasBashableShield && (
+          <label className="weapon-grip-control">
+            <input
+              type="checkbox"
+              aria-label="Use shield bash"
+              checked={shieldBashState.enabled}
+              disabled={!shieldBashState.canBash}
+              onChange={(event) => onShieldBashModeChange(event.target.checked)}
+            />
+            Use shield bash (off-hand attack)
+          </label>
+        )}
+        {shieldBashState.enabled && (
+          <p className="combat-note" role="status">
+            The shield's AC bonus is lost until your next action, usually next round. Clear this setting manually when the bonus returns.
+          </p>
+        )}
         <SpecialAttackStats character={character} />
         <CombatMovementLine character={character} />
+        {doubleWeaponModeState && <>
+          <label className="weapon-grip-control">
+            <input
+              type="checkbox"
+              aria-label="Use both ends of the double weapon"
+              checked={doubleWeaponModeState.enabled}
+              disabled={!doubleWeaponModeState.canUseBothEnds && !doubleWeaponModeState.enabled}
+              onChange={(event) => onDoubleWeaponModeChange(event.target.checked)}
+            />
+            Use both ends (two-weapon penalties)
+          </label>
+          {doubleWeaponModeState.enabled && doubleWeaponModeState.hasDifferentEnds && (
+            <label className="weapon-grip-control">
+              Primary end
+              <select
+                aria-label="Double weapon primary end"
+                value={doubleWeaponModeState.primaryEnd}
+                onChange={(event) => onDoubleWeaponPrimaryEndChange(event.target.value as "first" | "second")}
+              >
+                <option value="first">{doubleWeaponModeState.firstEndLabel}</option>
+                <option value="second">{doubleWeaponModeState.secondEndLabel}</option>
+              </select>
+            </label>
+          )}
+        </>}
+        {(() => {
+          const gripState = getMainWeaponGripState(character);
+          return gripState ? (
+            <label className="weapon-grip-control">
+              Main weapon grip
+              <select
+                aria-label="Main weapon grip"
+                value={gripState.grip}
+                onChange={(event) => onMainWeaponGripChange(event.target.value as "one-handed" | "two-handed")}
+              >
+                <option value="one-handed">One-handed</option>
+                <option value="two-handed" disabled={!gripState.canUseTwoHands}>Two-handed</option>
+              </select>
+            </label>
+          ) : null;
+        })()}
         {(["Main Weapon", "Off Hand Weapon", "Ranged Weapon"] as const).map((slot) => {
           const twoWeaponPenalty = slot === "Main Weapon" || slot === "Off Hand Weapon"
             ? getTwoWeaponAttackPenalty(character, slot)
             : 0;
-          const stats = equipment[slot]
-            ? getEquippedWeaponStats(character, equipment[slot], twoWeaponPenalty, slot)
+          const weaponKey = getEffectiveWeaponKey(character, slot);
+          const sizeHandling = weaponKey ? getWeaponSizeHandling(character, weaponKey, slot) : null;
+          const compatibilityWarning = weaponKey
+            ? getWeaponCompatibilityWarning(character, weaponKey, slot)
+            : null;
+          const stats = weaponKey
+            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot)
             : null;
           return (
             <div className="equipment-weapon-stat" key={slot}>
@@ -111,18 +203,31 @@ export function EquipmentSheet({
                   {stats.attackSequence.length > 1 && <span title={stats.attackSequenceNote}>BAB full attack: {stats.attackSequence.map(formatModifier).join(" / ")}</span>}
                   {stats.rangeIncrement && <span>{stats.rangeLabel}: {stats.rangeIncrement}</span>}
                   {stats.reach && <span>Reach: {stats.reach}</span>}
-                  <span>Attack: {formatModifier(stats.attack)} ({formatModifier(stats.baseAttackBonus)} base, {formatModifier(stats.abilityAttackBonus)} ability, {formatModifier(stats.sizeAttackBonus)} size, {formatModifier(stats.attackEnhancement)} enhancement{stats.attackPenalty !== 0 ? `, ${formatModifier(stats.attackPenalty)} two-weapon` : ""}{stats.finessePenalty !== 0 ? `, ${formatModifier(stats.finessePenalty)} finesse shield penalty` : ""}{stats.nonproficiencyPenalty !== 0 ? `, ${formatModifier(stats.nonproficiencyPenalty)} armor/shield nonproficiency` : ""})</span>
+                  <span title={stats.weaponSizeDetail}>Attack: {formatModifier(stats.attack)} ({formatModifier(stats.baseAttackBonus)} base, {formatModifier(stats.abilityAttackBonus)} ability, {formatModifier(stats.sizeAttackBonus)} size{stats.weaponSizePenalty !== 0 ? `, ${formatModifier(stats.weaponSizePenalty)} weapon size` : ""}, {formatModifier(stats.attackEnhancement)} enhancement{stats.weaponFocusBonus ? `, +${stats.weaponFocusBonus} Weapon Focus` : ""}{stats.attackPenalty !== 0 ? `, ${formatModifier(stats.attackPenalty)} two-weapon` : ""}{stats.finessePenalty !== 0 ? `, ${formatModifier(stats.finessePenalty)} finesse shield penalty` : ""}{stats.nonproficiencyPenalty !== 0 ? `, ${formatModifier(stats.nonproficiencyPenalty)} nonproficiency` : ""}{stats.towerShieldAttackPenalty !== 0 ? `, ${formatModifier(stats.towerShieldAttackPenalty)} tower shield` : ""})</span>
                   {stats.nonproficiencyPenalty < 0 && <span className="attack-penalty"
                     title={stats.nonproficiencyPenalties.map((entry) => `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency`).join("\n")}>
                     {stats.nonproficiencyPenalties.map((entry) => `${formatModifier(entry.penalty)} ${entry.source}`).join(", ")}
                   </span>}
+                  {stats.towerShieldAttackPenalty < 0 && <span className="attack-penalty">
+                    Tower shield: {formatModifier(stats.towerShieldAttackPenalty)} attack
+                  </span>}
                   {twoWeaponPenalty !== 0 && <span>Two-weapon penalty: {formatModifier(twoWeaponPenalty)} attack</span>}
+                  {stats.twoHandedGrip && <span>Two-handed grip</span>}
+                  {stats.bucklerAttackPenalty !== 0 && <span>Buckler use: {formatModifier(stats.bucklerAttackPenalty)} attack</span>}
+                  {stats.weaponSizePenalty < 0 && <span className="attack-penalty" title={stats.weaponSizeDetail}>
+                    Weapon-size mismatch: {formatModifier(stats.weaponSizePenalty)} attack; treated as {stats.effectiveHandedness}.
+                  </span>}
                   <span>Damage: {stats.damage} ({stats.damageType})</span>
+                  {stats.weaponSpecializationBonus > 0 && <span>Weapon Specialization: +2 damage</span>}
                   <span>Critical: {stats.critical}</span>
                   {stats.enchantmentDamage.map((damage) => <span key={damage}>{damage}</span>)}
                 </div>
               ) : (
-                <span>Not equipped</span>
+                <span title={compatibilityWarning ?? sizeHandling?.warning}>
+                  {towerShieldState.coverActive && weaponKey
+                    ? "Unavailable while using tower shield for total cover"
+                    : compatibilityWarning ?? (sizeHandling && !sizeHandling.wieldable ? "Cannot wield: incompatible weapon size" : "Not equipped")}
+                </span>
               )}
             </div>
           );

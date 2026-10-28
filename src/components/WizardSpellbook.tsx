@@ -174,7 +174,7 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
       </select></label>
       {spell && requirements && (copying ? <>
         <p>Copying requirements for {spell.name}: decipher DC {requirements.decipherDC};
-          learning Spellcraft DC {requirements.learningDC} after one day of study.
+          learning Spellcraft DC {requirements.learningDC} after {requirements.studyHours} hours of study.
           Writing takes {requirements.writingHours} hours, uses {requirements.pages} page{requirements.pages > 1 ? "s" : ""},
           and costs {requirements.writingCostGp} gp in materials.</p>
         {source === "spellbook" && <p>A typical access fee is {requirements.usualAccessFeeGp} gp, separate from writing materials; confirm the actual fee with your DM.</p>}
@@ -191,7 +191,7 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
         <label className="spell-learning-confirm"><input type="checkbox" checked={decipherConfirmed} onChange={(event) => setDecipherConfirmed(event.target.checked)} />
           Writing successfully deciphered using the method above</label>
         <label className="spell-learning-confirm"><input type="checkbox" checked={studied} onChange={(event) => setStudied(event.target.checked)} />
-          One day of study completed</label>
+          {requirements.studyHours} hours of study completed</label>
         <label>Learning Spellcraft total<input type="number" step="1" value={learningTotal} onChange={(event) => setLearningTotal(event.target.value)} /></label>
         {!understood && learningTotal !== "" && <p role="alert">Learning failed. Gain another rank in Spellcraft before trying to learn this spell again.
           The scroll is not consumed and no spell will be added. Retry eligibility is tracked by you and your DM.</p>}

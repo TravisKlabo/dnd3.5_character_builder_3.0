@@ -185,6 +185,19 @@ to ammunition and reload/draw actions.
 Standard ranged/thrown increments and melee weapon reach appear alongside weapon
 details; custom size-specific range and explicit reach values take precedence.
 Reach weapons distinguish normal-reach exclusions, spiked chain, and whip rules.
+Weapon size is compared with the wielder's size: each category of mismatch applies
+a -2 attack penalty and shifts the weapon's handedness one step. If that shift
+falls outside light, one-handed, or two-handed, the weapon cannot be wielded.
+See the SRD [weapon-size rules](https://www.d20srd.org/srd/equipment/weapons.htm#inappropriatelySizedWeapons).
+One-handed weapons have a saved grip choice; a two-handed grip applies 1.5×
+Strength damage and cannot be combined with an off-hand weapon or ordinary
+shield. Bucklers are compatible, apply their -1 attack penalty when the shield
+arm helps wield a melee weapon, and lose their AC bonus while an off-hand weapon
+is used.
+The SRD double weapons can be used with one end as a two-handed weapon or with
+both ends as a one-handed weapon and a light off-hand weapon. The latter mode
+uses two-weapon penalties and the appropriate Strength multipliers; weapons with
+different ends allow the primary end to be selected.
 
 A compact line on both sheets shows space, natural reach (tall/bipedal size
 defaults), and carried weight against the light-load limit. The load classification
@@ -262,15 +275,89 @@ level-up drafts recalculate immediately; discarding a draft restores the origina
 
 Druid metal equipment prohibitions are separate from proficiency. Equip warnings
 explain their spellcasting/class-ability consequences, including the 24-hour
-duration, but enforcement remains manual. This pass does not add weapon
-nonproficiency penalties, tower shields' separate universal attack penalty/cover
-rules, or other equipment-specific restrictions.
+duration, but enforcement remains manual. Tower shields apply their additional
+-2 attack penalty even when proficient. In Equipment, the cover control uses a
+standard action to replace the tower shield's AC bonus with total cover, disables
+attacks until the start of the next turn, and notes that targeted spells can
+still target the shield. The user clears this temporary state manually; changing
+or removing the shield clears it automatically.
 
 References: SRD [armor rules](https://www.d20srd.org/srd/equipment/armor.htm),
 [proficiency feats](https://www.d20srd.org/srd/feats.htm#armorProficiencyLight),
 [Barbarian](https://www.d20srd.org/srd/classes/barbarian.htm),
 [Paladin](https://www.d20srd.org/srd/classes/paladin.htm), and
 [Druid](https://www.d20srd.org/srd/classes/druid.htm).
+
+### Weapon nonproficiency
+
+Weapon proficiencies from the represented core classes combine across
+multiclass levels. Class-specific lists are applied for bard, druid, monk,
+rogue, and wizard; other standard class weapon categories use simple/martial
+proficiency. Elves have their listed weapon proficiencies regardless of class.
+Dwarven and gnome familiarity treats the named exotic weapon as martial, but
+does not grant martial proficiency by itself. Attacks with a nonproficient
+weapon take -4; damage is unchanged. The penalty appears in both attack
+summaries and equip warnings. Custom weapons use their selected proficiency
+category.
+
+Weapon Focus grants +1 attack with one selected proficient weapon type. Weapon
+Specialization grants +2 damage with one selected proficient weapon type and
+requires Fighter 4 and Weapon Focus for that same type. Each feat can be selected
+again for a different weapon type. Light/heavy, spiked/unspiked shield bashes are
+treated as one weapon type, "Shield Bash."
+
+Exotic Weapon Proficiency applies to one unfamiliar exotic weapon type at a time
+and is repeatable for other types. It requires BAB +1 and may be selected as a
+fighter bonus feat. Gaining proficiency enables Weapon Focus and Weapon
+Specialization choices for that weapon. The War domain grants Weapon Focus with
+the deity's favored weapon and proficiency when that weapon is martial, for
+supported core mappings. This virtual Weapon Focus does not stack with the feat
+and can qualify for Weapon Specialization. Other deity mappings require manual
+resolution.
+Prestige-class weapon proficiencies and Dragonlance-specific weapon lists are
+not yet modeled.
+
+References: SRD [weapon proficiency](https://www.d20srd.org/srd/combat/combatModifiers.htm#weaponArmorAndShieldProficiency),
+[Weapon Focus](https://www.d20srd.org/srd/feats.htm#weaponFocus),
+[Weapon Specialization](https://www.d20srd.org/srd/feats.htm#weaponSpecialization),
+[Exotic Weapon Proficiency](https://www.d20srd.org/srd/feats.htm#exoticWeaponProficiency),
+[weapons](https://www.d20srd.org/srd/equipment/weapons.htm), [Bard](https://www.d20srd.org/srd/classes/bard.htm),
+[Druid](https://www.d20srd.org/srd/classes/druid.htm), [Monk](https://www.d20srd.org/srd/classes/monk.htm),
+[Rogue](https://www.d20srd.org/srd/classes/rogue.htm), [Wizard](https://www.d20srd.org/srd/classes/sorcererWizard.htm#wizard),
+[Elf](https://www.d20srd.org/srd/races.htm#elves),
+[Dwarf](https://www.d20srd.org/srd/races.htm#dwarves), and
+[Gnome](https://www.d20srd.org/srd/races.htm#gnomes).
+
+### Tower shields
+
+The tower shield's -2 attack penalty applies to weapon and touch attacks, but
+not grapple checks. Using the tower shield for total cover replaces its normal
+shield AC bonus and prevents attacks until the start of the next turn. Targeted
+spells can still target the shield. Because the builder does not track turn
+order, clear the cover toggle manually at the start of the next turn. Tower
+shields cannot be used for shield bashes.
+
+Reference: SRD [tower shield](https://www.d20srd.org/srd/equipment/armor.htm#shieldTower).
+
+### Shield bashes
+
+Light and heavy shields can be selected as off-hand bash attacks. Light shield
+bashes are light martial bludgeoning weapons; heavy shield bashes are one-handed
+martial bludgeoning weapons. Their Medium damage is 1d3 and 1d4 respectively,
+with size-appropriate dice for Small and Large shields. Normal two-weapon
+penalties and off-hand Strength damage apply. The shield's AC bonus, including
+its enhancement bonus, is lost until your next action after a bash. Since the
+builder does not track actions, clear the bash toggle manually when the bonus
+returns. Shield spikes are available as light/heavy wooden and steel shield
+variants for an additional 10 gp and 5 lb. A spiked bash deals piercing damage
+as if the shield were designed for a creature one size larger; the shield's
+handedness, off-hand penalties, and AC loss remain unchanged. Bucklers and
+tower shields cannot be used for shield bashes or equipped with spikes.
+Independent weapon enhancements on shields, including the bashing property, are
+not modeled.
+
+References: SRD [shield bash](https://www.d20srd.org/srd/equipment/armor.htm#shieldBashAttacks)
+and [shield spikes](https://www.d20srd.org/srd/equipment/armor.htm#shieldSpikes).
 
 ### Carried load and movement
 
@@ -367,9 +454,8 @@ and Law require matching cleric alignment. Domain-granted class skills (Animal,
 Plant, Knowledge, Travel, Trickery) apply automatically to cleric rank costs and
 class-skill indicators, not to unrelated classes. They do not grant ranks.
 Powers are in compact expandable sections with **Applied automatically** and
-**Manual resolution** labels. Turning, limited-use powers, conditional caster-level
-bonuses, and War's favored-weapon benefits are documented but not automatically
-rolled, spent, or added to permanent statistics.
+**Manual resolution** labels. Turning, limited-use powers, and conditional
+caster-level bonuses are documented but not automatically rolled or spent.
 
 Each accessible spell level 1-9 has exactly one domain slot, separate from
 ordinary cleric slots and other classes. There are no domain orisons, high-Wisdom
@@ -392,15 +478,20 @@ Established domains are locked on a finalized sheet; **Change domains** explicit
 requires confirmation that this is a DM-approved lasting change, not daily
 preparation.
 
-Named-deity domain associations and favored weapons are **not source-verified**,
-including those currently labeled core in the inherited deity catalog. The UI
-explicitly requires DM confirmation, rather than presenting a guessed filtered
-list. Dragonlance-specific domains are not included. This pass does not certify
-the deity catalog, enforce every ordinary cleric spell's alignment descriptor,
-or enforce druid/other class restrictions on multiclass casting.
+Core 3.5 deity-domain associations are recorded for the 12 supported core
+deities, and unavailable domains are disabled with warnings for invalid saved
+choices. Unmapped deities, including Dragonlance, remain manual and require DM
+confirmation. War's favored-weapon effects are automated only for supported
+core mappings (Corellon Larethian and Heironeous: longsword; Hextor: flail;
+Erythnul: morningstar); other deity mappings remain manual. Dragonlance-specific
+domains are not included. This pass does not certify the full deity catalog,
+enforce every ordinary cleric spell's alignment descriptor, or enforce
+druid/other class restrictions on multiclass casting.
 
 Sources: SRD [Cleric](https://www.d20srd.org/srd/classes/cleric.htm) and
-[Cleric Domains](https://www.d20srd.org/srd/spellLists/clericDomains.htm).
+[Cleric Domains](https://www.d20srd.org/srd/spellLists/clericDomains.htm);
+core deity associations use the *Player's Handbook* (3.5), pp. 106–108, and
+the [3.5 deity listings](https://dnd3-5.wikidot.com/deities1).
 
 ### Wizard spellbook
 
@@ -419,7 +510,7 @@ Copied/researched/reward spells never satisfy the free-spell allowance.
 - **Scroll / another spellbook:** confirm deciphering via read magic, the author's
   help, previously deciphered writing, or a Spellcraft total against DC 20 + spell
   level. Read magic bypasses deciphering checks, not the later learning check.
-- Confirm one day of study and enter the actual learning Spellcraft total against
+- Confirm 8 hours of study and enter the actual learning Spellcraft total against
   DC 15 + spell level. No rolls or skill modifiers are applied automatically.
 - Resolve 24 hours of writing and 100 gp per page of materials with the DM.
   Spells use one page per level, with a minimum of one page for a cantrip.
@@ -493,15 +584,30 @@ References: SRD [sorcerers and wizards](https://www.d20srd.org/srd/classes/sorce
 [paladin](https://www.d20srd.org/srd/classes/paladin.htm), and
 [ranger](https://www.d20srd.org/srd/classes/ranger.htm).
 
-Remaining gaps include complete proficiency and racial
-attack modifiers, weapon-size mismatch penalties and handling, selecting a
-one-handed weapon's two-handed grip, double-weapon modes, and full bonus stacking.
+The special-abilities list displays core class features by class level based on
+the [SRD class tables](https://www.d20srd.org/srd/classes/). Feature choices and
+mechanical effects remain manual; optional Dragonlance class progression is not
+verified.
+
+Core race data now records base size and speed, racial skill bonuses, and
+race-appropriate bonus-language options. The Halfling's unconditional +1
+racial bonus to all saves is calculated. Situational racial save bonuses are
+applied when their context is selected in the Saving Throws panel. Dwarf and
+Gnome target-specific attack and dodge AC bonuses, plus the Halfling thrown
+weapon/slings attack bonus, use the selected target types and weapon mode.
+Other conditional racial effects may require manual resolution. Optional
+Dragonlance race data is not verified. See the SRD [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
+[Gnome](https://www.d20srd.org/srd/races.htm#gnomes), and
+[Halfling](https://www.d20srd.org/srd/races.htm#halflings) rules.
+
+Remaining gaps include prestige-class weapon proficiency, other racial combat
+modifiers, and full bonus stacking.
 Composite bows currently have an implicit +0 Strength rating; selectable ratings
-and their attack penalties are not implemented. Custom ranged/thrown mode is not
-persisted; handedness `Ranged` and placement in the ranged slot select Dexterity
-attacks, but custom projectile damage needs further metadata. Iterative attacks,
-range/ammunition modifiers, two-handed weapon/shield compatibility (including
-bucklers), and special shield/material cases also need further
+and their attack penalties are not implemented. Custom thrown mode is saved as
+weapon metadata; custom ranged projectile damage still needs further metadata.
+Handedness `Ranged` and placement in the ranged slot select Dexterity attacks.
+Iterative attacks,
+range/ammunition modifiers and special shield/material cases also need further
 verification. Spellcasting still needs full domain-power automation and verified
 deity associations, wizard specialization/
 prohibited schools, spontaneous known-spell replacement, prestige-class casting

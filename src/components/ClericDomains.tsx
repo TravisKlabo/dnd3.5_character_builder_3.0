@@ -2,7 +2,7 @@ import { useState } from "react";
 import { deityDefinitions, type Character } from "../domain";
 import { clericDomains, clericDomainSource, getClericDomain, isClericDomainId } from "../data/clericDomains";
 import { clericDomainAllowed, getActiveClericDomains, getClericDomainSlotCount,
-  getClericDomainSpellOptions, getClericDomainWarnings } from "../clericDomains";
+  getClericDomainSpellOptions, getClericDomainWarnings, getWarDomainWeapon } from "../clericDomains";
 
 export type ClericCastingUpdate = Pick<Character, "clericDomains" | "clericDomainPreparation" | "clericDomainExpended">;
 
@@ -17,6 +17,7 @@ export function ClericDomains({ character, editable, onChange }: {
   const deity = deityDefinitions.find((entry) => entry.id === character.deity);
   const warnings = getClericDomainWarnings(character);
   const active = getActiveClericDomains(character);
+  const warWeapon = getWarDomainWeapon(character);
   const levels = Array.from({ length: 9 }, (_, index) => index + 1).filter((level) =>
     getClericDomainSlotCount(character, level) || character.clericDomainPreparation?.[level] ||
     character.clericDomainExpended?.includes(level));
@@ -28,8 +29,10 @@ export function ClericDomains({ character, editable, onChange }: {
       <p className="spell-rules-notice">
         {deity ? `${deity.name}${deity.source !== "core-35-srd" ? " (Dragonlance)" : ""}: ` : character.deity ? `${character.deity}: ` : "No deity selected: "}
         {character.deity
-          ? "Deity/domain associations and favored weapons are not source-verified. Confirm these two domains with your DM; this list is not a verified deity-specific list."
-          : "SRD clerics without a deity may choose domains representing their beliefs, subject to alignment and DM approval."}
+          ? deity?.clericDomains
+            ? "Only listed domains are available for this core deity."
+            : "Domain associations aren't verified for this deity; confirm choices with your DM."
+          : "Choose domains for your beliefs, subject to alignment and DM approval."}
         {" "}Dragonlance-specific domains are not included.
       </p>
       {warnings.map((warning) => <p className="spell-rules-notice" role="alert" key={warning}>{warning}</p>)}
@@ -66,6 +69,9 @@ export function ClericDomains({ character, editable, onChange }: {
             {definition.classSkills && <p><strong>Applied automatically:</strong> Cleric class skills:
               {" "}{definition.classSkills.map((skill) => skill === "Knowledge (*)" ? "all Knowledge skills" : skill).join(", ")}.</p>}
             {definition.manualPower && <p><strong>Manual resolution:</strong> {definition.manualPower}</p>}
+            {definition.grantedPower && <p><strong>{warWeapon ? "Applied automatically:" : "Manual resolution:"}</strong>
+              {" "}{warWeapon ? `${definition.grantedPower} Favored weapon: ${warWeapon}.` :
+                "No mapping; resolve manually."}</p>}
             <a href={`${clericDomainSource}#${id}Domain`} target="_blank" rel="noreferrer">SRD {definition.name} domain rules</a>
           </details>;
         })}

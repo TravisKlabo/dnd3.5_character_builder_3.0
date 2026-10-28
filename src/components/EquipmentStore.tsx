@@ -149,7 +149,7 @@ export function EquipmentStore({
       description: customItemDescription.trim() || "Custom item.",
       custom: true,
       ...(customItemType === "Weapon"
-        ? { damage: customDamage, damageSmall: customDamageSmall.trim() || undefined, damageMedium: customDamageMedium.trim() || undefined, damageLarge: customDamageLarge.trim() || undefined, damageType: customDamageType, critical: customCritical, proficiency: customProficiency, handedness: customHandedness, finesse: customFinesse, rangeIncrement: customRange.trim() || undefined, rangeSmall: customRangeSmall.trim() || undefined, rangeMedium: customRangeMedium.trim() || undefined, rangeLarge: customRangeLarge.trim() || undefined, reach: customReach.trim() || undefined, specialProperties: customProperties.trim() || undefined }
+        ? { damage: customDamage, damageSmall: customDamageSmall.trim() || undefined, damageMedium: customDamageMedium.trim() || undefined, damageLarge: customDamageLarge.trim() || undefined, damageType: customDamageType, critical: customCritical, proficiency: customProficiency, handedness: customHandedness, thrown: customWeaponMode === "Thrown", finesse: customFinesse, rangeIncrement: customRange.trim() || undefined, rangeSmall: customRangeSmall.trim() || undefined, rangeMedium: customRangeMedium.trim() || undefined, rangeLarge: customRangeLarge.trim() || undefined, reach: customReach.trim() || undefined, specialProperties: customProperties.trim() || undefined }
         : {}),
       ...(customItemType === "Armor"
         ? {

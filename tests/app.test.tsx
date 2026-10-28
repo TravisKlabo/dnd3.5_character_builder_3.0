@@ -67,7 +67,7 @@ describe("application workflows", () => {
     expect(screen.queryByRole("button", { name: /print|pdf/i })).toBeNull();
     expect(screen.getByRole("button", { name: "Save" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Export" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Import" })).toBeDefined();
+    expect(screen.getByLabelText("Import character JSON")).toBeDefined();
   });
 
   it("preserves existing characters, lazy screens, and level-up cancellation", async () => {
@@ -89,6 +89,19 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Discard Draft" }));
     expect(screen.queryByText("Level-Up Draft")).toBeNull();
     expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(original);
+  });
+
+  it("blocks a class level-up that conflicts with the character's alignment", async () => {
+    const user = userEvent.setup();
+    const character = savedHero();
+    character.alignment = "Chaotic Good";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByLabelText("Class"), "paladin");
+    expect(await screen.findByText(
+      "Cannot take a Paladin level with Chaotic Good; this class must be Lawful Good.",
+    )).toBeDefined();
   });
 
   it("shows spell sheets for a saved multiclass caster", async () => {

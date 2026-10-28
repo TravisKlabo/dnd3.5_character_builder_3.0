@@ -114,12 +114,17 @@ export const storeItems: StoreItem[] = [
 
 storeItems.push(
   { name: "Club", category: "Weapons", price: 0, weight: "3 lb." },
-  { name: "Quarterstaff", category: "Weapons", price: 0, weight: "4 lb." },
+  { name: "Quarterstaff", category: "Weapons", price: 0, weight: "4 lb.", doubleWeapon: true },
   { name: "Short Sword", category: "Weapons", price: 10, weight: "2 lb." },
   { name: "Battleaxe", category: "Weapons", price: 10, weight: "6 lb." },
   { name: "Warhammer", category: "Weapons", price: 12, weight: "5 lb." },
   { name: "Heavy Mace", category: "Weapons", price: 12, weight: "8 lb." },
   { name: "Dwarven Waraxe", category: "Weapons", price: 30, weight: "8 lb." },
+  { name: "Dwarven Urgrosh", category: "Weapons", price: 50, weight: "12 lb.", doubleWeapon: true },
+  { name: "Gnome Hooked Hammer", category: "Weapons", price: 20, weight: "6 lb.", doubleWeapon: true },
+  { name: "Orc Double Axe", category: "Weapons", price: 60, weight: "15 lb.", doubleWeapon: true },
+  { name: "Dire Flail", category: "Weapons", price: 90, weight: "10 lb.", doubleWeapon: true },
+  { name: "Two-Bladed Sword", category: "Weapons", price: 100, weight: "10 lb.", doubleWeapon: true },
   { name: "Greataxe", category: "Weapons", price: 20, weight: "12 lb." },
   { name: "Glaive", category: "Weapons", price: 8, weight: "10 lb." },
   { name: "Halberd", category: "Weapons", price: 10, weight: "12 lb." },
@@ -290,7 +295,17 @@ export const weaponDamageBySize: Record<string, { smaller: string; larger: strin
   "2d6": { smaller: "1d8", larger: "3d6" },
 };
 
-export const weaponProfiles: Record<string, { damage: string; crit: string }> = {
+export type WeaponProfile = {
+  damage: string;
+  crit: string;
+  offHandDamage?: string;
+  offHandCrit?: string;
+  offHandDamageType?: string;
+  mainEndLabel?: string;
+  offHandEndLabel?: string;
+};
+
+export const weaponProfiles: Record<string, WeaponProfile> = {
   Club: { damage: "1d6", crit: "x2" },
   "Short Sword": { damage: "1d6", crit: "19–20/x2" },
   "Heavy Mace": { damage: "1d8", crit: "x2" },
@@ -325,6 +340,17 @@ export const weaponProfiles: Record<string, { damage: string; crit: string }> = 
   Lance: { damage: "1d8", crit: "x3" },
   Morningstar: { damage: "1d8", crit: "x2" },
   Quarterstaff: { damage: "1d6", crit: "x2" },
+  "Dwarven Urgrosh": {
+    damage: "1d8", crit: "x3", offHandDamage: "1d6", offHandCrit: "x3",
+    offHandDamageType: "piercing", mainEndLabel: "axe head", offHandEndLabel: "spear point",
+  },
+  "Gnome Hooked Hammer": {
+    damage: "1d8", crit: "x3", offHandDamage: "1d6", offHandCrit: "x4",
+    offHandDamageType: "piercing", mainEndLabel: "hammer head", offHandEndLabel: "hooked head",
+  },
+  "Orc Double Axe": { damage: "1d8", crit: "x3" },
+  "Dire Flail": { damage: "1d8", crit: "x2" },
+  "Two-Bladed Sword": { damage: "1d8", crit: "19–20/x2" },
   "Light Crossbow": { damage: "1d8", crit: "19–20/x2" },
   "Heavy Crossbow": { damage: "1d10", crit: "19–20/x2" },
   "Repeating Crossbow": { damage: "1d8", crit: "19–20/x2" },
@@ -373,6 +399,11 @@ export const weaponDamageTypes: Record<string, string> = {
   Lance: "piercing",
   Morningstar: "bludgeoning or piercing",
   Quarterstaff: "bludgeoning",
+  "Dwarven Urgrosh": "slashing",
+  "Gnome Hooked Hammer": "bludgeoning",
+  "Orc Double Axe": "slashing",
+  "Dire Flail": "bludgeoning",
+  "Two-Bladed Sword": "slashing",
   "Light Crossbow": "piercing",
   "Heavy Crossbow": "piercing",
   "Repeating Crossbow": "piercing",
@@ -445,6 +476,11 @@ export const lightOffHandWeaponNames = new Set([
 
 export const twoHandedWeaponNames = new Set([
   "Quarterstaff",
+  "Dwarven Urgrosh",
+  "Gnome Hooked Hammer",
+  "Orc Double Axe",
+  "Dire Flail",
+  "Two-Bladed Sword",
   "Spear",
   "Heavy Flail",
   "Greatsword",
@@ -452,28 +488,41 @@ export const twoHandedWeaponNames = new Set([
   "Glaive",
   "Halberd",
   "Guisarme",
+  "Longspear",
+  "Long Spear",
+  "Ranseur",
   "Spiked Chain",
   "Falchion",
   "Lance",
+  "Shortbow",
   "Longbow",
+  "Composite Shortbow",
+  "Composite Longbow",
+  "Light Crossbow",
   "Heavy Crossbow",
   "Repeating Crossbow",
+  "Repeating Light Crossbow",
+  "Repeating Heavy Crossbow",
 ]);
 
 export const simpleWeaponNames = new Set([
   "Club",
   "Dagger",
   "Light Mace",
+  "Heavy Mace",
+  "Mace",
   "Light Hammer",
   "Morningstar",
   "Quarterstaff",
   "Sickle",
+  "Short Spear",
+  "Shortspear",
+  "Spear",
   "Light Crossbow",
   "Heavy Crossbow",
   "Sling",
   "Javelin",
   "Dart",
-  "Shuriken",
   "Unarmed Strike",
 ]);
 
@@ -486,25 +535,18 @@ export const martialWeaponNames = new Set([
   "Rapier",
   "Greatsword",
   "Shortbow",
+  "Composite Shortbow",
   "Longbow",
+  "Composite Longbow",
   "Handaxe",
   "Trident",
-  "Net",
-  "Whip",
   "Kukri",
-  "Kama",
-  "Sickle",
   "Glaive",
   "Halberd",
   "Guisarme",
-  "Spiked Chain",
   "Falchion",
   "Lance",
-  "Repeating Crossbow",
-  "Hand Crossbow",
-  "Morningstar",
   "Scimitar",
-  "Spear",
   "Warhammer",
 ]);
 
@@ -926,6 +968,10 @@ storeItems.push(
   { name: "Light Wooden Shield", category: "Shields", price: 3, weight: "5 lb." },
   { name: "Heavy Wooden Shield", category: "Shields", price: 7, weight: "10 lb." },
   { name: "Light Steel Shield", category: "Shields", price: 9, weight: "6 lb." },
+  { name: "Light Wooden Shield with Spikes", category: "Shields", price: 13, weight: "10 lb.", shieldBonus: 1, shieldCheckPenalty: -1, shieldSpellFailure: 5, shieldType: "Light" },
+  { name: "Heavy Wooden Shield with Spikes", category: "Shields", price: 17, weight: "15 lb.", shieldBonus: 2, shieldCheckPenalty: -2, shieldSpellFailure: 15, shieldType: "Heavy" },
+  { name: "Light Steel Shield with Spikes", category: "Shields", price: 19, weight: "11 lb.", shieldBonus: 1, shieldCheckPenalty: -1, shieldSpellFailure: 5, shieldType: "Light" },
+  { name: "Heavy Steel Shield with Spikes", category: "Shields", price: 30, weight: "20 lb.", shieldBonus: 2, shieldCheckPenalty: -2, shieldSpellFailure: 15, shieldType: "Heavy" },
   { name: "Ring of Counterspells", category: "Rings", price: 4000, weight: "—" },
   { name: "Ring of Force Shield", category: "Rings", price: 8500, weight: "—" },
   { name: "Ring of Ram", category: "Rings", price: 8600, weight: "—" },

@@ -13,6 +13,38 @@ import { applyHitPointAction, getCurrentHitPoints, getMaximumHitPoints, getStore
 import App from "../src/App";
 
 describe("ability-enhancement equipment", () => {
+  it("applies the halfling's unconditional racial bonus to all saves", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Halfling";
+
+    expect(getSavingThrow(character, "fortitude").total).toBe(3);
+    expect(getSavingThrow(character, "reflex").total).toBe(1);
+    const will = getSavingThrow(character, "will");
+    expect(will.total).toBe(1);
+    expect(will.detail).toContain("racial +1");
+    expect(will.title).toContain("Select context for situational racial bonuses.");
+    expect(getSavingThrow(character, "will", ["fear"]).total).toBe(3);
+    expect(getSavingThrow(character, "will", ["poison"]).total).toBe(1);
+  });
+
+  it("applies conditional racial save bonuses only for matching contexts", () => {
+    const dwarf = cloneCharacter(initialCharacter);
+    dwarf.race = "Dwarf";
+    expect(getSavingThrow(dwarf, "fortitude").total).toBe(2);
+    expect(getSavingThrow(dwarf, "fortitude", ["poison"]).total).toBe(4);
+    const dwarfSpellSave = getSavingThrow(dwarf, "will", ["spell", "enchantment"]);
+    expect(dwarfSpellSave.total).toBe(2);
+    expect(dwarfSpellSave.detail).toContain("spell racial +2");
+
+    const elf = cloneCharacter(initialCharacter);
+    elf.race = "Elf";
+    expect(getSavingThrow(elf, "will", ["enchantment"]).total).toBe(2);
+
+    const gnome = cloneCharacter(initialCharacter);
+    gnome.race = "Gnome";
+    expect(getSavingThrow(gnome, "will", ["illusion"]).total).toBe(2);
+  });
+
   it.each(abilityEquipmentItems)("supports $name in its matching slot without mutating base scores", (item) => {
     const character = cloneCharacter(initialCharacter);
     const base = { ...character.abilities };
@@ -156,6 +188,25 @@ describe("ability-enhancement equipment", () => {
     expect(getCurrentHitPoints(healed)).toBe(14);
     expect(getStoredCurrentHitPoints(healed)).toBe(10);
     expect(getCurrentHitPoints({ ...healed, equipment: { ...healed.equipment, Neck: "" } })).toBe(10);
+  });
+});
+
+describe("situational racial saving throws", () => {
+  it("applies a selected context through the character sheet controls", async () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Halfling";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    await screen.findByText("Will", { selector: ".stat > small" });
+    const willSave = () =>
+      within(screen.getByText("Will", { selector: ".stat > small" }).parentElement!)
+        .getByRole("strong").textContent;
+    expect(willSave()).toBe("+1");
+    await screen.findByText("Apply situational racial bonuses");
+    fireEvent.click(screen.getByText("Apply situational racial bonuses"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Fear" }));
+    expect(willSave()).toBe("+3");
   });
 });
 

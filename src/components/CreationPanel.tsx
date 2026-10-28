@@ -1,6 +1,6 @@
 import { type Character, type ClassId, type AbilityName, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
-import { isClassAlignmentAllowed, alignmentDistance, isPrestigeClassEligible, getClassAlignmentRestriction, isHighSorceryAlignmentAllowed, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getAvailableLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, formatRaceDetails, formatClassDetails, formatPrestigeClassDetails, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
+import { isClassAlignmentAllowed, alignmentDistance, isPrestigeClassEligible, getClassAlignmentRestriction, isHighSorceryAlignmentAllowed, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, formatRaceDetails, formatClassDetails, formatPrestigeClassDetails, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
 import { Panel } from "./shared";
@@ -251,15 +251,23 @@ export function CreationPanel({
     creationErrors.push("Spend all available starting skill points.");
   if (getFeatSlots(draft).some((slot) => !draft.featSelections?.[slot.id]))
     creationErrors.push("Select every required starting feat.");
+  creationErrors.push(...getFeatWeaponSelectionWarnings(draft));
   if (!(draft.languages ?? []).length)
     creationErrors.push("Select at least one starting language.");
   const availableLanguageSet = new Set(getAvailableLanguages(ruleset));
+  const availableBonusLanguageSet = new Set(
+    getAvailableBonusLanguages(draft, ruleset),
+  );
+  const automaticLanguages = new Set(getRacialLanguages(draft));
   const invalidLanguages = (draft.languages ?? []).filter(
-    (language) => !availableLanguageSet.has(language),
+    (language) =>
+      !availableLanguageSet.has(language) ||
+      (!automaticLanguages.has(language) &&
+        !availableBonusLanguageSet.has(language)),
   );
   if (invalidLanguages.length)
     creationErrors.push(
-      `Remove languages unavailable in this ruleset: ${invalidLanguages.join(", ")}.`,
+      `Remove languages unavailable to this race or ruleset: ${invalidLanguages.join(", ")}.`,
     );
   if (!Object.values(draft.inventory).some((quantity) => quantity > 0))
     creationErrors.push("Select at least one piece of starting equipment.");
@@ -913,7 +921,7 @@ export function CreationPanel({
                     Bonus language {index + 1}
                     <LanguagePicker
                       selected={current}
-                      options={getAvailableLanguages(ruleset).filter(
+                      options={getAvailableBonusLanguages(draft, ruleset).filter(
                         (language) =>
                           !taken.has(language) || language === current,
                       )}

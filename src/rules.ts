@@ -1,9 +1,10 @@
-import { languageCatalog, dragonlanceLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills } from "./data/characterCatalog";
-import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId } from "./domain";
+import { languageCatalog, dragonlanceLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, startingClassFeatures } from "./data/characterCatalog";
+import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type CombatTargetType, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId } from "./domain";
+import { classFeatureProgression } from "./data/classFeatureProgression";
 import { spellProgressions, bardKnownProgression, sorcererKnownProgression } from "./data/spellProgression";
-import { armorBonuses, findStoreItem, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, type StoreItem, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentCatalog";
+import { armorBonuses, findStoreItem, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, type StoreItem, storeItems, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentCatalog";
 import { findSpellByName, getClassSpells } from "./data/spellCatalog";
-import { isClericDomainClassSkill } from "./clericDomains";
+import { getWarDomainWeapon, isClericDomainClassSkill } from "./clericDomains";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "./abilityEquipment";
 import { getCombatEffectDetails, getCombatEffectModifier } from "./combatEffects";
 
@@ -19,16 +20,24 @@ export function getAvailableLanguages(
   );
 }
 
+export function getAvailableBonusLanguages(
+  character: Character,
+  ruleset: "core-35-srd" | "dragonlance-user-pack" | "dragonlance-monster-classes" = "dragonlance-user-pack",
+) {
+  const raceId = character.race.toLowerCase().replaceAll(" ", "-");
+  const racialChoices = racialBonusLanguages[raceId];
+  return getAvailableLanguages(ruleset).filter(
+    (language) => !racialChoices || racialChoices.includes(language),
+  );
+}
+
 export function getRacialLanguages(character: Character) {
   const raceId = character.race.toLowerCase().replaceAll(" ", "-");
   return racialLanguages[raceId] ?? ["Common"];
 }
 
 export function getLanguageBonusSlots(character: Character) {
-  return (
-    Math.max(0, abilityModifier(character.abilities.int)) +
-    (character.race === "Human" ? 1 : 0)
-  );
+  return Math.max(0, abilityModifier(character.abilities.int));
 }
 
 export function getCharacterLanguages(character: Character) {
@@ -148,7 +157,7 @@ export function getClassSpellSelections(character: Character, field: "knownSpell
 export function getWizardCopyRequirements(level: number) {
   if (!Number.isInteger(level) || level < 0 || level > 9) throw new Error("Wizard spell level must be 0 through 9.");
   const pages = Math.max(1, level);
-  return { decipherDC: 20 + level, learningDC: 15 + level, pages,
+  return { decipherDC: 20 + level, learningDC: 15 + level, studyHours: 8, pages,
     writingCostGp: pages * 100, writingHours: 24, usualAccessFeeGp: level * 50 };
 }
 
@@ -217,7 +226,27 @@ export function getEquipmentDefenseBonuses(character: Character) {
   };
 }
 
-export function getArmorClassValues(character: Character) {
+const combatTargetLabels: Record<CombatTargetType, string> = {
+  orc: "orcs/half-orcs",
+  goblinoid: "goblinoids",
+  kobold: "kobolds",
+  giant: "giants",
+};
+
+export function getTowerShieldState(character: Character) {
+  const shield = findStoreItem(character.equipment?.Shield ?? "", "Shields");
+  const equipped = Boolean(shield && (
+    shield.towerShieldProficiency ||
+    shield.shieldType === "Tower" ||
+    shield.name.includes("Tower Shield")
+  ));
+  return {
+    equipped,
+    coverActive: equipped && character.towerShieldTotalCover === true,
+  };
+}
+
+export function getArmorClassValues(character: Character, targetTypes: CombatTargetType[] = []) {
   const equipment = character.equipment ?? {};
   const armorName = equipment.Armor ?? "";
   const shieldName = equipment.Shield ?? "";
@@ -237,24 +266,50 @@ export function getArmorClassValues(character: Character) {
   const armorBonus = (armorBaseName ? armorBonuses[armorBaseName] : customArmor?.armorBonus ?? 0) +
       (armorEnhancement ? Number(armorEnhancement) : 0) +
       bracersArmorBonus;
-  const shieldBonus = (shieldBaseName ? shieldBonuses[shieldBaseName] : 0) +
+  const totalShieldBonus = (shieldBaseName ? shieldBonuses[shieldBaseName] : 0) +
       (shieldEnhancement ? Number(shieldEnhancement) : 0);
+  const bucklerBonusLost = isBucklerEquipped(character) &&
+    (Boolean(equipment["Off Hand Weapon"]) || getDoubleWeaponModeState(character)?.enabled === true);
+  const towerShieldState = getTowerShieldState(character);
+  const shieldBashState = getShieldBashState(character);
+  const shieldBonus = bucklerBonusLost || towerShieldState.coverActive || shieldBashState.enabled
+    ? 0
+    : totalShieldBonus;
   const dexterity = Math.min(abilityModifier(getEffectiveAbilityScore(character, "dex")), maximumDexterityBonus);
   const bonuses = getEquipmentDefenseBonuses(character);
   const deflection = bonuses.deflection.bonus;
   const naturalArmorEnhancement = bonuses.naturalArmorEnhancement.bonus;
   const activeArmorClass = getCombatEffectModifier(character, "armorClass");
+  const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
+  const racialDodgeACBonus = Math.max(
+    0,
+    ...targetTypes.map((targetType) => race?.racialDodgeACBonuses?.[targetType] ?? 0),
+  );
+  const dodgeTarget = targetTypes.find(
+    (targetType) => race?.racialDodgeACBonuses?.[targetType] === racialDodgeACBonus && racialDodgeACBonus > 0,
+  );
   const base = 10 + sizeModifier(character);
   const retainsDexterity = character.classLevels.some(({ classId, level }) =>
     (classId === "barbarian" && level >= 2) || (classId === "rogue" && level >= 4)) ||
     (character.classFeatures ?? []).some((feature) => /\buncanny dodge\b/i.test(feature));
   return {
-    normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + activeArmorClass,
-    touch: base + dexterity + deflection + activeArmorClass,
-    flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
+    normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialDodgeACBonus + activeArmorClass,
+    touch: base + dexterity + deflection + racialDodgeACBonus + activeArmorClass,
+    flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
     retainsDexterity,
+    racialDodgeACBonus,
+    towerShieldCoverActive: towerShieldState.coverActive,
+    shieldBashACBonusLost: shieldBashState.enabled,
     detail: [
       `Base 10; armor ${formatModifier(armorBonus)}; shield ${formatModifier(shieldBonus)}; DEX ${formatModifier(dexterity)}; size ${formatModifier(sizeModifier(character))}`,
+      ...(bucklerBonusLost ? ["Buckler AC bonus lost while wielding an off-hand weapon."] : []),
+      ...(towerShieldState.coverActive
+        ? ["Tower shield used for total cover instead of its shield bonus; attacks are unavailable until the start of the next turn. Targeted spells can still target the shield."]
+        : []),
+      ...(shieldBashState.enabled
+        ? ["Shield AC bonus lost after a shield bash until your next action; clear the bash setting manually."]
+        : []),
+      ...(dodgeTarget && race ? [`${race.name} dodge vs. ${combatTargetLabels[dodgeTarget]} ${formatModifier(racialDodgeACBonus)}`] : []),
       ...getAbilityEquipmentBonus(character, "dex").detail,
       ...bonuses.deflection.detail,
       ...bonuses.naturalArmorEnhancement.detail,
@@ -275,9 +330,8 @@ export function getSpecialAttackBonuses(character: Character) {
   const feats = getChosenFeats(character);
   const penalties = getArmorNonproficiencyPenalties(character);
   const nonproficiency = penalties.reduce((total, entry) => total + entry.penalty, 0);
-  const shield = findStoreItem(character.equipment.Shield ?? "", "Shields");
-  const towerPenalty = shield && (shield.towerShieldProficiency || shield.shieldType === "Tower" ||
-    shield.name.includes("Tower Shield")) ? -2 : 0;
+  const towerShieldState = getTowerShieldState(character);
+  const towerPenalty = towerShieldState.equipped ? -2 : 0;
   const meleeAbility = feats.includes("weapon-finesse")
     ? Math.max(strength, dexterity + finesseShieldPenalty(character)) : strength;
   const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ?? raceDefinitions.human;
@@ -287,7 +341,7 @@ export function getSpecialAttackBonuses(character: Character) {
   };
   const grappleSize = grappleSizeModifiers[race.size ?? "Medium"];
   const grappleFeat = feats.includes("improved-grapple") ? 4 : 0;
-  const penalty = nonproficiency + towerPenalty;
+  const attackPenalty = nonproficiency + towerPenalty;
   const attackModifier = getCombatEffectModifier(character, "attack");
   const checkModifier = getCombatEffectModifier(character, "checks");
   const penaltyDetail = [
@@ -295,12 +349,13 @@ export function getSpecialAttackBonuses(character: Character) {
     ...(towerPenalty ? ["-2 tower shield"] : []),
   ];
   return {
-    meleeTouch: base + meleeAbility + size + penalty + attackModifier,
-    rangedTouch: base + dexterity + size + penalty + attackModifier,
-    grapple: base + strength + grappleSize + grappleFeat + penalty + checkModifier,
+    meleeTouch: base + meleeAbility + size + attackPenalty + attackModifier,
+    rangedTouch: base + dexterity + size + attackPenalty + attackModifier,
+    grapple: base + strength + grappleSize + grappleFeat + nonproficiency + checkModifier,
+    towerShieldCoverActive: towerShieldState.coverActive,
     meleeDetail: [`BAB ${formatModifier(base)}`, `${meleeAbility === strength ? "STR" : "DEX with Weapon Finesse (including shield penalty)"} ${formatModifier(meleeAbility)}`, `size ${formatModifier(size)}`, ...penaltyDetail, ...getCombatEffectDetails(character, "attack")].join("; "),
     rangedDetail: [`BAB ${formatModifier(base)}`, `DEX ${formatModifier(dexterity)}`, `size ${formatModifier(size)}`, ...penaltyDetail, ...getCombatEffectDetails(character, "attack")].join("; "),
-    grappleDetail: [`BAB ${formatModifier(base)}`, `STR ${formatModifier(strength)}`, `grapple size ${formatModifier(grappleSize)}`, ...(grappleFeat ? ["Improved Grapple +4"] : []), ...penaltyDetail, ...getCombatEffectDetails(character, "checks")].join("; "),
+    grappleDetail: [`BAB ${formatModifier(base)}`, `STR ${formatModifier(strength)}`, `grapple size ${formatModifier(grappleSize)}`, ...(grappleFeat ? ["Improved Grapple +4"] : []), ...penalties.map((entry) => `${formatModifier(entry.penalty)} ${entry.source}: ${entry.name}`), ...getCombatEffectDetails(character, "checks")].join("; "),
   };
 }
 
@@ -311,8 +366,20 @@ export function getSizedWeaponDamage(damage: string, size: string) {
 }
 
 export function getWeaponDamageForSize(item: StoreItem, size: string) {
-  const customDamage = size === "Small" ? item.damageSmall : size === "Large" ? item.damageLarge : item.damageMedium;
-  return customDamage ?? getSizedWeaponDamage(item.damage ?? getWeaponProfile(item.name).damage, size);
+  return getWeaponEndDamageForSize(item, size, "main");
+}
+
+function getWeaponEndDamageForSize(item: StoreItem, size: string, end: "main" | "off-hand") {
+  const profile = getWeaponProfile(item.name);
+  const isOffHand = end === "off-hand";
+  const sizeDamage = isOffHand
+    ? (size === "Small" ? item.offHandDamageSmall : size === "Large" ? item.offHandDamageLarge : item.offHandDamageMedium) ??
+      (size === "Small" ? item.damageSmall : size === "Large" ? item.damageLarge : item.damageMedium)
+    : size === "Small" ? item.damageSmall : size === "Large" ? item.damageLarge : item.damageMedium;
+  const baseDamage = isOffHand
+    ? item.offHandDamage ?? profile.offHandDamage ?? item.damage ?? profile.damage
+    : item.damage ?? profile.damage;
+  return sizeDamage ?? getSizedWeaponDamage(baseDamage, size);
 }
 
 export function getWeaponRangeForSize(item: StoreItem, size: string) {
@@ -394,7 +461,10 @@ export function getStoreItemDescription(item: StoreItem, size = "Medium") {
     const masterworkBenefit = item.name.startsWith("Masterwork ")
       ? " Masterwork: shield check penalty reduced by 1."
       : "";
-    return `Shield bonus +${shieldBonus}; armor check penalty ${checkPenalty}; arcane spell failure ${item.shieldSpellFailure ?? 0}%; ${item.shieldType ?? "custom"} shield; uses the off hand.${masterworkBenefit}`;
+    const spikeDescription = item.name.endsWith("with Spikes")
+      ? " Shield spikes: piercing bash damage as if the shield were designed for a creature one size category larger."
+      : "";
+    return `Shield bonus +${shieldBonus}; armor check penalty ${checkPenalty}; arcane spell failure ${item.shieldSpellFailure ?? 0}%; ${item.shieldType ?? "custom"} shield; uses the off hand.${spikeDescription}${masterworkBenefit}`;
   }
   if (item.category === "Ammunition") return "Ammunition used with a compatible ranged weapon.";
   if (item.category === "Instruments") return "A musical instrument used for performance, bardic music, or magical effects.";
@@ -562,14 +632,254 @@ const projectileWeaponNames = new Set([
   "Repeating Crossbow", "Repeating Light Crossbow", "Repeating Heavy Crossbow", "Sling",
 ]);
 
+const thrownWeaponNames = new Set([
+  "Bolas", "Club", "Dagger", "Dart", "Handaxe", "Javelin", "Light Hammer",
+  "Net", "Shuriken", "Short Spear", "Shortspear", "Spear", "Throwing Axe", "Trident",
+]);
+
+const creatureSizes = ["Fine", "Diminutive", "Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan", "Colossal"] as const;
+const weaponHandedness = ["light", "one-handed", "two-handed"] as const;
+
 function weaponTraits(item: StoreItem) {
   const baseName = getBaseEquipmentName(item.name);
   const light = item.handedness ? item.handedness === "Light" : lightOffHandWeaponNames.has(baseName);
   const twoHanded = item.handedness ? item.handedness === "Two-handed" : twoHandedWeaponNames.has(baseName);
   const ranged = item.handedness === "Ranged" || projectileWeaponNames.has(baseName) ||
     rangedWeaponNames.has(baseName) || baseName === "Net";
-  const finesse = light || ["Rapier", "Whip", "Spiked Chain"].includes(baseName) || item.finesse === true;
-  return { baseName, light, twoHanded, ranged, finesse };
+  const thrown = item.thrown === true || thrownWeaponNames.has(baseName);
+  const finesse = item.finesse ?? (light || ["Rapier", "Whip", "Spiked Chain"].includes(baseName));
+  return { baseName, light, twoHanded, ranged, thrown, finesse, doubleWeapon: item.doubleWeapon === true };
+}
+
+function getWeaponItemForKey(character: Character, name: string) {
+  const shieldBashState = getShieldBashState(character);
+  if (shieldBashState.enabled && name === shieldBashState.weaponName) {
+    const lightShield = shieldBashState.shieldType === "Light";
+    const spiked = shieldBashState.spiked;
+    return {
+      name,
+      category: "Weapons" as const,
+      price: 0,
+      weight: "—",
+      custom: true,
+      proficiency: "Martial" as const,
+      handedness: lightShield ? "Light" as const : "One-handed" as const,
+      finesse: false,
+      damage: lightShield ? (spiked ? "1d4" : "1d3") : (spiked ? "1d6" : "1d4"),
+      damageSmall: spiked ? undefined : lightShield ? "1d2" : "1d3",
+      damageMedium: spiked ? undefined : lightShield ? "1d3" : "1d4",
+      damageLarge: spiked ? undefined : lightShield ? "1d4" : "1d6",
+      damageType: spiked ? "piercing" : "bludgeoning",
+      critical: "x2",
+    };
+  }
+  return findStoreItem(name);
+}
+
+export function getWeaponSizeHandling(character: Character, key: string, slot?: WeaponSlot) {
+  const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
+  const item = getWeaponItemForKey(character, name);
+  if (!item || item.category !== "Weapons") return null;
+  const weaponSize = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
+  const characterSize = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")]?.size ?? "Medium";
+  const sizeDifference = creatureSizes.indexOf(weaponSize as (typeof creatureSizes)[number]) -
+    creatureSizes.indexOf(characterSize);
+  const traits = weaponTraits(item);
+  const doubleWeaponEnd = character.doubleWeaponMode === true && traits.doubleWeapon &&
+    character.equipment?.["Main Weapon"] === key && (slot === "Main Weapon" || slot === "Off Hand Weapon");
+  const baseHandedness = doubleWeaponEnd
+    ? slot === "Off Hand Weapon" ? 0 : 1
+    : traits.light ? 0 : traits.twoHanded ? 2 : 1;
+  const adjustedHandedness = weaponHandedness[baseHandedness + sizeDifference];
+  const attackPenalty = sizeDifference === 0 ? 0 : -2 * Math.abs(sizeDifference);
+  const warning = sizeDifference === 0
+    ? undefined
+    : adjustedHandedness
+      ? `${weaponSize} weapon for ${characterSize} wielder: ${formatModifier(attackPenalty)} attack; treated as ${adjustedHandedness}.`
+      : `${weaponSize} weapon cannot be wielded by a ${characterSize} character because its grip falls outside light, one-handed, or two-handed.`;
+  return {
+    weaponSize,
+    characterSize,
+    sizeDifference,
+    attackPenalty,
+    effectiveHandedness: adjustedHandedness ?? null,
+    wieldable: adjustedHandedness !== undefined,
+    warning,
+  };
+}
+
+export function getDoubleWeaponModeState(character: Character) {
+  const key = character.equipment?.["Main Weapon"];
+  if (!key) return null;
+  const name = getInventoryEntryDetails(key).name;
+  const item = findStoreItem(name);
+  if (!item || item.category !== "Weapons" || !weaponTraits(item).doubleWeapon) return null;
+  const profile = getWeaponProfile(item.name);
+  const hasDifferentEnds = Boolean(
+    item.offHandDamage || item.offHandDamageSmall || item.offHandDamageMedium || item.offHandDamageLarge ||
+    item.offHandCritical || item.offHandDamageType || profile.offHandDamage || profile.offHandCrit ||
+    profile.offHandDamageType,
+  );
+  return {
+    enabled: character.doubleWeaponMode === true,
+    canUseBothEnds: !character.equipment?.["Off Hand Weapon"] &&
+      (!character.equipment?.Shield || isBucklerEquipped(character)),
+    hasDifferentEnds,
+    primaryEnd: character.doubleWeaponPrimaryEnd ?? "first",
+    firstEndLabel: profile.mainEndLabel ?? item.mainEndLabel ?? "First end",
+    secondEndLabel: profile.offHandEndLabel ?? item.offHandEndLabel ?? "Second end",
+  };
+}
+
+export function getEffectiveWeaponKey(character: Character, slot: WeaponSlot) {
+  if (slot !== "Off Hand Weapon" || character.equipment?.["Off Hand Weapon"]) {
+    return character.equipment?.[slot];
+  }
+  const shieldBashState = getShieldBashState(character);
+  if (shieldBashState.enabled && shieldBashState.weaponName) {
+    return `${shieldBashState.weaponName} (${shieldBashState.weaponSize})`;
+  }
+  const doubleWeaponMode = getDoubleWeaponModeState(character);
+  return doubleWeaponMode?.enabled ? character.equipment?.["Main Weapon"] : undefined;
+}
+
+export function isBucklerEquipped(character: Character) {
+  const name = character.equipment?.Shield ?? "";
+  const item = name ? findStoreItem(name, "Shields") : undefined;
+  return Boolean(item && (item.shieldType === "Buckler" || item.name === "Buckler" || name.includes("Buckler")));
+}
+
+export function getShieldBashState(character: Character) {
+  const shieldName = character.equipment?.Shield ?? "";
+  const shield = shieldName ? findStoreItem(shieldName, "Shields") : undefined;
+  let shieldType: "Light" | "Heavy" | undefined;
+  if (shield?.shieldType === "Light" || shield?.shieldType === "Heavy") {
+    shieldType = shield.shieldType;
+  } else if (shield?.shieldType === undefined) {
+    const baseName = getBaseEquipmentName(shield?.name ?? "").replace(/ with Spikes$/, "");
+    if (/^Light (?:Wooden|Steel) Shield$/.test(baseName)) shieldType = "Light";
+    if (/^Heavy (?:Wooden|Steel) Shield$/.test(baseName)) shieldType = "Heavy";
+  }
+  const spiked = Boolean(shield?.name.endsWith("with Spikes"));
+  const weaponSize = shieldName ? getInventoryEntryDetails(shieldName).size : "Medium";
+  const characterSize = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")]?.size ?? "Medium";
+  const shieldSizeDifference = creatureSizes.indexOf(weaponSize as (typeof creatureSizes)[number]) -
+    creatureSizes.indexOf(characterSize);
+  const bashHandedness = weaponHandedness[
+    (shieldType === "Light" ? 0 : 1) + shieldSizeDifference
+  ];
+  const mainWeaponKey = character.equipment?.["Main Weapon"] ?? "";
+  const mainWeaponName = mainWeaponKey.replace(/ \((Small|Medium|Large)\)$/, "");
+  const mainWeapon = mainWeaponName ? findStoreItem(mainWeaponName, "Weapons") : undefined;
+  const mainWeaponSize = mainWeaponKey.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
+  const mainSizeDifference = creatureSizes.indexOf(mainWeaponSize as (typeof creatureSizes)[number]) -
+    creatureSizes.indexOf(characterSize);
+  const mainTraits = mainWeapon ? weaponTraits(mainWeapon) : undefined;
+  const mainHandedness = mainTraits
+    ? weaponHandedness[
+      (mainTraits.light ? 0 : mainTraits.twoHanded ? 2 : 1) + mainSizeDifference
+    ]
+    : undefined;
+  const mainUsesTwoHands = mainHandedness === "two-handed" ||
+    (mainHandedness === "one-handed" && character.mainWeaponGrip === "two-handed");
+  const canBash = Boolean(
+    shieldType &&
+      (bashHandedness === "light" || bashHandedness === "one-handed") &&
+      !character.equipment?.["Off Hand Weapon"] &&
+      !mainUsesTwoHands &&
+      character.doubleWeaponMode !== true,
+  );
+  const weaponName = shieldType
+    ? `${spiked ? "Spiked " : ""}${shieldType} Shield Bash`
+    : undefined;
+  return {
+    canBash,
+    hasBashableShield: Boolean(shieldType),
+    enabled: canBash && character.shieldBashMode === true,
+    spiked,
+    shieldType,
+    weaponName,
+    weaponSize,
+  };
+}
+
+export function getMainWeaponGripState(character: Character) {
+  const key = character.equipment?.["Main Weapon"];
+  if (!key) return null;
+  const sizeHandling = getWeaponSizeHandling(character, key);
+  if (sizeHandling?.effectiveHandedness !== "one-handed") return null;
+  return {
+    grip: character.mainWeaponGrip ?? "one-handed",
+    canUseTwoHands: !character.equipment?.["Off Hand Weapon"] &&
+      (!character.equipment?.Shield || isBucklerEquipped(character)),
+  };
+}
+
+export function getWeaponCompatibilityWarning(
+  character: Character,
+  key: string,
+  slot: WeaponSlot,
+) {
+  const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
+  const item = getWeaponItemForKey(character, name);
+  const sizeHandling = getWeaponSizeHandling(character, key, slot);
+  if (!item || item.category !== "Weapons" || !sizeHandling?.wieldable) return null;
+  const traits = weaponTraits(item);
+  const isDoubleWeaponMode = character.doubleWeaponMode === true && traits.doubleWeapon &&
+    character.equipment?.["Main Weapon"] === key;
+  const syntheticOffHand = slot === "Off Hand Weapon" && isDoubleWeaponMode &&
+    !character.equipment?.["Off Hand Weapon"];
+  const shieldBashState = getShieldBashState(character);
+  const syntheticShieldBash = slot === "Off Hand Weapon" && shieldBashState.enabled &&
+    shieldBashState.weaponName === name && !character.equipment?.["Off Hand Weapon"];
+  if (!syntheticOffHand && !syntheticShieldBash && character.equipment?.[slot] !== key) return null;
+  const hasShield = Boolean(character.equipment?.Shield);
+  const buckler = isBucklerEquipped(character);
+  const mainHandedness = getWeaponSizeHandling(
+    character,
+    character.equipment?.["Main Weapon"] ?? "",
+    "Main Weapon",
+  );
+  const mainUsesTwoHands = mainHandedness?.effectiveHandedness === "two-handed" ||
+    (mainHandedness?.effectiveHandedness === "one-handed" && character.mainWeaponGrip === "two-handed");
+
+  if (syntheticShieldBash) {
+    return mainUsesTwoHands
+      ? "A shield bash is incompatible with a two-handed main-weapon grip."
+      : null;
+  }
+
+  if (isDoubleWeaponMode) {
+    if (character.equipment?.["Off Hand Weapon"]) {
+      return "Double-weapon mode uses both ends; unequip the separate off-hand weapon.";
+    }
+    if (hasShield && !buckler) {
+      return "Double-weapon mode uses both hands; equip a buckler or unequip the shield.";
+    }
+    return null;
+  }
+
+  if (slot === "Main Weapon") {
+    const usesTwoHands = sizeHandling.effectiveHandedness === "two-handed" ||
+      (sizeHandling.effectiveHandedness === "one-handed" && character.mainWeaponGrip === "two-handed");
+    if (usesTwoHands && character.equipment?.["Off Hand Weapon"]) {
+      return "A two-handed grip is incompatible with an off-hand weapon.";
+    }
+    if (usesTwoHands && hasShield && !buckler) {
+      return "A non-buckler shield occupies your off hand; use a one-handed grip or unequip the shield.";
+    }
+  } else if (slot === "Off Hand Weapon") {
+    if (mainUsesTwoHands) return "An off-hand weapon is incompatible with a two-handed main-weapon grip.";
+    if (hasShield && !buckler) return "A non-buckler shield occupies your off hand.";
+  } else if (
+    slot === "Ranged Weapon" &&
+    hasShield &&
+    !buckler &&
+    (weaponTraits(item).twoHanded || sizeHandling.effectiveHandedness === "two-handed")
+  ) {
+    return "A non-buckler shield occupies one hand required by this ranged weapon.";
+  }
+  return null;
 }
 
 function getEquipmentCheckPenalty(name: string, slot: "Armor" | "Shield") {
@@ -636,14 +946,33 @@ export function getEquippedWeaponStats(
   key: string,
   attackPenalty = 0,
   slot: WeaponSlot = "Main Weapon",
+  targetTypes: CombatTargetType[] = [],
 ) {
   const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
   const size = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
-  const item = findStoreItem(name);
-  if (!item || item.category !== "Weapons") return null;
+  const item = getWeaponItemForKey(character, name);
+  const sizeHandling = getWeaponSizeHandling(character, key, slot);
+  if (!item || item.category !== "Weapons" || !sizeHandling?.wieldable || !sizeHandling.effectiveHandedness) return null;
+  if (getWeaponCompatibilityWarning(character, key, slot)) return null;
+  const towerShieldState = getTowerShieldState(character);
+  if (towerShieldState.coverActive) return null;
   const profile = getWeaponProfile(item.name);
   const traits = weaponTraits(item);
+  const doubleWeaponMode = character.doubleWeaponMode === true && traits.doubleWeapon &&
+    character.equipment?.["Main Weapon"] === key &&
+    (slot === "Main Weapon" || (slot === "Off Hand Weapon" && !character.equipment?.["Off Hand Weapon"]));
+  const usesAlternateEnd = doubleWeaponMode &&
+    (slot === "Main Weapon"
+      ? character.doubleWeaponPrimaryEnd === "second"
+      : character.doubleWeaponPrimaryEnd !== "second");
+  const endLabel = usesAlternateEnd
+    ? profile.offHandEndLabel ?? item.offHandEndLabel
+    : profile.mainEndLabel ?? item.mainEndLabel;
+  const displayName = doubleWeaponMode && endLabel ? `${name} (${endLabel})` : name;
   const isRanged = slot === "Ranged Weapon" || traits.ranged;
+  const twoHandedGrip = !doubleWeaponMode && (sizeHandling.effectiveHandedness === "two-handed" ||
+    (slot === "Main Weapon" && sizeHandling.effectiveHandedness === "one-handed" &&
+      character.mainWeaponGrip === "two-handed"));
   const strength = abilityModifier(getEffectiveAbilityScore(character, "str"));
   const dexterity = abilityModifier(getEffectiveAbilityScore(character, "dex"));
   const shieldPenalty = finesseShieldPenalty(character);
@@ -658,31 +987,72 @@ export function getEquippedWeaponStats(
   const abilityAttackBonus = isRanged || usesFinesse ? dexterity : strength;
   const sizeAttackBonus = sizeModifier(character);
   const finessePenalty = usesFinesse ? shieldPenalty : 0;
-  const nonproficiencyPenalties = getArmorNonproficiencyPenalties(character);
+  const towerShieldAttackPenalty = towerShieldState.equipped ? -2 : 0;
+  const nonproficiencyPenalties = [
+    ...getArmorNonproficiencyPenalties(character),
+    ...(isWeaponProficient(character, item)
+      ? []
+      : [{ source: "weapon (nonprof.)", name: item.name, penalty: -4, multiplier: 1 }]),
+  ];
   const nonproficiencyPenalty = nonproficiencyPenalties.reduce((total, entry) => total + entry.penalty, 0);
   const activeAttack = getCombatEffectModifier(character, "attack");
   const activeDamage = getCombatEffectModifier(character, "damage");
-  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + activeAttack;
+  const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
+  const targetAttackBonus = Math.max(
+    0,
+    ...targetTypes.map((targetType) => race?.racialAttackBonuses?.[targetType] ?? 0),
+  );
+  const matchingTarget = targetTypes.find(
+    (targetType) => race?.racialAttackBonuses?.[targetType] === targetAttackBonus && targetAttackBonus > 0,
+  );
+  const thrownAttackBonus = race?.id === "halfling" && isRanged &&
+    (traits.thrown || traits.baseName === "Sling") ? 1 : 0;
+  const racialAttackBonus = Math.max(targetAttackBonus, thrownAttackBonus);
+  const weaponFeatType = getWeaponFeatTypeName(item.name);
+  const weaponFocusBonus = getWarDomainWeapon(character) === weaponFeatType ||
+    Object.entries(character.featSelections ?? {}).some(
+      ([slotId, featId]) =>
+        featId === "weapon-focus" &&
+        character.featWeaponSelections?.[slotId] === weaponFeatType,
+    ) ? 1 : 0;
+  const weaponSpecializationBonus = Object.entries(character.featSelections ?? {}).some(
+    ([slotId, featId]) =>
+      featId === "weapon-specialization" &&
+      character.featWeaponSelections?.[slotId] === weaponFeatType,
+  ) ? 2 : 0;
+  const racialAttackDetails = [
+    ...(matchingTarget && targetAttackBonus && race
+      ? [`${race.name} vs. ${combatTargetLabels[matchingTarget]} ${formatModifier(targetAttackBonus)} racial`]
+      : []),
+    ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
+  ];
+  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + racialAttackBonus + weaponFocusBonus + activeAttack;
+  const bucklerAttackPenalty = isBucklerEquipped(character) && !isRanged &&
+    (slot === "Off Hand Weapon" || (slot === "Main Weapon" &&
+      (twoHandedGrip || Boolean(character.equipment?.["Off Hand Weapon"]) || doubleWeaponMode)))
+    ? -1
+    : 0;
+  const finalAttack = attack + bucklerAttackPenalty;
   let damageAbility = strength;
   if (isRanged && projectileWeaponNames.has(traits.baseName)) {
     damageAbility = traits.baseName === "Sling" ? strength :
       traits.baseName.includes("bow") && !traits.baseName.includes("Crossbow") ? Math.min(0, strength) : 0;
   } else if (strength > 0) {
-    damageAbility = Math.floor(strength * (slot === "Off Hand Weapon" ? 0.5 : !isRanged && traits.twoHanded ? 1.5 : 1));
+    damageAbility = Math.floor(strength * (slot === "Off Hand Weapon" ? 0.5 : !isRanged && twoHandedGrip ? 1.5 : 1));
   }
-  const damageBonus = damageAbility + enhancement + activeDamage;
-  const damageDice = getWeaponDamageForSize(item, size);
+  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus;
+  const damageDice = getWeaponEndDamageForSize(item, size, usesAlternateEnd ? "off-hand" : "main");
   const elementalProperties = [
     ["Flaming", "fire"],
     ["Frost", "cold"],
     ["Shock", "electricity"],
   ].filter(([property]) => name.includes(`${property} `));
   return {
-    name,
-    attack,
+    name: displayName,
+    attack: finalAttack,
     attackSequence: Array.from(
       { length: slot === "Off Hand Weapon" ? 1 : Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5))) },
-      (_, index) => attack - index * 5,
+      (_, index) => finalAttack - index * 5,
     ),
     attackSequenceNote: "BAB-based full attack only; not extra attacks from feats, haste, flurry, or special routines. Off-hand shows one attack. Ranged attacks require ammunition and sufficient reload/draw actions.",
     rangeIncrement: getWeaponRangeForSize(item, size),
@@ -690,8 +1060,12 @@ export function getEquippedWeaponStats(
     reach: isRanged ? undefined : getWeaponReach(character, item),
     damage: damageDice === "—" || damageDice === "varies" ? damageDice :
       `${damageDice}${damageBonus >= 0 ? `+${damageBonus}` : damageBonus}`,
-    damageType: item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies",
-    critical: item.critical ?? profile.crit,
+    damageType: usesAlternateEnd
+      ? item.offHandDamageType ?? profile.offHandDamageType ?? item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies"
+      : item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies",
+    critical: usesAlternateEnd
+      ? item.offHandCritical ?? profile.offHandCrit ?? item.critical ?? profile.crit
+      : item.critical ?? profile.crit,
     baseAttackBonus,
     abilityAttackBonus,
     enhancement,
@@ -699,6 +1073,16 @@ export function getEquippedWeaponStats(
     activeAttack,
     activeDamage,
     sizeAttackBonus,
+    weaponSizePenalty: sizeHandling.attackPenalty,
+    weaponSizeDetail: sizeHandling.warning,
+    effectiveHandedness: sizeHandling.effectiveHandedness,
+    twoHandedGrip,
+    bucklerAttackPenalty,
+    towerShieldAttackPenalty,
+    racialAttackBonus,
+    racialAttackDetails,
+    weaponFocusBonus,
+    weaponSpecializationBonus,
     damageAbility,
     attackPenalty,
     finessePenalty,
@@ -710,12 +1094,16 @@ export function getEquippedWeaponStats(
 
 export function getTwoWeaponAttackPenalty(character: Character, slot: "Main Weapon" | "Off Hand Weapon") {
   const mainWeapon = character.equipment?.["Main Weapon"];
-  const offHandWeapon = character.equipment?.["Off Hand Weapon"];
+  const offHandWeapon = getEffectiveWeaponKey(character, "Off Hand Weapon");
   if (!mainWeapon || !offHandWeapon) return 0;
   const hasFeat = getChosenFeats(character).includes("two-weapon-fighting");
   const offHandName = getInventoryEntryDetails(offHandWeapon).name;
   const offHandItem = findStoreItem(offHandName);
-  const light = offHandItem ? weaponTraits(offHandItem).light : lightOffHandWeaponNames.has(getBaseEquipmentName(offHandName));
+  const offHandSize = getWeaponSizeHandling(character, offHandWeapon, "Off Hand Weapon");
+  if (offHandSize && !offHandSize.wieldable) return 0;
+  const light = offHandSize
+    ? offHandSize.effectiveHandedness === "light"
+    : offHandItem ? weaponTraits(offHandItem).light : lightOffHandWeaponNames.has(getBaseEquipmentName(offHandName));
   const basePenalty = slot === "Main Weapon" ? -6 : -10;
   const featReduction = hasFeat ? (slot === "Main Weapon" ? 2 : 6) : 0;
   return basePenalty + (light ? 2 : 0) + featReduction;
@@ -725,32 +1113,90 @@ export function getBaseEquipmentName(name: string) {
   return name.replace(/^(?:Masterwork|Cold Iron|Silver|Mithral) /, "");
 }
 
+const elfWeaponNames = new Set([
+  "Longsword", "Rapier", "Longbow", "Composite Longbow", "Shortbow", "Composite Shortbow",
+]);
+const bardWeaponNames = new Set([
+  "Longsword", "Rapier", "Sap", "Short Sword", "Shortbow", "Composite Shortbow", "Whip",
+]);
+const druidWeaponNames = new Set([
+  "Club", "Dagger", "Dart", "Quarterstaff", "Scimitar", "Sickle", "Short Spear", "Shortspear", "Sling", "Spear",
+]);
+const monkWeaponNames = new Set([
+  "Club", "Dagger", "Handaxe", "Javelin", "Kama", "Nunchaku", "Quarterstaff", "Sai",
+  "Shuriken", "Siangham", "Sling", "Light Crossbow", "Heavy Crossbow", "Unarmed Strike",
+]);
+const rogueWeaponNames = new Set([
+  "Hand Crossbow", "Rapier", "Sap", "Shortbow", "Composite Shortbow", "Short Sword",
+]);
+const wizardWeaponNames = new Set(["Club", "Dagger", "Heavy Crossbow", "Light Crossbow", "Quarterstaff"]);
+
+function getWeaponProficiencyCategory(character: Character, item: StoreItem) {
+  if (item.category !== "Weapons") return undefined;
+  const baseName = getBaseEquipmentName(item.name);
+  const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
+  if (race?.id === "elf" && elfWeaponNames.has(baseName)) return "Martial";
+
+  let proficiency = item.custom
+    ? item.proficiency
+    : simpleWeaponNames.has(baseName)
+      ? "Simple"
+      : martialWeaponNames.has(baseName)
+        ? "Martial"
+        : "Exotic";
+  if (
+    (race?.id === "dwarf" && ["Dwarven Waraxe", "Dwarven Urgrosh"].includes(baseName)) ||
+    (race?.id === "gnome" && baseName === "Gnome Hooked Hammer")
+  ) {
+    proficiency = "Martial";
+  }
+  return proficiency;
+}
+
+export function isWeaponProficient(
+  character: Character,
+  item: StoreItem,
+  excludingFeatSlot?: string,
+) {
+  if (item.category !== "Weapons") return true;
+  const weaponType = getWeaponFeatTypeName(item.name);
+  const proficiency = getWeaponProficiencyCategory(character, item);
+  if (proficiency === "Martial" && weaponType === getWarDomainWeapon(character)) return true;
+  if (
+    proficiency === "Exotic" &&
+    Object.entries(character.featSelections ?? {}).some(
+      ([slotId, featId]) =>
+        slotId !== excludingFeatSlot &&
+        featId === "exotic-weapon-proficiency" &&
+        character.featWeaponSelections?.[slotId] === weaponType,
+    )
+  )
+  return true;
+  const baseName = getBaseEquipmentName(item.name);
+  const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
+  if (race?.id === "elf" && elfWeaponNames.has(baseName)) return true;
+
+  return character.classLevels.some(({ classId }) => {
+    if (martialWeaponClasses.has(classId)) return proficiency === "Simple" || proficiency === "Martial";
+    if (classId === "bard") return proficiency === "Simple" || bardWeaponNames.has(baseName);
+    if (classId === "cleric" || classId === "sorcerer" || classId === "mystic" || classId === "noble") {
+      return proficiency === "Simple";
+    }
+    if (classId === "druid") return druidWeaponNames.has(baseName);
+    if (classId === "monk") return monkWeaponNames.has(baseName);
+    if (classId === "rogue") return proficiency === "Simple" || rogueWeaponNames.has(baseName);
+    if (classId === "wizard") return wizardWeaponNames.has(baseName);
+    return false;
+  });
+}
+
 export function getItemProficiencyWarning(character: Character, item: StoreItem) {
   if (item.category === "Instruments" || item.category === "Adventuring Gear") return null;
   const classIds = character.classLevels.map((entry) => entry.classId);
   if (item.category === "Weapons") {
-    if (item.custom && item.proficiency === "Simple") return null;
-    const baseName = getBaseEquipmentName(item.name);
-    const simple = simpleWeaponNames.has(baseName);
-    const martial = item.custom
-      ? item.proficiency === "Martial"
-      : martialWeaponNames.has(baseName);
-    const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
-    const racialWeapons = race?.id === "dwarf"
-      ? ["Dwarven Waraxe", "Warhammer"]
-      : race?.id === "elf" || race?.id?.includes("elf")
-        ? ["Longsword", "Rapier", "Longbow", "Shortbow"]
-        : race?.id === "gnome"
-          ? ["Gnome Hooked Hammer"]
-          : [];
-    const proficient = classIds.some((classId) =>
-      simple || (martial && martialWeaponClasses.has(classId)) ||
-      (classId === "bard" && ["Longsword", "Rapier", "Shortbow", "Whip"].includes(baseName)) ||
-      (classId === "rogue" && ["Rapier", "Hand Crossbow", "Shortbow", "Short Sword", "Sap"].includes(baseName)) ||
-      (classId === "monk" && ["Kama", "Nunchaku", "Sai", "Shuriken", "Siangham"].includes(baseName)) ||
-      racialWeapons.includes(baseName),
-    );
-    return proficient ? null : `${item.name}: this character is not proficient with this weapon and will take the normal nonproficiency penalties.`;
+    return isWeaponProficient(character, item)
+      ? null
+      : `${item.name}: this character is not proficient with this weapon and will take the normal nonproficiency penalties.`;
   }
   if (item.category === "Armor" || item.category === "Shields") {
     const metal = /chain|scale|breastplate|plate|steel|mithral|metal|splint/i.test(item.name);
@@ -777,7 +1223,7 @@ export function formatRaceModifiers(modifiers: Partial<Record<AbilityName, numbe
 
 export function formatRaceDetails(race: (typeof raceDefinitions)[string]) {
   const abilities = race.specialAbilities ?? race.traits ?? [];
-  return `${formatRaceModifiers(race.abilityModifiers)}; Size ${race.size ?? "not specified"}; ${abilities.length ? abilities.join(", ") : "No special abilities recorded"}`;
+  return `${formatRaceModifiers(race.abilityModifiers)}; Size ${race.size ?? "Medium"}; Speed ${race.speed ?? 30} ft.; ${abilities.length ? abilities.join(", ") : "No special abilities recorded"}`;
 }
 
 export function isClassSkill(
@@ -907,9 +1353,20 @@ export function getLevelUpSkillWarnings(original: Character, proposed: Character
 
 export function getSpentSkillPoints(character: Character) {
   return Object.entries(character.skills).reduce((total, [skill, ranks]) => {
-    return (
-      total + Number(ranks || 0) * (isClassSkill(character, skill) ? 1 : 2)
-    );
+    let remainingRanks = Math.max(0, Number(ranks || 0));
+    let spent = 0;
+    const classIds = new Set(character.classLevels.map((entry) => entry.classId));
+    for (const classId of classIds) {
+      const attributedRanks = Math.min(
+        remainingRanks,
+        Math.max(0, Number(character.skillRanksByClass?.[classId]?.[skill] || 0)),
+      );
+      spent += attributedRanks * (isClassSkill(character, skill, classId) ? 1 : 2);
+      remainingRanks -= attributedRanks;
+    }
+    // Older saves may contain ranks without a class-level attribution.
+    spent += remainingRanks * (isClassSkill(character, skill) ? 1 : 2);
+    return total + spent;
   }, 0);
 }
 
@@ -935,7 +1392,7 @@ export function getSkillMaximum(character: Character, skill: string) {
   );
   return isClassSkill(character, skill)
     ? characterLevel + 3
-    : Math.floor((characterLevel + 3) / 2);
+    : (characterLevel + 3) / 2;
 }
 
 export function getBaseAttackBonus(character: Character) {
@@ -964,18 +1421,62 @@ export function getBaseSave(
   }, 0);
 }
 
-export function getSavingThrow(character: Character, save: "fortitude" | "reflex" | "will") {
+export function getSavingThrow(
+  character: Character,
+  save: "fortitude" | "reflex" | "will",
+  conditions: SavingThrowCondition[] = [],
+) {
   const ability = { fortitude: "con", reflex: "dex", will: "wis" } as const;
   const base = getBaseSave(character, save);
   const abilityBonus = abilityModifier(getEffectiveAbilityScore(character, ability[save]));
+  const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")];
+  const racialBonus = race?.racialSavingThrowBonus ?? 0;
+  const matchingCondition = conditions.find(
+    (condition) => (race?.racialSituationalSaveBonuses?.[condition] ?? 0) > 0,
+  );
+  const situationalBonus = matchingCondition
+    ? race?.racialSituationalSaveBonuses?.[matchingCondition] ?? 0
+    : 0;
   const resistance = getEquipmentDefenseBonuses(character).resistance;
   const activeSaves = getCombatEffectModifier(character, "saves");
-  const breakdown = `Base ${formatModifier(base)} · ${ability[save].toUpperCase()} ${formatModifier(abilityBonus)}`;
+  const breakdown = `Base ${formatModifier(base)} · ${ability[save].toUpperCase()} ${formatModifier(abilityBonus)}${racialBonus ? ` · racial ${formatModifier(racialBonus)}` : ""}${matchingCondition ? ` · ${matchingCondition} ${matchingCondition === "fear" ? "morale" : "racial"} ${formatModifier(situationalBonus)}` : ""}`;
   return {
-    total: base + abilityBonus + resistance.bonus + activeSaves,
+    total: base + abilityBonus + racialBonus + situationalBonus + resistance.bonus + activeSaves,
     detail: `${breakdown}${resistance.bonus ? ` · resistance ${formatModifier(resistance.bonus)}` : ""}${activeSaves ? ` · active effects ${formatModifier(activeSaves)}` : ""}`,
-    title: [breakdown, ...getAbilityEquipmentBonus(character, ability[save]).detail, ...resistance.detail, ...getCombatEffectDetails(character, "saves"), "Active effects are applied as entered; check bonus types and situational limits."].join("\n"),
+    title: [breakdown, conditions.length ? `Context: ${conditions.join(", ")}` : "Select context for situational racial bonuses.", ...getAbilityEquipmentBonus(character, ability[save]).detail, ...resistance.detail, ...getCombatEffectDetails(character, "saves"), "Active effects are applied as entered; check bonus types and situational limits."].join("\n"),
   };
+}
+
+const recordedClassFeatureNames = new Set([
+  ...Object.values(startingClassFeatures).flat(),
+  "Improved Unarmed Strike",
+]);
+const definedClassFeatureNames = new Set([
+  ...Object.values(classFeatureProgression).flatMap((entries) =>
+    (entries ?? []).flatMap((entry) => entry.features),
+  ),
+  ...recordedClassFeatureNames,
+]);
+
+export function getClassFeatureDisplay(character: Character) {
+  const earnedFeatures = character.classLevels.flatMap((entry) => {
+    if ("prestigeClassId" in entry && entry.prestigeClassId) return [];
+    const definition = classDefinitions[entry.classId];
+    return (classFeatureProgression[entry.classId] ?? [])
+      .filter((progression) => progression.level <= entry.level)
+      .flatMap((progression) =>
+        progression.features.map((feature) => ({
+          source: `${definition.name} ${progression.level}`,
+          ability: feature,
+        })),
+      );
+  });
+  const recordedFeatures = [
+    ...new Set(character.classFeatures ?? []),
+  ]
+    .filter((feature) => !definedClassFeatureNames.has(feature))
+    .map((ability) => ({ source: "Recorded feature", ability }));
+  return [...earnedFeatures, ...recordedFeatures];
 }
 
 export function getFeatSlots(character: Character) {
@@ -1014,9 +1515,90 @@ export function getFeatSlots(character: Character) {
 }
 
 export function getChosenFeats(character: Character, excludingSlot?: string) {
-  return Object.entries(character.featSelections ?? {})
+  const chosenFeats = Object.entries(character.featSelections ?? {})
     .filter(([slotId, featId]) => slotId !== excludingSlot && featId)
     .map(([, featId]) => featId);
+  if (getWarDomainWeapon(character) && !chosenFeats.includes("weapon-focus"))
+    chosenFeats.push("weapon-focus");
+  return chosenFeats;
+}
+
+const repeatableWeaponFeats = new Set([
+  "exotic-weapon-proficiency",
+  "weapon-focus",
+  "weapon-specialization",
+]);
+const weaponSelectionFeats = new Set(repeatableWeaponFeats);
+
+function getWeaponFeatTypeName(name: string) {
+  return /^(?:Spiked )?(?:Light|Heavy) Shield Bash$/.test(name)
+    ? "Shield Bash"
+    : getBaseEquipmentName(name);
+}
+
+export function getAvailableFeatWeaponChoices(
+  character: Character,
+  featId: string,
+  excludingSlot?: string,
+) {
+  if (!weaponSelectionFeats.has(featId)) return [];
+  if (
+    featId === "weapon-specialization" &&
+    character.classLevels
+      .filter((entry) =>
+        entry.classId === "fighter" &&
+        !("prestigeClassId" in entry && entry.prestigeClassId),
+      )
+      .reduce((total, entry) => total + entry.level, 0) < 4
+  )
+    return [];
+  const weaponItems = [...storeItems, ...(character.customItems ?? [])]
+    .filter((item) => item.category === "Weapons");
+  const weaponsByType = new Map<string, StoreItem>();
+  weaponItems.forEach((item) => {
+    const weaponType = getWeaponFeatTypeName(item.name);
+    if (!weaponsByType.has(weaponType) || item.name === weaponType)
+      weaponsByType.set(weaponType, item);
+  });
+  weaponsByType.set("Shield Bash", {
+    name: "Shield Bash",
+    category: "Weapons",
+    custom: true,
+    proficiency: "Martial",
+    price: 0,
+    weight: "—",
+  });
+
+  const selectedWeapons = new Set(
+    Object.entries(character.featSelections ?? {})
+      .filter(([slotId, selectedFeatId]) => slotId !== excludingSlot && selectedFeatId === featId)
+      .map(([slotId]) => character.featWeaponSelections?.[slotId])
+      .filter((weapon): weapon is string => Boolean(weapon)),
+  );
+  if (featId === "weapon-focus") {
+    const warWeapon = getWarDomainWeapon(character);
+    if (warWeapon) selectedWeapons.add(warWeapon);
+  }
+  const focusedWeapons = new Set(
+    Object.entries(character.featSelections ?? {})
+      .filter(([slotId, selectedFeatId]) => slotId !== excludingSlot && selectedFeatId === "weapon-focus")
+      .map(([slotId]) => character.featWeaponSelections?.[slotId])
+      .filter((weapon): weapon is string => Boolean(weapon)),
+  );
+  const warWeapon = getWarDomainWeapon(character);
+  if (warWeapon) focusedWeapons.add(warWeapon);
+
+  return [...weaponsByType.entries()]
+    .filter(([weaponType, item]) =>
+      (featId === "exotic-weapon-proficiency"
+        ? getWeaponProficiencyCategory(character, item) === "Exotic" &&
+          !isWeaponProficient(character, item, excludingSlot)
+        : isWeaponProficient(character, item)) &&
+      !selectedWeapons.has(weaponType) &&
+      (featId !== "weapon-specialization" || focusedWeapons.has(weaponType)),
+    )
+    .map(([weaponType]) => weaponType)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 export function featQualifies(
@@ -1030,6 +1612,26 @@ export function featQualifies(
   if (
     prerequisites?.baseAttackBonus &&
     getBaseAttackBonus(character) < prerequisites.baseAttackBonus
+  )
+    return false;
+  const casterLevel = Math.max(
+    0,
+    ...character.classLevels
+      .filter((entry) => !("prestigeClassId" in entry && entry.prestigeClassId))
+      .map((entry) => getCasterLevel(entry.classId, entry.level)),
+  );
+  if (prerequisites?.casterLevel && casterLevel < prerequisites.casterLevel)
+    return false;
+  if (
+    prerequisites?.classLevels &&
+    Object.entries(prerequisites.classLevels).some(([classId, requiredLevel]) =>
+      character.classLevels
+        .filter((entry) =>
+          entry.classId === classId &&
+          !("prestigeClassId" in entry && entry.prestigeClassId),
+        )
+        .reduce((total, entry) => total + entry.level, 0) < requiredLevel,
+    )
   )
     return false;
   if (
@@ -1053,8 +1655,10 @@ export function getAvailableFeats(
   const chosenFeats = [...getArmorShieldProficiencies(character, excludingSlot)];
   return featCatalog.filter(
     (feat) =>
-      !chosenFeats.includes(feat.id) &&
-      featQualifies(character, feat, slot, excludingSlot),
+      (!chosenFeats.includes(feat.id) || repeatableWeaponFeats.has(feat.id)) &&
+      featQualifies(character, feat, slot, excludingSlot) &&
+      (!weaponSelectionFeats.has(feat.id) ||
+        getAvailableFeatWeaponChoices(character, feat.id, excludingSlot).length > 0),
   );
 }
 
@@ -1066,18 +1670,60 @@ export function normalizeFeatSelections(
   getFeatSlots(character).forEach((slot) => {
     const featId = selections[slot.id];
     const feat = featCatalog.find((entry) => entry.id === featId);
+    const chosenFeats = getChosenFeats(
+      { ...character, featSelections: normalized },
+      slot.id,
+    );
     if (
       feat &&
+      (!chosenFeats.includes(feat.id) || repeatableWeaponFeats.has(feat.id)) &&
       featQualifies(
         { ...character, featSelections: normalized },
         feat,
         slot,
         slot.id,
-      )
+      ) &&
+      (feat.id !== "weapon-specialization" ||
+        getAvailableFeatWeaponChoices(
+          { ...character, featSelections: normalized },
+          feat.id,
+          slot.id,
+        ).length > 0)
     )
       normalized[slot.id] = feat.id;
   });
   return normalized;
+}
+
+export function normalizeFeatWeaponSelections(
+  character: Character,
+  selections: Record<string, string>,
+) {
+  const normalized: Record<string, string> = {};
+  getFeatSlots(character).forEach((slot) => {
+    const featId = character.featSelections?.[slot.id];
+    const weapon = selections[slot.id];
+    if (!featId || !weaponSelectionFeats.has(featId) || !weapon) return;
+    const context = { ...character, featWeaponSelections: normalized };
+    if (getAvailableFeatWeaponChoices(context, featId, slot.id).includes(weapon))
+      normalized[slot.id] = weapon;
+  });
+  return normalized;
+}
+
+export function getFeatWeaponSelectionWarnings(
+  character: Character,
+  slots = getFeatSlots(character),
+) {
+  return slots.flatMap((slot) => {
+    const featId = character.featSelections?.[slot.id];
+    if (!featId || !weaponSelectionFeats.has(featId)) return [];
+    const weapon = character.featWeaponSelections?.[slot.id];
+    return weapon &&
+      getAvailableFeatWeaponChoices(character, featId, slot.id).includes(weapon)
+      ? []
+      : [`Choose a valid weapon for ${slot.label}.`];
+  });
 }
 
 export function canIncreaseSkillRank(
@@ -1092,6 +1738,7 @@ export function canIncreaseSkillRank(
     ? levelUpClassId ?? getLevelUpClassId(levelUpOriginal, character)
     : undefined;
   const pointCost = isClassSkill(character, skill, activeLevelUpClassId) ? 1 : 2;
+  const rankIncrease = pointCost === 1 ? 1 : 0.5;
   const availableSkillPoints = levelUpOriginal
     ? getAvailableSkillCount(levelUpOriginal) +
       getSkillPointsPerLevel(levelUpOriginal, activeLevelUpClassId ?? "fighter")
@@ -1107,8 +1754,8 @@ export function canIncreaseSkillRank(
     ? (isClassSkill(character, skill, activeLevelUpClassId) ? 4 : 2)
     : getSkillMaximum(character, skill);
   return (
-    currentRanks < maximumRanks &&
-    spentSkillPoints + pointCost <=
+    currentRanks + rankIncrease <= maximumRanks &&
+    spentSkillPoints + 1 <=
       availableSkillPoints
   );
 }
@@ -1371,6 +2018,13 @@ export function getClassAlignmentRestriction(classId: ClassId) {
   return "";
 }
 
+export function getLevelUpAlignmentWarnings(character: Character, classId: ClassId) {
+  if (isClassAlignmentAllowed(classId, character.alignment)) return [];
+  return [
+    `Cannot take a ${classDefinitions[classId].name} level with ${character.alignment}; this class ${getClassAlignmentRestriction(classId)}.`,
+  ];
+}
+
 export function isHighSorceryAlignmentAllowed(order: Character["highSorceryOrder"], alignment: string) {
   if (order === "white") return alignment.endsWith(" Good") || alignment === "Good";
   if (order === "black") return alignment.endsWith(" Evil") || alignment === "Evil";
@@ -1461,10 +2115,27 @@ export function equipInventoryItem(
   let slot = "Miscellaneous";
   const nextEquipment = { ...(character.equipment ?? {}) };
   const mainItem = findStoreItem(getInventoryEntryDetails(nextEquipment["Main Weapon"] ?? "").name);
-  const mainIsTwoHanded = mainItem ? weaponTraits(mainItem).twoHanded : false;
+  const mainWeaponSize = nextEquipment["Main Weapon"]
+    ? getWeaponSizeHandling(character, nextEquipment["Main Weapon"])
+    : null;
+  const mainIsTwoHanded = mainWeaponSize
+    ? mainWeaponSize.effectiveHandedness === "two-handed"
+    : mainItem ? weaponTraits(mainItem).twoHanded : false;
   if (item?.category === "Shields") {
+    const buckler = item.shieldType === "Buckler" || item.name.includes("Buckler");
+    const rangedKey = nextEquipment["Ranged Weapon"];
+    const rangedItem = rangedKey
+      ? findStoreItem(getInventoryEntryDetails(rangedKey).name)
+      : undefined;
+    const rangedSize = rangedKey ? getWeaponSizeHandling(character, rangedKey) : null;
+    const rangedNeedsTwoHands = rangedItem?.category === "Weapons" &&
+      (weaponTraits(rangedItem).twoHanded || rangedSize?.effectiveHandedness === "two-handed");
+    if ((mainIsTwoHanded || rangedNeedsTwoHands) && !buckler) {
+      window.alert("A two-handed weapon requires both hands. Equip a buckler or unequip the weapon first.");
+      return;
+    }
     slot = "Shield";
-    delete nextEquipment["Off Hand Weapon"];
+    if (!buckler) delete nextEquipment["Off Hand Weapon"];
   } else if (item?.category === "Armor") slot = "Armor";
   else if (item?.name.startsWith("Bracers of Armor")) slot = "Arms";
   else if (item?.name.startsWith("Ring of ")) slot = nextEquipment["Rings 1"] ? "Rings 2" : "Rings 1";
@@ -1475,13 +2146,24 @@ export function equipInventoryItem(
   else if (item?.category === "Waist") slot = "Waist";
   if (item?.category === "Weapons") {
     const traits = weaponTraits(item);
-    if (traits.ranged) slot = "Ranged Weapon";
-    else if (traits.twoHanded) {
+    const itemSize = getWeaponSizeHandling(character, key);
+    if (traits.ranged) {
+      if ((traits.twoHanded || itemSize?.effectiveHandedness === "two-handed") &&
+          nextEquipment.Shield && !isBucklerEquipped({ ...character, equipment: nextEquipment })) {
+        window.alert("This ranged weapon requires both hands. Equip a buckler or unequip the shield first.");
+        return;
+      }
+      slot = "Ranged Weapon";
+    } else if (itemSize?.effectiveHandedness === "two-handed") {
+      if (nextEquipment.Shield && !isBucklerEquipped({ ...character, equipment: nextEquipment })) {
+        window.alert("A two-handed weapon requires both hands. Equip a buckler or unequip the shield first.");
+        return;
+      }
       slot = "Main Weapon";
       delete nextEquipment["Off Hand Weapon"];
       delete nextEquipment["Ranged Weapon"];
     } else if (!character.equipment?.["Main Weapon"] || mainIsTwoHanded) slot = "Main Weapon";
-    else if (character.equipment?.Shield) {
+    else if (character.equipment?.Shield && !isBucklerEquipped(character)) {
       window.alert("A shield occupies your off hand, so this weapon cannot be equipped in Off Hand Weapon. Unequip the shield first.");
       return;
     } else if (

@@ -32,12 +32,26 @@ describe("character persistence", () => {
     { ...initialCharacter, classLevels: [] },
     { ...initialCharacter, classLevels: [{ classId: "fighter", level: 0 }] },
     { ...initialCharacter, skills: { Climb: "4" } },
+    { ...initialCharacter, featWeaponSelections: { "general-1": 3 } },
     { ...initialCharacter, inventory: { Longsword: -2 } },
+    { ...initialCharacter, mainWeaponGrip: "two-handed with sword" },
+    { ...initialCharacter, doubleWeaponMode: "active" },
+    { ...initialCharacter, doubleWeaponPrimaryEnd: "third" },
+    { ...initialCharacter, towerShieldTotalCover: "active" },
+    { ...initialCharacter, shieldBashMode: "active" },
     { ...initialCharacter, knownSpellsByClass: { wizard: "Magic Missile" } },
     { ...initialCharacter, spellAcquisitionByClass: { wizard: { spell: "made-up" } } },
     { ...initialCharacter, customItems: [{ custom: true, name: "Broken" }] },
   ])("rejects malformed character data %#", (value) => {
     expect(() => parseCharacter(value)).toThrow();
+  });
+
+  it("accepts legacy characters without saved grip data", () => {
+    const legacyCharacter = { ...initialCharacter };
+    delete legacyCharacter.mainWeaponGrip;
+    delete legacyCharacter.featWeaponSelections;
+    expect(parseCharacter(legacyCharacter).mainWeaponGrip).toBeUndefined();
+    expect(parseCharacter(legacyCharacter).featWeaponSelections).toBeUndefined();
   });
 
   it("reports damaged saved data without overwriting it or locking setup", () => {

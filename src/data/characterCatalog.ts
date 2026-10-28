@@ -90,6 +90,7 @@ export const languageCatalog = [
   "Goblin",
   "Halfling",
   "Infernal",
+  "Ignan",
   "Kender",
   "Minotaur",
   "Orc",
@@ -99,6 +100,14 @@ export const languageCatalog = [
 ];
 
 export const dragonlanceLanguages = new Set(["Kender", "Minotaur"]);
+
+export const racialBonusLanguages: Record<string, string[]> = {
+  dwarf: ["Giant", "Gnome", "Goblin", "Orc", "Terran", "Undercommon"],
+  elf: ["Draconic", "Gnoll", "Gnome", "Goblin", "Orc", "Sylvan"],
+  gnome: ["Draconic", "Dwarven", "Elven", "Giant", "Goblin", "Orc"],
+  halfling: ["Dwarven", "Elven", "Gnome", "Goblin", "Orc"],
+  "half-orc": ["Draconic", "Giant", "Gnoll", "Goblin", "Abyssal"],
+};
 
 export const racialLanguages: Record<string, string[]> = {
   human: ["Common"],
@@ -458,12 +467,14 @@ export const featCatalog: FeatDefinition[] = [
     name: "Scribe Scroll",
     source: "core-35-srd",
     description: "Create magic scrolls containing spells you can cast.",
+    prerequisites: { casterLevel: 1 },
   },
   {
     id: "craft-wand",
     name: "Craft Wand",
     source: "core-35-srd",
     description: "Create wands containing spells of 4th level or lower.",
+    prerequisites: { casterLevel: 5 },
   },
   {
     id: "alertness",
@@ -484,7 +495,6 @@ export const featCatalog: FeatDefinition[] = [
     source: "core-35-srd",
     description:
       "+4 bonus on Concentration checks for defensive casting or casting while grappled.",
-    fighterBonus: true,
   },
   {
     id: "combat-expertise",
@@ -733,7 +743,6 @@ export const featCatalog: FeatDefinition[] = [
     name: "Toughness",
     source: "core-35-srd",
     description: "Gain 3 additional hit points.",
-    fighterBonus: true,
   },
   {
     id: "two-weapon-fighting",
@@ -750,6 +759,22 @@ export const featCatalog: FeatDefinition[] = [
     description:
       "Use Dexterity instead of Strength for attacks with a light weapon.",
     prerequisites: { baseAttackBonus: 1 },
+    fighterBonus: true,
+  },
+  {
+    id: "exotic-weapon-proficiency",
+    name: "Exotic Weapon Proficiency",
+    source: "core-35-srd",
+    description: "Gain proficiency with one selected exotic weapon type.",
+    prerequisites: { baseAttackBonus: 1 },
+    fighterBonus: true,
+  },
+  {
+    id: "weapon-specialization",
+    name: "Weapon Specialization",
+    source: "core-35-srd",
+    description: "+2 damage with one selected weapon type.",
+    prerequisites: { classLevels: { fighter: 4 }, feats: ["weapon-focus"] },
     fighterBonus: true,
   },
   {
@@ -797,15 +822,18 @@ export const startingClassFeatures: Partial<Record<ClassId, string[]>> = {
   cleric: ["Turn or Rebuke Undead", "Domains"],
   druid: ["Animal Companion", "Nature Sense", "Wild Empathy"],
   fighter: ["Bonus Feat"],
-  monk: ["Flurry of Blows", "Improved Unarmed Strike", "Evasion"],
+  monk: ["Bonus Feat", "Flurry of Blows", "Unarmed Strike"],
   paladin: ["Aura of Good", "Detect Evil", "Smite Evil"],
   ranger: ["Favored Enemy", "Track", "Wild Empathy"],
   rogue: ["Sneak Attack", "Trapfinding"],
-  sorcerer: ["Spells"],
-  wizard: ["Spellbook", "Summon Familiar"],
+  sorcerer: ["Spells", "Summon Familiar"],
+  wizard: ["Scribe Scroll", "Spellbook", "Summon Familiar"],
   mystic: ["Divine Spellcasting"],
   noble: ["Coordinate"],
 };
+
+const inspireCourageDescription =
+  "Grant allies a morale bonus on attack rolls and weapon damage rolls and on saves against fear and charm effects.";
 
 export const classFeatureDescriptions: Record<string, string> = {
   "Bardic Knowledge":
@@ -816,8 +844,11 @@ export const classFeatureDescriptions: Record<string, string> = {
     "Grant nearby allies a new saving throw against sonic or language-dependent effects.",
   Fascinate:
     "Use performance to captivate creatures that can see and hear you.",
-  "Inspire Courage":
-    "Grant allies a morale bonus on saves against fear and charm and on weapon damage rolls.",
+  "Inspire Courage": inspireCourageDescription,
+  "Inspire Courage +1": inspireCourageDescription,
+  "Inspire Courage +2": inspireCourageDescription,
+  "Inspire Courage +3": inspireCourageDescription,
+  "Inspire Courage +4": inspireCourageDescription,
 };
 
 export const pointBuyCosts: Record<number, number> = {

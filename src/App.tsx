@@ -1,8 +1,8 @@
-import { useState, useRef, useMemo, lazy, Suspense } from "react";
-import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, hitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier } from "./domain";
+import { useState, useMemo, lazy, Suspense } from "react";
+import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier } from "./domain";
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./storage";
 import { isCustomStoreItem, parseCharacter } from "./validation";
-import { getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, getClassSpellSelections } from "./rules";
+import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
 import { storeItems, addCustomStoreItems } from "./data/equipmentCatalog";
@@ -30,7 +30,6 @@ export function App() {
   );
   const [creationOpen, setCreationOpen] = useState(!savedState.saved);
   const [creationLocked, setCreationLocked] = useState(savedState.saved);
-  const importInputRef = useRef<HTMLInputElement>(null);
   const [ruleset, setRuleset] = useState<
     "core-35-srd" | "dragonlance-user-pack" | "dragonlance-monster-classes"
   >("core-35-srd");
@@ -106,6 +105,10 @@ export function App() {
   const confirmLevelUp = () => {
     if (!levelUpDraft) return;
     const validationErrors = [
+      ...getLevelUpAlignmentWarnings(
+        levelUpDraft.original,
+        levelUpDraft.classId,
+      ),
       ...validateLevelUp(levelUpDraft),
       ...getLevelUpSkillWarnings(
         levelUpDraft.original,
@@ -117,6 +120,10 @@ export function App() {
       )
         .filter((slot) => !levelUpDraft.proposed.featSelections?.[slot.id])
         .map((slot) => `Select ${slot.label} before confirming.`),
+      ...getFeatWeaponSelectionWarnings(
+        levelUpDraft.proposed,
+        getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+      ),
       ...getLevelUpSpellWarnings(
         levelUpDraft.original,
         levelUpDraft.proposed,
@@ -126,14 +133,17 @@ export function App() {
       setLevelUpDraft({ ...levelUpDraft, validationErrors });
       return;
     }
+    const hpGain = levelUpHitPointGain(
+      levelUpDraft.original,
+      levelUpDraft.proposed,
+      levelUpDraft.hitPointRoll!,
+    );
     const proposed = {
       ...levelUpDraft.proposed,
       ...(character.currentHitPoints !== undefined ? {
-        currentHitPoints: getStoredCurrentHitPoints(character) + hitPointGain(character, levelUpDraft.hitPointRoll!),
+        currentHitPoints: getStoredCurrentHitPoints(character) + hpGain,
       } : {}),
-      hitPoints:
-        character.hitPoints +
-        hitPointGain(character, levelUpDraft.hitPointRoll!),
+      hitPoints: character.hitPoints + hpGain,
     };
     setCharacter(proposed);
     setLevelUpDraft(null);
@@ -174,12 +184,13 @@ export function App() {
       const maxRanks = creationOpen
         ? (classSkill ? 4 : 2)
         : getSkillMaximum(current, skill);
+      const rankChange = classSkill ? change : change / 2;
       const nextRanks = Math.max(
         minimumRanks,
-        Math.min(maxRanks, currentRanks + change),
+        Math.min(maxRanks, currentRanks + rankChange),
       );
 
-      const pointCost = classSkill ? 1 : 2;
+      const pointCost = Math.abs(change);
       const availableSkillPoints = levelUpDraft
         ? getAvailableSkillCount(levelUpDraft.original) +
           getSkillPointsPerLevel(levelUpDraft.original, levelUpDraft.classId)
@@ -229,11 +240,39 @@ export function App() {
         ...(current.featSelections ?? {}),
         [slotId]: featId,
       });
+      const weaponSelections = { ...(current.featWeaponSelections ?? {}) };
+      if (current.featSelections?.[slotId] !== featId)
+        delete weaponSelections[slotId];
+      const featSelectionContext = { ...current, featSelections };
+      const featWeaponSelections = normalizeFeatWeaponSelections(
+        featSelectionContext,
+        weaponSelections,
+      );
       return {
         ...current,
         featSelections,
+        featWeaponSelections,
         feats: Object.values(featSelections).filter(Boolean),
       };
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+      });
+    else setCharacter(update);
+  };
+  const updateFeatWeaponSelection = (slotId: string, weaponName: string) => {
+    const update = (current: Character) => {
+      const selections = { ...(current.featWeaponSelections ?? {}) };
+      if (weaponName) selections[slotId] = weaponName;
+      else delete selections[slotId];
+      const featWeaponSelections = normalizeFeatWeaponSelections(
+        current,
+        selections,
+      );
+      return { ...current, featWeaponSelections };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
     else if (levelUpDraft)
@@ -247,6 +286,7 @@ export function App() {
     ...draft,
     feats: [],
     featSelections: {},
+    featWeaponSelections: {},
     skills: {},
     skillRanksByClass: {},
   });
@@ -386,8 +426,39 @@ export function App() {
     else if (levelUpDraft) setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
     else setCharacter(update);
   };
+  const withUpdatedEquipment = (current: Character, equipment: Record<string, string>) => {
+    const next = { ...current, equipment };
+    if (current.equipment.Shield !== equipment.Shield) {
+      next.towerShieldTotalCover = false;
+    }
+    if (
+      current.equipment.Shield !== equipment.Shield ||
+      current.equipment["Off Hand Weapon"] !== equipment["Off Hand Weapon"]
+    ) {
+      next.shieldBashMode = false;
+    }
+    if (current.equipment["Main Weapon"] !== equipment["Main Weapon"]) {
+      next.mainWeaponGrip = "one-handed";
+      next.doubleWeaponMode = false;
+      next.doubleWeaponPrimaryEnd = "first";
+    } else {
+      const gripState = getMainWeaponGripState(next);
+      if (next.mainWeaponGrip === "two-handed" && gripState && !gripState.canUseTwoHands) {
+        next.mainWeaponGrip = "one-handed";
+      }
+      const doubleWeaponState = getDoubleWeaponModeState(next);
+      if (next.doubleWeaponMode && (!doubleWeaponState || !doubleWeaponState.canUseBothEnds)) {
+        next.doubleWeaponMode = false;
+        next.doubleWeaponPrimaryEnd = "first";
+      }
+    }
+    if (next.shieldBashMode && !getShieldBashState(next).canBash) {
+      next.shieldBashMode = false;
+    }
+    return next;
+  };
   const updateEquipment = (equipment: Record<string, string>) => {
-    const update = (current: Character) => ({ ...current, equipment });
+    const update = (current: Character) => withUpdatedEquipment(current, equipment);
     if (creationOpen && !creationLocked)
       setCreationDraft(update(creationDraft));
     else if (levelUpDraft)
@@ -395,6 +466,66 @@ export function App() {
         ...levelUpDraft,
         proposed: update(levelUpDraft.proposed),
       });
+    else setCharacter(update(character));
+  };
+  const updateMainWeaponGrip = (mainWeaponGrip: "one-handed" | "two-handed") => {
+    const update = (current: Character) => {
+      const gripState = getMainWeaponGripState(current);
+      if (mainWeaponGrip === "two-handed" && gripState && !gripState.canUseTwoHands) return current;
+      const next = { ...current, mainWeaponGrip };
+      if (next.shieldBashMode && !getShieldBashState(next).canBash) next.shieldBashMode = false;
+      return next;
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateDoubleWeaponMode = (doubleWeaponMode: boolean) => {
+    const update = (current: Character) => {
+      const modeState = getDoubleWeaponModeState(current);
+      if (doubleWeaponMode && (!modeState || !modeState.canUseBothEnds)) return current;
+      return {
+        ...current,
+        doubleWeaponMode,
+        ...(doubleWeaponMode ? {} : { doubleWeaponPrimaryEnd: "first" as const }),
+      };
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateDoubleWeaponPrimaryEnd = (doubleWeaponPrimaryEnd: "first" | "second") => {
+    const update = (current: Character) => {
+      const modeState = getDoubleWeaponModeState(current);
+      return modeState?.enabled && modeState.hasDifferentEnds
+        ? { ...current, doubleWeaponPrimaryEnd }
+        : current;
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateTowerShieldTotalCover = (towerShieldTotalCover: boolean) => {
+    const update = (current: Character) =>
+      towerShieldTotalCover && !getTowerShieldState(current).equipped
+        ? current
+        : { ...current, towerShieldTotalCover };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateShieldBashMode = (shieldBashMode: boolean) => {
+    const update = (current: Character) =>
+      shieldBashMode && !getShieldBashState(current).canBash
+        ? current
+        : { ...current, shieldBashMode };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
     else setCharacter(update(character));
   };
   const addCharacterNote = (text: string) => {
@@ -444,7 +575,7 @@ export function App() {
     equipment: Record<string, string>,
     inventory: Record<string, number>,
   ) => {
-    const update = (current: Character) => ({ ...current, equipment, inventory });
+    const update = (current: Character) => ({ ...withUpdatedEquipment(current, equipment), inventory });
     if (creationOpen && !creationLocked)
       setCreationDraft(update(creationDraft));
     else if (levelUpDraft)
@@ -540,6 +671,10 @@ export function App() {
   );
   const levelUpWarnings = levelUpDraft && spellCatalog.ready
     ? [
+        ...getLevelUpAlignmentWarnings(
+          levelUpDraft.original,
+          levelUpDraft.classId,
+        ),
         ...(levelUpDraft.proposed.classLevels.reduce(
           (total, entry) => total + entry.level,
           0,
@@ -561,6 +696,10 @@ export function App() {
         )
           .filter((slot) => !levelUpDraft.proposed.featSelections?.[slot.id])
           .map((slot) => `Select ${slot.label} before confirming.`),
+        ...getFeatWeaponSelectionWarnings(
+          levelUpDraft.proposed,
+          getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+        ),
         ...getLevelUpSpellWarnings(
           levelUpDraft.original,
           levelUpDraft.proposed,
@@ -650,20 +789,16 @@ export function App() {
           <button className="quiet-button" type="button" onClick={exportCharacter}>
             Export
           </button>
-          <button
-            className="quiet-button"
-            type="button"
-            onClick={() => importInputRef.current?.click()}
-          >
-            Import
-          </button>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={importCharacter}
-          />
+          <label className="quiet-button import-file-label">
+            <span>Import</span>
+            <input
+              className="import-file-input"
+              type="file"
+              accept="application/json,.json"
+              aria-label="Import character JSON"
+              onChange={importCharacter}
+            />
+          </label>
           {creationLocked && (
             <>
               <button className="quiet-button" type="button" onClick={reopenCreation}>
@@ -870,6 +1005,7 @@ export function App() {
             creationMode={creationOpen && !creationLocked}
             onSkillRankChange={updateSkillRanks}
             onFeatChange={updateFeatSelection}
+            onFeatWeaponChange={updateFeatWeaponSelection}
             onLanguagesChange={updateLanguages}
             allowFeatSelection={!creationLocked || levelUpMode}
             finalized={creationLocked && !levelUpMode}
@@ -887,6 +1023,11 @@ export function App() {
           key={displayedCharacter.race}
           character={displayedCharacter}
           onEquipmentChange={updateEquipment}
+          onMainWeaponGripChange={updateMainWeaponGrip}
+          onDoubleWeaponModeChange={updateDoubleWeaponMode}
+          onDoubleWeaponPrimaryEndChange={updateDoubleWeaponPrimaryEnd}
+          onTowerShieldTotalCoverChange={updateTowerShieldTotalCover}
+          onShieldBashModeChange={updateShieldBashMode}
           onEquipmentAndInventoryChange={updateEquipmentAndInventory}
         />
       )}

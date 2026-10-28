@@ -4,6 +4,7 @@ type DomainDefinition = {
   name: string;
   spells: readonly [string, string, string, string, string, string, string, string, string];
   manualPower?: string;
+  grantedPower?: string;
   classSkills?: readonly string[];
   spellNotes?: Partial<Record<number, string>>;
 };
@@ -103,7 +104,8 @@ export const clericDomains = {
     spells: ["Disguise Self", "Invisibility", "Nondetection", "Confusion", "False Vision", "Mislead", "Screen", "Polymorph Any Object", "Time Stop"],
   },
   war: {
-    name: "War", manualPower: "Weapon Focus with your deity's favored weapon, plus Martial Weapon Proficiency with it if martial. Favored weapons are not source-verified in this catalog; confirm with the DM and apply these weapon-specific benefits manually.",
+    name: "War",
+    grantedPower: "Gain Weapon Focus with the favored weapon and martial proficiency if needed.",
     spells: ["Magic Weapon", "Spiritual Weapon", "Magic Vestment", "Divine Power", "Flame Strike", "Blade Barrier", "Power Word Blind", "Power Word Stun", "Power Word Kill"],
   },
   water: {

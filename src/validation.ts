@@ -33,11 +33,13 @@ export function isCustomStoreItem(value: unknown): value is StoreItem {
       !isString(value.category) || !categories.has(value.category) ||
       !isNumber(value.price) || value.price < 0 || !isString(value.weight)) return false;
   const stringFields = ["description", "damage", "damageSmall", "damageMedium", "damageLarge",
+    "offHandDamage", "offHandDamageSmall", "offHandDamageMedium", "offHandDamageLarge",
+    "offHandDamageType", "offHandCritical", "mainEndLabel", "offHandEndLabel",
     "damageType", "critical", "rangeIncrement", "rangeSmall", "rangeMedium", "rangeLarge",
     "reach", "specialProperties", "armorSpeed"];
   const numberFields = ["armorBonus", "maxDexterity", "armorCheckPenalty", "arcaneSpellFailure",
     "shieldBonus", "shieldCheckPenalty", "shieldSpellFailure"];
-  const booleanFields = ["finesse", "towerShieldProficiency"];
+  const booleanFields = ["finesse", "thrown", "towerShieldProficiency", "doubleWeapon"];
   const enums: Record<string, string[]> = {
     proficiency: ["Simple", "Martial", "Exotic"],
     handedness: ["Light", "One-handed", "Two-handed", "Ranged"],
@@ -47,6 +49,7 @@ export function isCustomStoreItem(value: unknown): value is StoreItem {
   return stringFields.every((key) => value[key] === undefined || isString(value[key])) &&
     numberFields.every((key) => value[key] === undefined || isNumber(value[key])) &&
     booleanFields.every((key) => value[key] === undefined || typeof value[key] === "boolean") &&
+    !(value.thrown === true && value.category !== "Weapons") &&
     Object.entries(enums).every(([key, options]) =>
       value[key] === undefined || (isString(value[key]) && options.includes(value[key])));
 }
@@ -78,7 +81,9 @@ export function assertCharacter(value: unknown): asserts value is Character {
   }
   if (!isNumber(value.hitPoints) ||
       !["feats", "knownSpells", "preparedSpells", "languages"].every((key) => isStringList(value[key])) ||
-      !isMap(value.featSelections, isString) || !isMap(value.skills, isNumber) ||
+      !isMap(value.featSelections, isString) ||
+      (value.featWeaponSelections !== undefined && !isMap(value.featWeaponSelections, isString)) ||
+      !isMap(value.skills, isNumber) ||
       !isMap(value.skillRanksByClass, (entry) => isMap(entry, isNumber)) ||
       !isMap(value.equipment, isString) ||
       !isMap(value.inventory, (entry) => isNumber(entry) && Number.isInteger(entry) && entry >= 0)) {
@@ -104,6 +109,11 @@ export function assertCharacter(value: unknown): asserts value is Character {
   if (!optionalStrings.every((key) => value[key] === undefined || isString(value[key])) ||
       !["temporaryHitPoints", "nonlethalDamage"].every((key) => value[key] === undefined || isNumber(value[key])) ||
       (value.gender !== undefined && !["", "Male", "Female", "Other"].includes(String(value.gender))) ||
+      (value.mainWeaponGrip !== undefined && !["one-handed", "two-handed"].includes(String(value.mainWeaponGrip))) ||
+      (value.doubleWeaponMode !== undefined && typeof value.doubleWeaponMode !== "boolean") ||
+      (value.doubleWeaponPrimaryEnd !== undefined && !["first", "second"].includes(String(value.doubleWeaponPrimaryEnd))) ||
+      (value.towerShieldTotalCover !== undefined && typeof value.towerShieldTotalCover !== "boolean") ||
+      (value.shieldBashMode !== undefined && typeof value.shieldBashMode !== "boolean") ||
       (value.highSorceryOrder !== undefined && !["white", "red", "black"].includes(String(value.highSorceryOrder))) ||
       (value.prestigeClass !== undefined &&
         (!isString(value.prestigeClass) || !Object.hasOwn(dragonlancePrestigeClasses, value.prestigeClass))) ||

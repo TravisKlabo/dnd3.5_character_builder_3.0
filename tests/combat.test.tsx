@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach } from "../src/rules";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { savedCharacterStorageKey } from "../src/storage";
@@ -31,11 +31,170 @@ describe("SRD weapon attack and damage", () => {
       .toMatchObject({ attack: 6, damage: "1d8+5", attackEnhancement: 2 });
   });
 
+  it("applies Weapon Focus and Weapon Specialization only to their selected weapon type", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "fighter", level: 4 }];
+    const longsword = getEquippedWeaponStats(character, "Longsword (Medium)")!;
+    character.featSelections = {
+      "general-1": "weapon-focus",
+      "fighter-4": "weapon-specialization",
+    };
+    character.featWeaponSelections = {
+      "general-1": "Longsword",
+      "fighter-4": "Longsword",
+    };
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)")).toMatchObject({
+      attack: longsword.attack + 1,
+      damage: "1d8+5",
+      weaponFocusBonus: 1,
+      weaponSpecializationBonus: 2,
+    });
+    expect(getEquippedWeaponStats(character, "Dagger (Medium)")).toMatchObject({
+      weaponFocusBonus: 0,
+      weaponSpecializationBonus: 0,
+    });
+  });
+
+  it("applies weapon feats to light, heavy, spiked, and unspiked shield bashes as one type", () => {
+    const character = fighter();
+    character.equipment = { Shield: "Heavy Steel Shield" };
+    character.shieldBashMode = true;
+    character.featSelections = {
+      "general-1": "weapon-focus",
+      "fighter-4": "weapon-specialization",
+    };
+    character.classLevels = [{ classId: "fighter", level: 4 }];
+    character.featWeaponSelections = {
+      "general-1": "Shield Bash",
+      "fighter-4": "Shield Bash",
+    };
+    const bash = getEffectiveWeaponKey(character, "Off Hand Weapon");
+    expect(bash).toContain("Shield Bash");
+    expect(getEquippedWeaponStats(character, bash!, 0, "Off Hand Weapon"))
+      .toMatchObject({ weaponFocusBonus: 1, weaponSpecializationBonus: 2 });
+  });
+
   it.each(["Greatsword", "Greataxe", "Quarterstaff", "Spear"])(
     "adds one-and-a-half Strength bonus to a two-handed %s, rounding down", (weapon) => {
       expect(getEquippedWeaponStats(fighter(), `${weapon} (Medium)`)?.damageAbility).toBe(4);
     },
   );
+
+  it("applies one-and-a-half Strength damage when a one-handed weapon uses a saved two-handed grip", () => {
+    const character = fighter();
+    character.equipment["Main Weapon"] = "Longsword (Medium)";
+    delete character.mainWeaponGrip;
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"]))
+      .toMatchObject({ damage: "1d8+3", damageAbility: 3, twoHandedGrip: false });
+    character.mainWeaponGrip = "two-handed";
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"]))
+      .toMatchObject({ damage: "1d8+4", damageAbility: 4, twoHandedGrip: true });
+    character.abilities.str = 7;
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"]))
+      .toMatchObject({ damage: "1d8-2", damageAbility: -2 });
+  });
+
+  it("rejects two-handed grips with ordinary shields but allows the buckler exception", () => {
+    const character = fighter();
+    character.equipment = { "Main Weapon": "Longsword (Medium)", Shield: "Heavy Steel Shield (Medium)" };
+    character.mainWeaponGrip = "two-handed";
+    expect(getMainWeaponGripState(character)).toMatchObject({ grip: "two-handed", canUseTwoHands: false });
+    expect(getWeaponCompatibilityWarning(character, character.equipment["Main Weapon"], "Main Weapon"))
+      .toContain("non-buckler shield");
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"])).toBeNull();
+
+    character.equipment.Shield = "Buckler (Medium)";
+    expect(getWeaponCompatibilityWarning(character, character.equipment["Main Weapon"], "Main Weapon")).toBeNull();
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"]))
+      .toMatchObject({ twoHandedGrip: true, bucklerAttackPenalty: -1, damageAbility: 4 });
+    expect(getArmorClassValues(character).normal).toBe(15);
+  });
+
+  it("applies buckler penalties and removes its AC bonus while using an off-hand weapon", () => {
+    const character = fighter();
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      "Off Hand Weapon": "Dagger (Medium)",
+      Shield: "Buckler (Medium)",
+    };
+    const main = getEquippedWeaponStats(character, character.equipment["Main Weapon"],
+      getTwoWeaponAttackPenalty(character, "Main Weapon"), "Main Weapon");
+    const offHand = getEquippedWeaponStats(character, character.equipment["Off Hand Weapon"],
+      getTwoWeaponAttackPenalty(character, "Off Hand Weapon"), "Off Hand Weapon");
+    expect(main?.bucklerAttackPenalty).toBe(-1);
+    expect(offHand?.bucklerAttackPenalty).toBe(-1);
+    expect(getArmorClassValues(character)).toMatchObject({ normal: 14, detail: expect.arrayContaining([
+      "Buckler AC bonus lost while wielding an off-hand weapon.",
+    ]) });
+  });
+
+  it("uses both quarterstaff ends with light off-hand penalties and half Strength damage", () => {
+    const character = fighter();
+    const key = "Quarterstaff (Medium)";
+    character.equipment["Main Weapon"] = key;
+    expect(getEquippedWeaponStats(character, key)).toMatchObject({
+      damage: "1d6+4",
+      damageAbility: 4,
+      twoHandedGrip: true,
+    });
+
+    character.doubleWeaponMode = true;
+    expect(getDoubleWeaponModeState(character)).toMatchObject({ enabled: true, canUseBothEnds: true });
+    expect(getWeaponSizeHandling(character, key, "Main Weapon")?.effectiveHandedness).toBe("one-handed");
+    expect(getWeaponSizeHandling(character, key, "Off Hand Weapon")?.effectiveHandedness).toBe("light");
+    expect(getEffectiveWeaponKey(character, "Off Hand Weapon")).toBe(key);
+    const mainPenalty = getTwoWeaponAttackPenalty(character, "Main Weapon");
+    const offHandPenalty = getTwoWeaponAttackPenalty(character, "Off Hand Weapon");
+    expect([mainPenalty, offHandPenalty]).toEqual([-4, -8]);
+    expect(getEquippedWeaponStats(character, key, mainPenalty, "Main Weapon"))
+      .toMatchObject({ damage: "1d6+3", damageAbility: 3, attackPenalty: -4 });
+    expect(getEquippedWeaponStats(character, key, offHandPenalty, "Off Hand Weapon"))
+      .toMatchObject({ damage: "1d6+1", damageAbility: 1, attackPenalty: -8 });
+
+    character.featSelections = { "general-1": "two-weapon-fighting" };
+    expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-2);
+    expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-2);
+  });
+
+  it("uses the distinct ends and critical profiles of exotic double weapons", () => {
+    const character = fighter();
+    character.race = "Dwarf";
+    const key = "Dwarven Urgrosh (Medium)";
+    character.equipment["Main Weapon"] = key;
+    character.doubleWeaponMode = true;
+    expect(getEquippedWeaponStats(character, key, 0, "Main Weapon"))
+      .toMatchObject({ name: "Dwarven Urgrosh (axe head)", damage: "1d8+3", damageType: "slashing", critical: "x3" });
+    expect(getEquippedWeaponStats(character, key, 0, "Off Hand Weapon"))
+      .toMatchObject({ name: "Dwarven Urgrosh (spear point)", damage: "1d6+1", damageType: "piercing", critical: "x3" });
+
+    character.equipment["Main Weapon"] = "Gnome Hooked Hammer (Small)";
+    character.race = "Gnome";
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"], 0, "Main Weapon"))
+      .toMatchObject({ damage: "1d6+3", damageType: "bludgeoning", critical: "x3" });
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"], 0, "Off Hand Weapon"))
+      .toMatchObject({ damage: "1d4+1", damageType: "piercing", critical: "x4" });
+
+    character.doubleWeaponPrimaryEnd = "second";
+    expect(getEquippedWeaponStats(character, character.equipment["Main Weapon"], 0, "Main Weapon"))
+      .toMatchObject({ damage: "1d4+3", damageType: "piercing", critical: "x4" });
+  });
+
+  it("allows double-weapon mode with a buckler but rejects an ordinary shield", () => {
+    const character = fighter();
+    const key = "Quarterstaff (Medium)";
+    character.equipment = { "Main Weapon": key, Shield: "Buckler (Medium)" };
+    character.doubleWeaponMode = true;
+    expect(getEquippedWeaponStats(character, key, 0, "Main Weapon"))
+      .toMatchObject({ bucklerAttackPenalty: -1 });
+    expect(getEquippedWeaponStats(character, key, 0, "Off Hand Weapon"))
+      .toMatchObject({ bucklerAttackPenalty: -1 });
+    expect(getArmorClassValues(character).normal).toBe(14);
+
+    character.equipment.Shield = "Heavy Steel Shield (Medium)";
+    expect(getDoubleWeaponModeState(character)?.canUseBothEnds).toBe(false);
+    expect(getWeaponCompatibilityWarning(character, key, "Main Weapon")).toContain("buckler");
+    expect(getEquippedWeaponStats(character, key, 0, "Main Weapon")).toBeNull();
+  });
 
   it("halves positive off-hand Strength bonuses but does not halve negative modifiers", () => {
     expect(getEquippedWeaponStats(fighter(), "Dagger (Medium)", 0, "Off Hand Weapon"))
@@ -68,7 +227,7 @@ describe("SRD weapon attack and damage", () => {
     const character = fighter(12, 18);
     expect(getEquippedWeaponStats(character, "Dagger (Medium)")?.abilityAttackBonus).toBe(1);
     character.featSelections = { "general-1": "weapon-finesse" };
-    expect(getEquippedWeaponStats(character, "Dagger (Small)")?.abilityAttackBonus).toBe(1);
+    expect(getEquippedWeaponStats(character, "Dagger (Small)")).toBeNull();
   });
 
   it("applies the shield check penalty when choosing Finesse and accounts for masterwork shields", () => {
@@ -97,6 +256,55 @@ describe("SRD weapon attack and damage", () => {
     expect(getEquippedWeaponStats(character, `Longsword (${size})`)?.attack).toBe(4 + bonus);
   });
 
+  it("applies weapon-size penalties and adjusts handedness or rejects unusable sizes", () => {
+    const medium = fighter();
+    const standardSword = getEquippedWeaponStats(medium, "Longsword (Medium)");
+    expect(standardSword?.weaponSizePenalty).toBe(0);
+
+    expect(getEquippedWeaponStats(medium, "Longsword (Large)")).toMatchObject({
+      attack: (standardSword?.attack ?? 0) - 2,
+      weaponSizePenalty: -2,
+      effectiveHandedness: "two-handed",
+      damageAbility: 4,
+    });
+    expect(getEquippedWeaponStats(medium, "Longsword (Small)")).toMatchObject({
+      attack: (standardSword?.attack ?? 0) - 2,
+      weaponSizePenalty: -2,
+      effectiveHandedness: "light",
+    });
+    expect(getWeaponSizeHandling(medium, "Longsword (Large)")).toMatchObject({
+      sizeDifference: 1,
+      effectiveHandedness: "two-handed",
+      wieldable: true,
+    });
+    expect(getWeaponSizeHandling(medium, "Dagger (Small)")).toMatchObject({
+      effectiveHandedness: null,
+      wieldable: false,
+    });
+    expect(getEquippedWeaponStats(medium, "Dagger (Small)")).toBeNull();
+    expect(getEquippedWeaponStats(medium, "Greatsword (Large)")).toBeNull();
+
+    const halfling = fighter();
+    halfling.race = "Halfling";
+    expect(getWeaponSizeHandling(halfling, "Dagger (Small)")).toMatchObject({
+      sizeDifference: 0,
+      effectiveHandedness: "light",
+      wieldable: true,
+    });
+  });
+
+  it("uses the adjusted size category for two-weapon penalties", () => {
+    const character = fighter();
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      "Off Hand Weapon": "Longsword (Small)",
+    };
+    expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-4);
+    expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
+    expect(getEquippedWeaponStats(character, "Longsword (Small)", -8, "Off Hand Weapon"))
+      .toMatchObject({ weaponSizePenalty: -2, effectiveHandedness: "light" });
+  });
+
   it("shares Small size with AC and carrying capacity rather than treating halflings as Medium", () => {
     const character = fighter(10, 10);
     character.race = "Halfling";
@@ -112,6 +320,70 @@ describe("SRD weapon attack and damage", () => {
       expect(getEquippedWeaponStats(character, "Longsword (Large)")?.attack).toBe(3);
     } finally {
       delete raceDefinitions["test-large"];
+    }
+  });
+
+  it("applies Dwarf and Gnome target-specific attack and dodge AC bonuses", () => {
+    const dwarf = fighter();
+    dwarf.race = "Dwarf";
+    const dwarfAttack = getEquippedWeaponStats(dwarf, "Longsword (Medium)")?.attack ?? 0;
+    expect(getEquippedWeaponStats(dwarf, "Longsword (Medium)", 0, "Main Weapon", ["orc"])?.attack)
+      .toBe(dwarfAttack + 1);
+    expect(getEquippedWeaponStats(dwarf, "Longsword (Medium)", 0, "Main Weapon", ["goblinoid"])?.attack)
+      .toBe(dwarfAttack + 1);
+    expect(getEquippedWeaponStats(dwarf, "Longsword (Medium)", 0, "Main Weapon", ["orc", "goblinoid"])?.attack)
+      .toBe(dwarfAttack + 1);
+    expect(getEquippedWeaponStats(dwarf, "Longsword (Medium)", 0, "Main Weapon", ["giant"])?.attack)
+      .toBe(dwarfAttack);
+
+    const dwarfAC = getArmorClassValues(dwarf);
+    expect(getArmorClassValues(dwarf, ["giant"])).toMatchObject({
+      normal: dwarfAC.normal + 4,
+      touch: dwarfAC.touch + 4,
+      flatFooted: dwarfAC.flatFooted,
+      racialDodgeACBonus: 4,
+    });
+    const uncannyDodgeDwarf = cloneCharacter(dwarf);
+    uncannyDodgeDwarf.classLevels = [{ classId: "rogue", level: 4 }];
+    expect(getArmorClassValues(uncannyDodgeDwarf, ["giant"]).flatFooted)
+      .toBe(getArmorClassValues(uncannyDodgeDwarf).flatFooted + 4);
+
+    const gnome = fighter();
+    gnome.race = "Gnome";
+    const gnomeAttack = getEquippedWeaponStats(gnome, "Longsword (Small)")?.attack ?? 0;
+    expect(getEquippedWeaponStats(gnome, "Longsword (Small)", 0, "Main Weapon", ["kobold"])?.attack)
+      .toBe(gnomeAttack + 1);
+    expect(getEquippedWeaponStats(gnome, "Longsword (Small)", 0, "Main Weapon", ["goblinoid"])?.attack)
+      .toBe(gnomeAttack + 1);
+    expect(getEquippedWeaponStats(gnome, "Longsword (Small)", 0, "Main Weapon", ["kobold", "goblinoid"])?.attack)
+      .toBe(gnomeAttack + 1);
+    expect(getArmorClassValues(gnome, ["giant"]).racialDodgeACBonus).toBe(4);
+  });
+
+  it("applies the Halfling thrown-weapon and sling attack bonus only in ranged use", () => {
+    const halfling = fighter();
+    halfling.race = "Halfling";
+    expect(getEquippedWeaponStats(halfling, "Dagger (Medium)")?.racialAttackBonus).toBe(0);
+    expect(getEquippedWeaponStats(halfling, "Dagger (Medium)", 0, "Ranged Weapon")?.racialAttackBonus).toBe(1);
+    expect(getEquippedWeaponStats(halfling, "Sling (Medium)")?.racialAttackBonus).toBe(1);
+    expect(getEquippedWeaponStats(halfling, "Longbow (Small)")?.racialAttackBonus).toBe(0);
+
+    const customThrownName = "Custom Halfling Thrower";
+    addCustomStoreItems([{
+      name: customThrownName,
+      category: "Weapons",
+      custom: true,
+      price: 1,
+      weight: "1 lb.",
+      thrown: true,
+      handedness: "One-handed",
+      damage: "1d4",
+    }]);
+    try {
+      expect(getEquippedWeaponStats(halfling, `${customThrownName} (Medium)`, 0, "Ranged Weapon")?.racialAttackBonus)
+        .toBe(1);
+    } finally {
+      deleteCustomStoreItem(customThrownName);
     }
   });
 
@@ -190,6 +462,43 @@ describe("consistent equipment handling", () => {
     expect(update).toHaveBeenLastCalledWith({ "Main Weapon": "Dagger (Medium)" });
   });
 
+  it("rejects an ordinary shield with an equipped two-handed weapon but allows a buckler", () => {
+    const character = fighter();
+    character.equipment = { "Main Weapon": "Greatsword (Medium)" };
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const update = vi.fn();
+    equipInventoryItem(character, "Heavy Steel Shield (Medium)", update);
+    expect(alert).toHaveBeenCalledWith(
+      "A two-handed weapon requires both hands. Equip a buckler or unequip the weapon first.",
+    );
+    expect(update).not.toHaveBeenCalled();
+
+    equipInventoryItem(character, "Buckler (Medium)", update);
+    expect(update).toHaveBeenCalledWith({
+      "Main Weapon": "Greatsword (Medium)",
+      Shield: "Buckler (Medium)",
+    });
+  });
+
+  it("allows bows with bucklers but rejects ordinary shields", () => {
+    const character = fighter();
+    character.equipment.Shield = "Heavy Steel Shield (Medium)";
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const update = vi.fn();
+    equipInventoryItem(character, "Composite Longbow (Medium)", update);
+    expect(alert).toHaveBeenCalledWith(
+      "This ranged weapon requires both hands. Equip a buckler or unequip the shield first.",
+    );
+    expect(update).not.toHaveBeenCalled();
+
+    character.equipment.Shield = "Buckler (Medium)";
+    equipInventoryItem(character, "Composite Longbow (Medium)", update);
+    expect(update).toHaveBeenCalledWith({
+      Shield: "Buckler (Medium)",
+      "Ranged Weapon": "Composite Longbow (Medium)",
+    });
+  });
+
   it("reports attempts to equip one copy of a weapon in both hands", () => {
     const character = fighter();
     character.equipment = { "Main Weapon": "Longsword (Medium)" };
@@ -203,7 +512,7 @@ describe("consistent equipment handling", () => {
 
   it("honors custom Light classification for Finesse, off-hand damage and penalties", () => {
     const name = "Combat Test Light Blade";
-    addCustomStoreItems([{ name, category: "Weapons", custom: true, price: 1, weight: "1 lb.", handedness: "Light", damage: "1d6" }]);
+    addCustomStoreItems([{ name, category: "Weapons", custom: true, proficiency: "Simple", price: 1, weight: "1 lb.", handedness: "Light", damage: "1d6" }]);
     try {
       const character = fighter();
       character.featSelections = { "general-1": "weapon-finesse" };
@@ -244,6 +553,64 @@ it("shows the same corrected off-hand damage and attacks on both sheets", async 
   await screen.findByText("Weapon Attacks");
   expect(screen.getByText("Damage: 1d4+1 (piercing or slashing)")).toBeDefined();
   expect(screen.getByText("Attack: +4 (+1 base, +3 ability, +0 size, +2 enhancement, -2 two-weapon)")).toBeDefined();
+});
+
+it("saves the main-weapon grip and returns to one hand when an ordinary shield is equipped", async () => {
+  const character = fighter();
+  character.equipment = { "Main Weapon": "Longsword (Medium)" };
+  character.mainWeaponGrip = "two-handed";
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole("button", { name: "Equipment" }));
+  const grip = await screen.findByRole("combobox", { name: "Main weapon grip" });
+  if (!(grip instanceof HTMLSelectElement)) throw new Error("Missing main-weapon grip selector.");
+  expect(grip.value).toBe("two-handed");
+  await user.type(screen.getByRole("textbox", { name: "Shield equipment" }), "Heavy Steel Shield (Medium)");
+  expect(grip.value).toBe("one-handed");
+});
+
+it("offers a saved double-weapon mode and displays the off-hand end", async () => {
+  const character = fighter();
+  character.equipment = { "Main Weapon": "Dwarven Urgrosh (Medium)" };
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole("button", { name: "Equipment" }));
+  const mode = await screen.findByRole("checkbox", { name: "Use both ends of the double weapon" });
+  if (!(mode instanceof HTMLInputElement)) throw new Error("Missing double-weapon mode control.");
+  await user.click(mode);
+  expect(mode.checked).toBe(true);
+  expect(await screen.findByText("Damage: 1d6+1 (piercing)")).toBeDefined();
+  expect(screen.getByRole("combobox", { name: "Double weapon primary end" })).toBeDefined();
+});
+
+it("explains when an equipped weapon is unusable because of its size", () => {
+  const character = fighter();
+  character.equipment = { "Main Weapon": "Greatsword (Large)" };
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  render(<App />);
+  expect(screen.getByText("Cannot wield: incompatible weapon size")).toBeDefined();
+});
+
+it("applies selected target-specific racial bonuses to attack and AC", async () => {
+  const character = fighter();
+  character.race = "Dwarf";
+  character.equipment = { "Main Weapon": "Longsword (Medium)" };
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  const user = userEvent.setup();
+  const { container } = render(<App />);
+  const weaponRow = container.querySelector(".combat-weapon-row");
+  if (!(weaponRow instanceof HTMLElement)) throw new Error("Missing character weapon summary.");
+  expect(within(weaponRow).getByText("Attack +4")).toBeDefined();
+  const armorClassValue = () => container.querySelector(".combat-panel .stat strong")?.textContent;
+  expect(armorClassValue()).toBe("14");
+
+  await user.click(screen.getByText("Apply target-specific racial bonuses"));
+  await user.click(await screen.findByRole("checkbox", { name: "Orc or half-orc" }));
+  expect(within(weaponRow).getByText("Attack +5")).toBeDefined();
+  await user.click(screen.getByRole("checkbox", { name: "Giant (type)" }));
+  expect(armorClassValue()).toBe("18");
 });
 
 it("stacks sheet columns independently and keeps empty weapon slots compact", () => {
@@ -308,7 +675,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(getEquippedWeaponStats(character, "+5 Longsword (Medium)")?.attackSequence).toEqual([14, 9]);
       expect(getEquippedWeaponStats(character, "Dagger (Medium)", -8, "Off Hand Weapon")?.attackSequence).toEqual([1]);
       character.classLevels = [{ classId: "wizard", level: 5 }];
-      expect(getEquippedWeaponStats(character, "+5 Longsword (Medium)")?.attackSequence).toEqual([10]);
+      expect(getEquippedWeaponStats(character, "+5 Longsword (Medium)")?.attackSequence).toEqual([6]);
     });
 
     it.each([
@@ -320,8 +687,10 @@ describe("touch, flat-footed, and grapple statistics", () => {
     });
 
     it("distinguishes a thrown increment from a ranged-slot attack", () => {
-      expect(getEquippedWeaponStats(fighter(), "Dagger (Small)")?.rangeLabel).toBe("Thrown increment");
-      expect(getEquippedWeaponStats(fighter(), "Dagger (Small)", 0, "Ranged Weapon"))
+      const halfling = fighter();
+      halfling.race = "Halfling";
+      expect(getEquippedWeaponStats(halfling, "Dagger (Small)")?.rangeLabel).toBe("Thrown increment");
+      expect(getEquippedWeaponStats(halfling, "Dagger (Small)", 0, "Ranged Weapon"))
         .toMatchObject({ rangeLabel: "Range increment", reach: undefined });
       expect(getEquippedWeaponStats(fighter(), "Longsword (Medium)")?.rangeIncrement).toBeUndefined();
     });
@@ -414,7 +783,207 @@ describe("touch, flat-footed, and grapple statistics", () => {
     character.featSelections = { "general-1": "weapon-finesse" };
     expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: 0, rangedTouch: 2, grapple: -2 });
     character.equipment.Shield = "Tower Shield (Medium)";
-    expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: -12, rangedTouch: -8, grapple: -12 });
+    expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: -12, rangedTouch: -8, grapple: -10 });
+  });
+
+  it("applies the tower-shield attack penalty without treating a grapple as an attack roll", () => {
+    const character = fighter();
+    const baseWeaponAttack = getEquippedWeaponStats(character, "Longsword (Medium)");
+    const baseSpecialAttacks = getSpecialAttackBonuses(character);
+    character.equipment.Shield = "Tower Shield (Medium)";
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)"))
+      .toMatchObject({ towerShieldAttackPenalty: -2, attack: baseWeaponAttack!.attack - 2 });
+    const towerSpecialAttacks = getSpecialAttackBonuses(character);
+    expect(towerSpecialAttacks.meleeTouch).toBe(baseSpecialAttacks.meleeTouch - 2);
+    expect(towerSpecialAttacks.rangedTouch).toBe(baseSpecialAttacks.rangedTouch - 2);
+    expect(towerSpecialAttacks.grapple).toBe(baseSpecialAttacks.grapple);
+  });
+
+  it("uses a tower shield for total cover instead of its AC bonus and suppresses attacks", () => {
+    const character = fighter();
+    character.equipment = { Shield: "Tower Shield (Medium)", "Main Weapon": "Longsword (Medium)" };
+    expect(getArmorClassValues(character).normal).toBe(18);
+    character.towerShieldTotalCover = true;
+    expect(getArmorClassValues(character)).toMatchObject({ normal: 14, towerShieldCoverActive: true });
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)")).toBeNull();
+    expect(getSpecialAttackBonuses(character).towerShieldCoverActive).toBe(true);
+  });
+
+  it("calculates shield bashes as size-appropriate martial off-hand weapons", () => {
+    const lightShieldCharacter = fighter();
+    lightShieldCharacter.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      Shield: "Light Steel Shield (Medium)",
+    };
+    lightShieldCharacter.shieldBashMode = true;
+    const lightBash = getEffectiveWeaponKey(lightShieldCharacter, "Off Hand Weapon");
+    expect(lightBash).toBe("Light Shield Bash (Medium)");
+    expect(getTwoWeaponAttackPenalty(lightShieldCharacter, "Main Weapon")).toBe(-4);
+    expect(getTwoWeaponAttackPenalty(lightShieldCharacter, "Off Hand Weapon")).toBe(-8);
+    expect(getEquippedWeaponStats(
+      lightShieldCharacter,
+      lightBash!,
+      getTwoWeaponAttackPenalty(lightShieldCharacter, "Off Hand Weapon"),
+      "Off Hand Weapon",
+    )).toMatchObject({
+      name: "Light Shield Bash",
+      damage: "1d3+1",
+      damageType: "bludgeoning",
+      critical: "x2",
+      enhancement: 0,
+      damageAbility: 1,
+      attackPenalty: -8,
+    });
+    expect(getArmorClassValues(lightShieldCharacter))
+      .toMatchObject({ normal: 14, shieldBashACBonusLost: true });
+
+    const heavyShieldCharacter = fighter();
+    heavyShieldCharacter.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      Shield: "+2 Heavy Steel Shield (Medium)",
+    };
+    heavyShieldCharacter.shieldBashMode = true;
+    const heavyBash = getEffectiveWeaponKey(heavyShieldCharacter, "Off Hand Weapon");
+    expect(heavyBash).toBe("Heavy Shield Bash (Medium)");
+    expect(getTwoWeaponAttackPenalty(heavyShieldCharacter, "Main Weapon")).toBe(-6);
+    expect(getTwoWeaponAttackPenalty(heavyShieldCharacter, "Off Hand Weapon")).toBe(-10);
+    expect(getEquippedWeaponStats(
+      heavyShieldCharacter,
+      heavyBash!,
+      getTwoWeaponAttackPenalty(heavyShieldCharacter, "Off Hand Weapon"),
+      "Off Hand Weapon",
+    )).toMatchObject({
+      damage: "1d4+1",
+      damageType: "bludgeoning",
+      critical: "x2",
+      enhancement: 0,
+      attackPenalty: -10,
+    });
+    expect(getArmorClassValues(heavyShieldCharacter))
+      .toMatchObject({ normal: 14, shieldBashACBonusLost: true });
+  });
+
+  it("rejects buckler and tower shield bashes and scales small shield damage", () => {
+    const character = fighter();
+    character.race = "Halfling";
+    character.equipment = { Shield: "Light Steel Shield (Small)" };
+    character.shieldBashMode = true;
+    const smallBash = getEffectiveWeaponKey(character, "Off Hand Weapon");
+    expect(smallBash).toBe("Light Shield Bash (Small)");
+    expect(getEquippedWeaponStats(character, smallBash!, 0, "Off Hand Weapon"))
+      .toMatchObject({ damage: "1d2+1", effectiveHandedness: "light" });
+
+    character.equipment.Shield = "Buckler (Small)";
+    expect(getShieldBashState(character)).toMatchObject({ canBash: false, enabled: false });
+    expect(getEffectiveWeaponKey(character, "Off Hand Weapon")).toBeUndefined();
+    character.equipment.Shield = "Tower Shield (Small)";
+    expect(getShieldBashState(character)).toMatchObject({ canBash: false, enabled: false });
+    expect(getEffectiveWeaponKey(character, "Off Hand Weapon")).toBeUndefined();
+  });
+
+  it("adds shield spikes as a size-increased piercing bash without changing shield handling", () => {
+    const lightItem = getInventoryEntryDetails("Light Steel Shield with Spikes (Medium)");
+    expect(lightItem).toMatchObject({ category: "Shields", price: 19, weight: "11 lb." });
+
+    const lightCharacter = fighter();
+    lightCharacter.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      Shield: "Light Steel Shield with Spikes (Medium)",
+    };
+    lightCharacter.shieldBashMode = true;
+    const lightBash = getEffectiveWeaponKey(lightCharacter, "Off Hand Weapon");
+    expect(lightBash).toBe("Spiked Light Shield Bash (Medium)");
+    expect(getTwoWeaponAttackPenalty(lightCharacter, "Main Weapon")).toBe(-4);
+    expect(getTwoWeaponAttackPenalty(lightCharacter, "Off Hand Weapon")).toBe(-8);
+    expect(getEquippedWeaponStats(
+      lightCharacter,
+      lightBash!,
+      getTwoWeaponAttackPenalty(lightCharacter, "Off Hand Weapon"),
+      "Off Hand Weapon",
+    )).toMatchObject({
+      damage: "1d4+1",
+      damageType: "piercing",
+      critical: "x2",
+      effectiveHandedness: "light",
+      enhancement: 0,
+    });
+    expect(getArmorClassValues(lightCharacter))
+      .toMatchObject({ normal: 14, shieldBashACBonusLost: true });
+
+    const heavyCharacter = fighter();
+    heavyCharacter.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      Shield: "+2 Heavy Steel Shield with Spikes (Medium)",
+    };
+    heavyCharacter.shieldBashMode = true;
+    const heavyBash = getEffectiveWeaponKey(heavyCharacter, "Off Hand Weapon");
+    expect(heavyBash).toBe("Spiked Heavy Shield Bash (Medium)");
+    expect(getTwoWeaponAttackPenalty(heavyCharacter, "Main Weapon")).toBe(-6);
+    expect(getTwoWeaponAttackPenalty(heavyCharacter, "Off Hand Weapon")).toBe(-10);
+    expect(getEquippedWeaponStats(
+      heavyCharacter,
+      heavyBash!,
+      getTwoWeaponAttackPenalty(heavyCharacter, "Off Hand Weapon"),
+      "Off Hand Weapon",
+    )).toMatchObject({
+      damage: "1d6+1",
+      damageType: "piercing",
+      critical: "x2",
+      effectiveHandedness: "one-handed",
+      enhancement: 0,
+    });
+    expect(getArmorClassValues(heavyCharacter))
+      .toMatchObject({ normal: 14, shieldBashACBonusLost: true });
+
+    const smallCharacter = fighter();
+    smallCharacter.race = "Halfling";
+    smallCharacter.equipment = { Shield: "Light Steel Shield with Spikes (Small)" };
+    smallCharacter.shieldBashMode = true;
+    const smallBash = getEffectiveWeaponKey(smallCharacter, "Off Hand Weapon");
+    expect(getEquippedWeaponStats(smallCharacter, smallBash!, 0, "Off Hand Weapon"))
+      .toMatchObject({ damage: "1d3+1", damageType: "piercing" });
+  });
+
+  it("lets a character activate tower-shield cover from Equipment and reports its duration", async () => {
+    const character = fighter();
+    character.equipment = { Shield: "Tower Shield (Medium)", "Main Weapon": "Longsword (Medium)" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
+    const cover = await screen.findByRole("checkbox", { name: "Use tower shield for total cover" });
+    await user.click(cover);
+    expect(cover instanceof HTMLInputElement && cover.checked).toBe(true);
+    expect(await screen.findByText(/Total cover lasts until the start of your next turn/)).toBeDefined();
+    expect(screen.getByText("Unavailable while using tower shield for total cover")).toBeDefined();
+    expect(screen.getByText("Total cover via tower shield; no attacks until the start of your next turn.")).toBeDefined();
+    const shieldSlot = screen.getByRole("heading", { name: "Shield" }).parentElement;
+    if (!(shieldSlot instanceof HTMLElement)) throw new Error("Missing shield equipment slot.");
+    await user.click(within(shieldSlot).getByRole("button", { name: "Unequip" }));
+    expect(screen.queryByRole("checkbox", { name: "Use tower shield for total cover" })).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null").towerShieldTotalCover).toBe(false);
+  });
+
+  it("lets a character toggle shield bash in Equipment and clears it when the shield is removed", async () => {
+    const character = fighter();
+    character.equipment = {
+      Shield: "Light Steel Shield (Medium)",
+      "Main Weapon": "Longsword (Medium)",
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
+    const bash = await screen.findByRole("checkbox", { name: "Use shield bash" });
+    await user.click(bash);
+    expect(bash instanceof HTMLInputElement && bash.checked).toBe(true);
+    expect(await screen.findByText(/shield's AC bonus is lost until your next action/)).toBeDefined();
+    expect(screen.getByText("Shield AC bonus lost until your next action after a shield bash.")).toBeDefined();
+
+    const shieldSlot = screen.getByRole("heading", { name: "Shield" }).parentElement;
+    if (!(shieldSlot instanceof HTMLElement)) throw new Error("Missing shield equipment slot.");
+    await user.click(within(shieldSlot).getByRole("button", { name: "Unequip" }));
+    expect(screen.queryByRole("checkbox", { name: "Use shield bash" })).toBeNull();
   });
 
   it("shares defenses and special attacks across character and equipment screens without saving derived values", async () => {

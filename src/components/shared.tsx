@@ -1,4 +1,4 @@
-import { type Character } from "../domain";
+import { type Character, type CombatTargetType, type SavingThrowCondition } from "../domain";
 import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow } from "../rules";
 
 export function Panel({
@@ -41,28 +41,39 @@ export function Stat({ label, value, detail, title }: { label: string; value: st
   );
 }
 
-export function ArmorClassStat({ character }: { character: Character }) {
-  const defenses = getArmorClassValues(character);
+export function ArmorClassStat({ character, targetTypes = [] }: {
+  character: Character;
+  targetTypes?: CombatTargetType[];
+}) {
+  const defenses = getArmorClassValues(character, targetTypes);
   return <Stat label="Armor Class" value={String(defenses.normal)}
-    detail={[`Touch ${defenses.touch}`, `Flat-footed ${defenses.flatFooted}`, ...getArmorClassRestrictions(character)]}
+    detail={[
+      `Touch ${defenses.touch}`,
+      `Flat-footed ${defenses.flatFooted}`,
+      ...(defenses.towerShieldCoverActive ? ["Total cover via tower shield; no attacks until the start of your next turn."] : []),
+      ...(defenses.shieldBashACBonusLost ? ["Shield AC bonus lost until your next action after a shield bash."] : []),
+      ...getArmorClassRestrictions(character),
+    ]}
     title={`${defenses.detail.join("\n")}\nTouch ignores armor, shield, and natural armor bonuses, retains deflection and armor/load Dexterity limits. Flat-footed ${defenses.retainsDexterity ? "retains Dexterity with Uncanny Dodge" : "loses positive Dexterity, but retains penalties"}. Apply other unmodeled effects manually.`} />;
 }
 
-export function SavingThrowStat({ character, save, label }: {
+export function SavingThrowStat({ character, save, label, conditions = [] }: {
   character: Character;
   save: "fortitude" | "reflex" | "will";
   label: string;
+  conditions?: SavingThrowCondition[];
 }) {
-  const result = getSavingThrow(character, save);
+  const result = getSavingThrow(character, save, conditions);
   return <Stat label={label} value={formatModifier(result.total)} detail={[result.detail]} title={result.title} />;
 }
 
 export function SpecialAttackStats({ character }: { character: Character }) {
   const attacks = getSpecialAttackBonuses(character);
+  const unavailable = attacks.towerShieldCoverActive ? "Unavailable" : undefined;
   return <div className="special-attack-summary" role="group" aria-label="Touch attacks and grapple">
-    <Stat label="Melee touch" value={formatModifier(attacks.meleeTouch)} title={attacks.meleeDetail} />
-    <Stat label="Ranged touch" value={formatModifier(attacks.rangedTouch)} title={attacks.rangedDetail} />
-    <Stat label="Grapple" value={formatModifier(attacks.grapple)} title={attacks.grappleDetail} />
+    <Stat label="Melee touch" value={unavailable ?? formatModifier(attacks.meleeTouch)} title={attacks.meleeDetail} />
+    <Stat label="Ranged touch" value={unavailable ?? formatModifier(attacks.rangedTouch)} title={attacks.rangedDetail} />
+    <Stat label="Grapple" value={unavailable ?? formatModifier(attacks.grapple)} title={attacks.grappleDetail} />
   </div>;
 }
 

@@ -176,4 +176,43 @@ describe("HP tracker workflow", () => {
     expect(getMaximumHitPoints(saved)).toBe(21);
     expect(getMaximumHitPoints(saved) - getCurrentHitPoints(saved)).toBe(6);
   });
+
+  it("applies level-up Constitution increases to current and maximum HP", () => {
+    const character = {
+      ...cloneCharacter(initialCharacter),
+      abilities: { ...initialCharacter.abilities, con: 13 },
+      classLevels: [{ classId: "fighter", level: 3 }] as const,
+      hitPoints: 24,
+      currentHitPoints: 18,
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    fireEvent.change(screen.getByRole("combobox", { name: /class/i }), { target: { value: "fighter" } });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: /Ability score increase at level 4/ }),
+      { target: { value: "con" } },
+    );
+    const climb = within(screen.getByRole("group", { name: "Climb skill" }));
+    fireEvent.click(climb.getByRole("button", { name: "Add rank to Climb" }));
+    fireEvent.click(climb.getByRole("button", { name: "Add rank to Climb" }));
+    fireEvent.click(climb.getByRole("button", { name: "Add rank to Climb" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Fighter bonus feat (fighter level 4)",
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+        "option",
+        { name: /Improved Initiative/ },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled, document.querySelector(".level-todo-list")?.textContent).toBe(false);
+    fireEvent.click(confirm);
+    expect(screen.getByText("HP 29 / 35")).toBeDefined();
+  });
 });

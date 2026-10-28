@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { cloneCharacter, initialCharacter, type Character } from "../src/domain";
+import { cloneCharacter, deityDefinitions, initialCharacter, type Character } from "../src/domain";
+import { findStoreItem } from "../src/data/equipmentCatalog";
 import { clericDomains, getClericDomain, type ClericDomainId } from "../src/data/clericDomains";
 import { clericDomainAllowed, getActiveClericDomains, getClericDomainSlotCount,
-  getClericDomainSpellOptions, getClericDomainWarnings } from "../src/clericDomains";
-import { getDailySpellSlots, getEquippedWeaponStats, isClassSkill, getSpentSkillPoints, getChosenFeats } from "../src/rules";
+  getClericDomainSpellOptions, getClericDomainWarnings, getWarDomainWeapon } from "../src/clericDomains";
+import { getDailySpellSlots, getEquippedWeaponStats, isClassSkill, getSpentSkillPoints, getChosenFeats,
+  getAvailableFeatWeaponChoices, getAvailableFeats, isWeaponProficient } from "../src/rules";
 import { loadSpellCatalog } from "../src/data/spellCatalog";
 import { parseCharacter } from "../src/validation";
 import { savedCharacterStorageKey } from "../src/storage";
@@ -41,7 +43,7 @@ describe("SRD cleric domain catalog", () => {
       const definition = getClericDomain(id);
       expect(definition.spells).toHaveLength(9);
       expect(definition.spells.every((spell) => !!spell.trim())).toBe(true);
-      expect(!!definition.manualPower || !!definition.classSkills).toBe(true);
+      expect(!!definition.manualPower || !!definition.grantedPower || !!definition.classSkills).toBe(true);
     }
   });
 
@@ -60,6 +62,23 @@ describe("SRD cleric domain catalog", () => {
   ] as const)("%s has the SRD first- and ninth-level entries", (id, first, ninth) => {
     expect(getClericDomain(id).spells[0]).toBe(first);
     expect(getClericDomain(id).spells[8]).toBe(ninth);
+  });
+
+  it.each([
+    ["bahamut", ["air", "good", "luck", "protection", "strength"]],
+    ["corellon", ["chaos", "good", "protection", "war"]],
+    ["moradin", ["earth", "good", "law", "protection"]],
+    ["pelor", ["good", "healing", "strength", "sun"]],
+    ["heironeous", ["good", "law", "war"]],
+    ["kord", ["chaos", "good", "luck", "strength"]],
+    ["st-cuthbert", ["destruction", "law", "protection", "strength"]],
+    ["we-jas", ["death", "law", "magic"]],
+    ["obad-hai", ["air", "animal", "earth", "fire", "plant", "water"]],
+    ["hextor", ["destruction", "evil", "law", "war"]],
+    ["nerull", ["death", "evil", "trickery"]],
+    ["erythnul", ["chaos", "evil", "trickery", "war"]],
+  ] as const)("records verified core domain associations for %s", (id, domains) => {
+    expect(deityDefinitions.find((deity) => deity.id === id)?.clericDomains).toEqual(domains);
   });
 
   it("uses domain-specific levels, not a spell's ordinary class level, and keeps special restrictions", () => {
@@ -119,7 +138,7 @@ describe("domain access and powers", () => {
     expect(getClericDomainSpellOptions(character, 2).map((entry) => entry.domain)).toEqual(["travel"]);
     character.alignment = "True Neutral";
     expect(getClericDomainSpellOptions(character, 2).map((entry) => entry.domain)).toEqual(["death", "travel"]);
-    character.deity = "pelor";
+    character.deity = "mishakal";
     expect(getClericDomainSpellOptions(character, 2).map((entry) => entry.domain)).toEqual(["travel"]);
   });
 
@@ -139,14 +158,57 @@ describe("domain access and powers", () => {
     expect(isClassSkill(character, skill)).toBe(false);
   });
 
-  it("does not treat War's manually resolved favored weapon as an arbitrary proficiency or feat", () => {
+  it.each([
+    ["corellon", "Longsword", "good"],
+    ["heironeous", "Longsword", "good"],
+    ["hextor", "Flail", "law"],
+    ["erythnul", "Morningstar", "evil"],
+  ] as const)("automates War's favored weapon for %s", (deity, weapon, secondDomain) => {
     const character = cleric();
+    character.deity = deity;
+    character.clericDomains = ["war", secondDomain];
+    const item = findStoreItem(weapon);
+    if (!item) throw new Error(`Missing catalog weapon: ${weapon}`);
+    expect(getWarDomainWeapon(character)).toBe(weapon);
+    expect(isWeaponProficient(character, item)).toBe(true);
+    expect(getChosenFeats(character)).toContain("weapon-focus");
+    const withWar = getEquippedWeaponStats(character, `${weapon} (Medium)`);
+    if (!withWar) throw new Error(`Missing equipped weapon stats: ${weapon}`);
+    expect(withWar).toMatchObject({ weaponFocusBonus: 1, nonproficiencyPenalties: [] });
+    expect(getClericDomainWarnings(character)).not.toContain(
+      "War favored weapon unmapped; resolve proficiency and Weapon Focus manually.",
+    );
+
+    character.classLevels.push({ classId: "fighter", level: 4 });
+    const withFighter = getEquippedWeaponStats(character, `${weapon} (Medium)`);
+    if (!withFighter) throw new Error(`Missing equipped weapon stats: ${weapon}`);
+    expect(getAvailableFeatWeaponChoices(character, "weapon-specialization", "fighter-4"))
+      .toContain(weapon);
+    expect(getAvailableFeats(character, { fighterOnly: true }, "fighter-4")
+      .map((feat) => feat.id)).toContain("weapon-specialization");
+
+    character.featSelections = { "general-1": "weapon-focus" };
+    character.featWeaponSelections = { "general-1": weapon };
+    expect(getEquippedWeaponStats(character, `${weapon} (Medium)`))
+      .toMatchObject({ weaponFocusBonus: 1, attack: withFighter.attack });
+    expect(getAvailableFeatWeaponChoices(character, "weapon-focus", "general-1"))
+      .not.toContain(weapon);
+  });
+
+  it("keeps unsupported War deity mappings manual and does not grant their benefits", () => {
+    const character = cleric();
+    character.deity = "mishakal";
     character.clericDomains = ["war", "travel"];
-    expect(getClericDomain("war").manualPower).toContain("manually");
-    const withWar = getEquippedWeaponStats(character, "Longsword (Medium)");
-    expect(getChosenFeats(character)).toEqual([]);
-    character.clericDomains = ["travel", "healing"];
-    expect(getEquippedWeaponStats(character, "Longsword (Medium)")).toEqual(withWar);
+    expect(getWarDomainWeapon(character)).toBeUndefined();
+    expect(getChosenFeats(character)).not.toContain("weapon-focus");
+    const longsword = findStoreItem("Longsword");
+    if (!longsword) throw new Error("Missing catalog weapon: Longsword");
+    expect(isWeaponProficient(character, longsword)).toBe(false);
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)"))
+      .toMatchObject({ weaponFocusBonus: 0, nonproficiencyPenalty: -4 });
+    expect(getClericDomainWarnings(character).join(" ")).toContain(
+      "War favored weapon unmapped",
+    );
   });
 });
 
@@ -192,9 +254,36 @@ describe("cleric domain UI and lifecycle", () => {
     const second = screen.getByRole("combobox", { name: "Domain 2" });
     expect(within(second).getByRole<HTMLOptionElement>("option", { name: "Healing" }).disabled).toBe(true);
     expect(within(second).getByRole<HTMLOptionElement>("option", { name: "Evil" }).disabled).toBe(true);
-    expect(screen.getByText(/Mishakal \(Dragonlance\)/).textContent).toContain("not source-verified");
+    expect(screen.getByText(/Mishakal \(Dragonlance\)/).textContent).toContain("aren't verified");
     fireEvent.change(second, { target: { value: "travel" } });
     expect(onChange).toHaveBeenCalledWith({ clericDomains: ["healing", "travel"] });
+  });
+
+  it("restricts mapped core deities to their domains and warns on invalid saved choices", () => {
+    const character = cleric();
+    character.deity = "pelor";
+    character.clericDomains = ["war", "sun"];
+    expect(clericDomainAllowed(character, "sun")).toBe(true);
+    expect(clericDomainAllowed(character, "war")).toBe(false);
+    expect(getActiveClericDomains(character)).toEqual(["sun"]);
+    expect(getClericDomainWarnings(character).join(" ")).toContain(
+      "War domain is not granted by Pelor",
+    );
+    render(<ClericDomains character={character} editable onChange={vi.fn()} />);
+    expect(within(screen.getByRole("combobox", { name: "Domain 1" }))
+      .getByRole<HTMLOptionElement>("option", { name: "War" }).disabled).toBe(true);
+    expect(screen.getByText(/Only listed domains are available for this core deity/)).toBeDefined();
+  });
+
+  it("keeps unmapped Dragonlance deity domain choices manual", () => {
+    const character = cleric();
+    character.deity = "mishakal";
+    character.clericDomains = ["healing", "travel"];
+    expect(clericDomainAllowed(character, "travel")).toBe(true);
+    render(<ClericDomains character={character} editable onChange={vi.fn()} />);
+    expect(within(screen.getByRole("combobox", { name: "Domain 2" }))
+      .getByRole<HTMLOptionElement>("option", { name: "Travel" }).disabled).toBe(false);
+    expect(screen.getByText(/Domain associations aren't verified for this deity/)).toBeDefined();
   });
 
   it("never creates sparse domain arrays when the second picker is used first", () => {
@@ -217,6 +306,16 @@ describe("cleric domain UI and lifecycle", () => {
     expect(screen.getByText(/Speak with animals once per day/)).toBeDefined();
     expect(screen.getByText("Animals only.")).toBeDefined();
     expect(screen.getByRole("link", { name: "Spell rules" }).getAttribute("href")).toContain("#animalDomain");
+  });
+
+  it("shows the supported War favored weapon as an automatic benefit", () => {
+    const character = cleric();
+    character.deity = "heironeous";
+    character.clericDomains = ["war", "travel"];
+    render(<ClericDomains character={character} editable={false} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText("War granted power"));
+    expect(screen.getByText(/Favored weapon: Longsword/)).toBeDefined();
+    expect(screen.getByText(/Only listed domains are available for this core deity/)).toBeDefined();
   });
 
   it("requires explicit confirmation before changing established domains, and does not reset usage or remove preparation", () => {

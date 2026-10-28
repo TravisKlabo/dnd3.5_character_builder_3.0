@@ -8,12 +8,20 @@ const domainAlignments: Partial<Record<ClericDomainId, string>> = {
 
 export function clericDomainAllowed(character: Character, id: ClericDomainId) {
   const alignment = domainAlignments[id];
-  return !alignment || character.alignment.includes(alignment);
+  const deity = deityDefinitions.find((entry) => entry.id === character.deity);
+  return (!alignment || character.alignment.includes(alignment)) &&
+    (!deity?.clericDomains || deity.clericDomains.includes(id));
 }
 
 export function getActiveClericDomains(character: Character) {
   if (!character.classLevels.some((entry) => entry.classId === "cleric")) return [];
   return (character.clericDomains ?? []).filter((id) => clericDomainAllowed(character, id));
+}
+
+export function getWarDomainWeapon(character: Character) {
+  if (!getActiveClericDomains(character).includes("war")) return undefined;
+  return deityDefinitions.find((deity) => deity.id === character.deity)
+    ?.warDomainFavoredWeapon;
 }
 
 export function isClericDomainClassSkill(character: Character, skill: string) {
@@ -44,10 +52,22 @@ export function getClericDomainSpellOptions(character: Character, level: number)
 export function getClericDomainWarnings(character: Character) {
   if (!character.classLevels.some((entry) => entry.classId === "cleric")) return [];
   const domains = character.clericDomains ?? [];
+  const deity = deityDefinitions.find((entry) => entry.id === character.deity);
   const warnings: string[] = [];
   if (domains.length !== 2) warnings.push("Choose two different cleric domains. Existing characters are preserved until you make these choices.");
   for (const id of domains) {
-    if (!clericDomainAllowed(character, id)) warnings.push(`${clericDomains[id].name} domain requires a matching cleric alignment. Its benefits are inactive.`);
+    const alignment = domainAlignments[id];
+    if (alignment && !character.alignment.includes(alignment)) {
+      warnings.push(`${clericDomains[id].name} domain requires a matching cleric alignment. Its benefits are inactive.`);
+    } else if (deity?.clericDomains && !deity.clericDomains.includes(id)) {
+      warnings.push(`${clericDomains[id].name} domain is not granted by ${deity.name}. Its benefits are inactive.`);
+    }
+  }
+  if (
+    getActiveClericDomains(character).includes("war") &&
+    !getWarDomainWeapon(character)
+  ) {
+    warnings.push("War favored weapon unmapped; resolve proficiency and Weapon Focus manually.");
   }
   for (const [level, selection] of Object.entries(character.clericDomainPreparation ?? {})) {
     if (!getClericDomainSpellOptions(character, Number(level)).some((option) =>

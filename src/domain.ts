@@ -1,6 +1,7 @@
 import type { StoreItem } from './data/itemTypes'
 import { getEffectiveAbilityScore } from './abilityEquipment'
 import type { CombatEffect } from './combatEffects'
+import type { ClericDomainId } from './data/clericDomains'
 
 export type AbilityName = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
 
@@ -51,21 +52,23 @@ export interface DeityDefinition {
   alignment: string
   description: string
   source: ContentSourceId
+  clericDomains?: readonly ClericDomainId[]
+  warDomainFavoredWeapon?: string
 }
 
 export const deityDefinitions: DeityDefinition[] = [
-  { id: 'bahamut', name: 'Bahamut', alignment: 'Lawful Good', description: 'Dragon deity of justice, protection, and good dragons.', source: 'core-35-srd' },
-  { id: 'corellon', name: 'Corellon Larethian', alignment: 'Chaotic Good', description: 'Elven deity of art, magic, and freedom.', source: 'core-35-srd' },
-  { id: 'moradin', name: 'Moradin', alignment: 'Lawful Good', description: 'Dwarven deity of creation, craft, and protection.', source: 'core-35-srd' },
-  { id: 'pelor', name: 'Pelor', alignment: 'Neutral Good', description: 'Deity of the sun, healing, and goodness.', source: 'core-35-srd' },
-  { id: 'heironeous', name: 'Heironeous', alignment: 'Lawful Good', description: 'Deity of chivalry, honor, and valor.', source: 'core-35-srd' },
-  { id: 'kord', name: 'Kord', alignment: 'Chaotic Neutral', description: 'Deity of strength, athleticism, and storms.', source: 'core-35-srd' },
-  { id: 'st-cuthbert', name: 'St. Cuthbert', alignment: 'Lawful Neutral', description: 'Deity of common sense, wisdom, and retribution.', source: 'core-35-srd' },
-  { id: 'we-jas', name: 'Wee Jas', alignment: 'Lawful Neutral', description: 'Deity of magic, death, and law.', source: 'core-35-srd' },
-  { id: 'obad-hai', name: 'Obad-Hai', alignment: 'True Neutral', description: 'Deity of nature, wilderness, and balance.', source: 'core-35-srd' },
-  { id: 'hextor', name: 'Hextor', alignment: 'Lawful Evil', description: 'Deity of tyranny, war, and discord.', source: 'core-35-srd' },
-  { id: 'nerull', name: 'Nerull', alignment: 'Neutral Evil', description: 'Deity of death, darkness, and murder.', source: 'core-35-srd' },
-  { id: 'erythnul', name: 'Erythnul', alignment: 'Chaotic Evil', description: 'Deity of envy, slaughter, and panic.', source: 'core-35-srd' },
+  { id: 'bahamut', name: 'Bahamut', alignment: 'Lawful Good', description: 'Dragon deity of justice, protection, and good dragons.', source: 'core-35-srd', clericDomains: ['air', 'good', 'luck', 'protection', 'strength'] },
+  { id: 'corellon', name: 'Corellon Larethian', alignment: 'Chaotic Good', description: 'Elven deity of art, magic, and freedom.', source: 'core-35-srd', clericDomains: ['chaos', 'good', 'protection', 'war'], warDomainFavoredWeapon: 'Longsword' },
+  { id: 'moradin', name: 'Moradin', alignment: 'Lawful Good', description: 'Dwarven deity of creation, craft, and protection.', source: 'core-35-srd', clericDomains: ['earth', 'good', 'law', 'protection'] },
+  { id: 'pelor', name: 'Pelor', alignment: 'Neutral Good', description: 'Deity of the sun, healing, and goodness.', source: 'core-35-srd', clericDomains: ['good', 'healing', 'strength', 'sun'] },
+  { id: 'heironeous', name: 'Heironeous', alignment: 'Lawful Good', description: 'Deity of chivalry, honor, and valor.', source: 'core-35-srd', clericDomains: ['good', 'law', 'war'], warDomainFavoredWeapon: 'Longsword' },
+  { id: 'kord', name: 'Kord', alignment: 'Chaotic Neutral', description: 'Deity of strength, athleticism, and storms.', source: 'core-35-srd', clericDomains: ['chaos', 'good', 'luck', 'strength'] },
+  { id: 'st-cuthbert', name: 'St. Cuthbert', alignment: 'Lawful Neutral', description: 'Deity of common sense, wisdom, and retribution.', source: 'core-35-srd', clericDomains: ['destruction', 'law', 'protection', 'strength'] },
+  { id: 'we-jas', name: 'Wee Jas', alignment: 'Lawful Neutral', description: 'Deity of magic, death, and law.', source: 'core-35-srd', clericDomains: ['death', 'law', 'magic'] },
+  { id: 'obad-hai', name: 'Obad-Hai', alignment: 'True Neutral', description: 'Deity of nature, wilderness, and balance.', source: 'core-35-srd', clericDomains: ['air', 'animal', 'earth', 'fire', 'plant', 'water'] },
+  { id: 'hextor', name: 'Hextor', alignment: 'Lawful Evil', description: 'Deity of tyranny, war, and discord.', source: 'core-35-srd', clericDomains: ['destruction', 'evil', 'law', 'war'], warDomainFavoredWeapon: 'Flail' },
+  { id: 'nerull', name: 'Nerull', alignment: 'Neutral Evil', description: 'Deity of death, darkness, and murder.', source: 'core-35-srd', clericDomains: ['death', 'evil', 'trickery'] },
+  { id: 'erythnul', name: 'Erythnul', alignment: 'Chaotic Evil', description: 'Deity of envy, slaughter, and panic.', source: 'core-35-srd', clericDomains: ['chaos', 'evil', 'trickery', 'war'], warDomainFavoredWeapon: 'Morningstar' },
   { id: 'paladine', name: 'Paladine', alignment: 'Lawful Good', description: 'God of good dragons, guardianship, and justice.', source: 'dragonlance-user-pack' },
   { id: 'mishakal', name: 'Mishakal', alignment: 'Neutral Good', description: 'Goddess of healing, compassion, and restoration.', source: 'dragonlance-user-pack' },
   { id: 'kiri-jolith', name: 'Kiri-Jolith', alignment: 'Lawful Good', description: 'God of honor, courage, and righteous battle.', source: 'dragonlance-user-pack' },
@@ -88,12 +91,19 @@ export interface RaceDefinition {
   source: ContentSourceId
   abilityModifiers: Partial<Record<AbilityName, number>>
   racialSkillBonuses?: Partial<Record<string, number>>
+  racialSavingThrowBonus?: number
+  racialSituationalSaveBonuses?: Partial<Record<SavingThrowCondition, number>>
+  racialAttackBonuses?: Partial<Record<CombatTargetType, number>>
+  racialDodgeACBonuses?: Partial<Record<CombatTargetType, number>>
   levelAdjustment?: number
   size?: 'Fine' | 'Diminutive' | 'Tiny' | 'Small' | 'Medium' | 'Large' | 'Huge' | 'Gargantuan' | 'Colossal'
   speed?: number
   traits?: string[]
   specialAbilities?: string[]
 }
+
+export type SavingThrowCondition = 'fear' | 'poison' | 'spell' | 'enchantment' | 'illusion'
+export type CombatTargetType = 'orc' | 'goblinoid' | 'kobold' | 'giant'
 
 export interface PrestigeClassDefinition {
   id: PrestigeClassId
@@ -122,6 +132,8 @@ export interface FeatDefinition {
   prerequisites?: {
     abilities?: Partial<Record<AbilityName, number>>
     baseAttackBonus?: number
+    casterLevel?: number
+    classLevels?: Partial<Record<ClassId, number>>
     feats?: FeatId[]
   }
   fighterBonus?: boolean
@@ -152,6 +164,7 @@ export interface Character {
   hitPoints: number
   feats: string[]
   featSelections: Record<string, FeatId | ''>
+  featWeaponSelections?: Record<string, string>
   skills: Record<string, number>
   skillRanksByClass: Record<string, Record<string, number>>
   knownSpells: string[]
@@ -166,6 +179,11 @@ export interface Character {
   clericDomainExpended?: number[]
   expendedSpellSlotsByClass?: Partial<Record<ClassId, Record<string, number[]>>>
   equipment: Record<string, string>
+  mainWeaponGrip?: 'one-handed' | 'two-handed'
+  doubleWeaponMode?: boolean
+  doubleWeaponPrimaryEnd?: 'first' | 'second'
+  towerShieldTotalCover?: boolean
+  shieldBashMode?: boolean
   inventory: Record<string, number>
   languages: string[]
   prestigeClass?: PrestigeClassId
@@ -201,13 +219,13 @@ export const classDefinitions: Record<ClassId, ClassDefinition> = {
 }
 
 export const raceDefinitions: Record<string, RaceDefinition> = {
-  human: { id: 'human', name: 'Human', source: 'core-35-srd', size: 'Medium', abilityModifiers: {}, specialAbilities: ['Bonus feat', 'Extra skill points'] },
-  dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', speed: 20, abilityModifiers: { con: 2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability', 'Dwarven weapon familiarity', 'Dwarven armor familiarity', '+2 racial bonus on saves against poison', '+2 racial bonus on saves against spells and spell-like effects'] },
-  elf: { id: 'elf', name: 'Elf', source: 'core-35-srd', abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2 }, specialAbilities: ['Low-light vision'] },
-  halfling: { id: 'halfling', name: 'Halfling', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { dex: 2, str: -2 }, racialSkillBonuses: { Climb: 2, Jump: 2, Listen: 2, 'Move Silently': 2 }, specialAbilities: ['+1 racial bonus on all saving throws', '+2 morale bonus on saves against fear', '+1 racial bonus on attacks with thrown weapons and slings', 'Halfling weapon familiarity', 'Lucky'] },
-  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2, Craft: 2 }, specialAbilities: ['Low-light vision', '+2 racial bonus on saves against illusions', '+1 racial bonus to the save DC of illusion spells', 'Gnome weapon familiarity', 'Speak with animals'] },
-  'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.'] },
-  'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1 }, specialAbilities: ['Low-light vision', 'Immunity to sleep spells and effects', '+2 racial bonus on saves against enchantment spells and effects', '+2 racial bonus on Diplomacy and Gather Information checks'] },
+  human: { id: 'human', name: 'Human', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, specialAbilities: ['Bonus feat', 'Extra skill points'] },
+  dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability', 'Waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. orcs/goblinoids; +4 dodge AC vs. giants', 'Stone/metal Appraise/Craft +2'] },
+  elf: { id: 'elf', name: 'Elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision', 'Sleep immunity', 'Enchantment saves +2', 'Elf weapon proficiencies'] },
+  halfling: { id: 'halfling', name: 'Halfling', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { dex: 2, str: -2 }, racialSkillBonuses: { Climb: 2, Jump: 2, Listen: 2, 'Move Silently': 2 }, racialSavingThrowBonus: 1, racialSituationalSaveBonuses: { fear: 2 }, specialAbilities: ['All saves +1; fear +2', 'Thrown/slings attacks +1'] },
+  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2', 'Spell-like abilities (1/day)'] },
+  'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Orc blood'] },
+  'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision', 'Sleep immunity', 'Enchantment saves +2', 'Elven blood'] },
   kender: { id: 'kender', name: 'Kender', source: 'dragonlance-user-pack', size: 'Small', speed: 20, abilityModifiers: { str: -2, dex: 2, cha: 2 }, traits: ['Fearless', 'Kender Pockets', 'Taunt', 'Curiosity'] },
   draconian: { id: 'draconian', name: 'Draconian', source: 'dragonlance-user-pack', size: 'Medium', abilityModifiers: { str: 2, con: 2, cha: -2 }, traits: ['Darkvision', 'Draconic Heritage', 'Death Throes'] },
   'qualinesti-elf': { id: 'qualinesti-elf', name: 'Qualinesti Elf', source: 'dragonlance-user-pack', size: 'Medium', abilityModifiers: { str: -2, dex: 2, con: -2, int: 2 }, traits: ['Keen Senses', 'Low-Light Vision', 'Elven Resistance'] },
@@ -252,7 +270,7 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
 export const initialCharacter: Character = {
   name: 'Unnamed Hero', player: 'Player', gender: '', age: '', height: '5 ft. 7 in.', weight: '', hairColor: '', eyeColor: '', skinColor: '', temporaryHitPoints: 0, nonlethalDamage: 0, damageReduction: '', spellResistance: '', notes: '', race: 'Human', alignment: 'Neutral Good',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], knownSpellClasses: {}, knownSpellsByClass: {}, spellAcquisitionByClass: {}, preparedSpells: [], preparedSpellsByClass: {}, equipment: {}, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
+  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], knownSpellClasses: {}, knownSpellsByClass: {}, spellAcquisitionByClass: {}, preparedSpells: [], preparedSpellsByClass: {}, equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
 }
 
 export function abilityModifier(score: number) {
@@ -336,6 +354,13 @@ export function rollHitDie(hitDie: number) {
 
 export function hitPointGain(character: Character, hitPointRoll: number) {
   return Math.max(1, hitPointRoll + abilityModifier(character.abilities.con))
+}
+
+export function levelUpHitPointGain(original: Character, proposed: Character, hitPointRoll: number) {
+  const previousHitDice = original.classLevels.reduce((total, entry) => total + entry.level, 0)
+  const constitutionModifierIncrease =
+    abilityModifier(proposed.abilities.con) - abilityModifier(original.abilities.con)
+  return hitPointGain(proposed, hitPointRoll) + previousHitDice * constitutionModifierIncrease
 }
 
 export function beginLevelUp(character: Character, classId: ClassId): LevelUpDraft {

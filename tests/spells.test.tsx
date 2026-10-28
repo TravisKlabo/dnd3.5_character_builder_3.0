@@ -59,7 +59,7 @@ function fillCopiedSpell(name: string) {
   fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
   fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: name } });
   fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
   fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "30" } });
   fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
 }
@@ -77,7 +77,7 @@ describe("class-specific spell rules", () => {
   it.each([
     [0, 20, 15, 1, 100], [1, 21, 16, 1, 100], [2, 22, 17, 2, 200], [9, 29, 24, 9, 900],
   ])("calculates copying requirements at spell level %s", (level, decipherDC, learningDC, pages, writingCostGp) => {
-    expect(getWizardCopyRequirements(level)).toMatchObject({ decipherDC, learningDC, pages, writingCostGp, writingHours: 24 });
+    expect(getWizardCopyRequirements(level)).toMatchObject({ decipherDC, learningDC, studyHours: 8, pages, writingCostGp, writingHours: 24 });
   });
 
   it("does not count copies or spells the wizard cannot cast toward free starting spells", () => {
@@ -126,11 +126,13 @@ describe("class-specific spell rules", () => {
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
       fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Web" } });
+      expect(screen.getByText(/Copying requirements for Web/).textContent ?? "")
+        .toContain("learning Spellcraft DC 17 after 8 hours of study");
       expect(screen.getByText(/Writing takes 24 hours, uses 2 pages, and costs 200 gp/)).toBeDefined();
       fireEvent.change(screen.getByLabelText("Deciphering method"), { target: { value: "spellcraft" } });
       fireEvent.change(screen.getByLabelText("Deciphering Spellcraft total"), { target: { value: "21" } });
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
       fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "16" } });
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       expect(screen.getAllByRole("alert").map((entry) => entry.textContent).join(" ")).toContain("Learning failed");
@@ -157,7 +159,7 @@ describe("class-specific spell rules", () => {
       fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Shield" } });
       expect(screen.queryByLabelText("Deciphering Spellcraft total")).toBeNull();
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       expect(screen.getByRole<HTMLButtonElement>("button", { name: "Record learned spell" }).disabled).toBe(true);
       fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "15" } });
@@ -183,7 +185,7 @@ describe("class-specific spell rules", () => {
       if (source === "spellbook") {
         expect(screen.getByText(/typical access fee is 100 gp/)).toBeDefined();
         fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-        fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
+        fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
         fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "17" } });
         fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       } else {
@@ -281,7 +283,10 @@ describe("class-specific spell rules", () => {
     expect(getDailySpellSlots(character, "paladin", 4, 2)).toBe(0);
     expect(getDailySpellSlots(character, "ranger", 8, 2)).toBe(1);
     expect(getCasterLevel("paladin", 3)).toBe(0);
+    expect(getCasterLevel("paladin", 4)).toBe(2);
     expect(getCasterLevel("paladin", 5)).toBe(2);
+    expect(getCasterLevel("ranger", 4)).toBe(2);
+    expect(getCasterLevel("ranger", 8)).toBe(4);
     expect(getCasterLevel("wizard", 3)).toBe(3);
   });
 

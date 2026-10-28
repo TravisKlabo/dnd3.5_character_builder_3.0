@@ -204,6 +204,15 @@ it("updates training immediately when assigning or removing a rank during setup"
   expect(row.queryByText("Trained")).toBeNull();
 });
 
+it("spends one skill point for a half-rank in a cross-class skill", () => {
+  render(<App />);
+  const row = skillRow("Spellcraft");
+  fireEvent.click(row.getByRole("button", { name: "Add half rank to Spellcraft" }));
+  expect(row.getByText("0.5")).toBeDefined();
+  expect(row.queryByText("Trained")).toBeNull();
+  expect(screen.getByText(/Skills \(1\/12\)/)).toBeDefined();
+});
+
 it("rolls provisional training back when a level-up draft is discarded", () => {
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(initialCharacter));
   render(<App />);

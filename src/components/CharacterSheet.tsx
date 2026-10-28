@@ -1,7 +1,8 @@
-import { type Character, type ClassId, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
-import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats } from "../rules";
-import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties } from "../rules";
-import { startingClassFeatures, abilities, languageCatalog, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
+import { lazy, Suspense, useState } from "react";
+import { type Character, type ClassId, type SavingThrowCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
+import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices } from "../rules";
+import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
+import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
 import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
@@ -12,6 +13,18 @@ import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEq
 import { CombatEffectsTracker } from "./CombatEffectsTracker";
 import { getCombatEffectDetails, getCombatEffectModifier, type CombatEffect } from "../combatEffects";
 
+const SavingThrowContextSelector = lazy(() =>
+  import("./SavingThrowContextSelector").then((module) => ({
+    default: module.SavingThrowContextSelector,
+  })),
+);
+
+const CombatTargetContextSelector = lazy(() =>
+  import("./CombatTargetContextSelector").then((module) => ({
+    default: module.CombatTargetContextSelector,
+  })),
+);
+
 export function CharacterSheet({
   character,
   levelUpOriginal,
@@ -19,6 +32,7 @@ export function CharacterSheet({
   creationMode,
   onSkillRankChange,
   onFeatChange,
+  onFeatWeaponChange,
   onLanguagesChange,
   allowFeatSelection,
   finalized,
@@ -39,6 +53,7 @@ export function CharacterSheet({
   creationMode: boolean;
   onSkillRankChange: (skill: string, change: number) => void;
   onFeatChange: (slotId: string, featId: string) => void;
+  onFeatWeaponChange: (slotId: string, weaponName: string) => void;
   onLanguagesChange: (languages: string[]) => void;
   allowFeatSelection: boolean;
   finalized: boolean;
@@ -53,7 +68,8 @@ export function CharacterSheet({
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   onOpenSpells: () => void;
 }) {
-  const classId = character.classLevels.at(-1)?.classId ?? "fighter";
+  const [savingThrowConditions, setSavingThrowConditions] = useState<SavingThrowCondition[]>([]);
+  const [combatTargetTypes, setCombatTargetTypes] = useState<CombatTargetType[]>([]);
   const skillDisplayClassId = levelUpOriginal
     ? levelUpClassId ?? getLevelUpClassId(levelUpOriginal, character)
     : undefined;
@@ -78,10 +94,6 @@ export function CharacterSheet({
   const characterRace =
     raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ??
     raceDefinitions.human;
-  const classFeatureDisplay = [
-    ...(startingClassFeatures[classId] ?? []),
-    ...(character.classFeatures ?? []),
-  ].filter((feature, index, features) => features.indexOf(feature) === index);
   const specialAbilities = [
     ...(characterRace.traits ?? []).map((ability) => ({
       source: characterRace.name,
@@ -115,10 +127,7 @@ export function CharacterSheet({
         ];
       })
       .flat(),
-    ...classFeatureDisplay.map((ability) => ({
-      source: classDefinitions[classId].name,
-      ability,
-    })),
+    ...getClassFeatureDisplay(character),
     ...(character.prestigeClass
       ? (
           dragonlancePrestigeClasses[character.prestigeClass]?.features ?? []
@@ -241,23 +250,43 @@ export function CharacterSheet({
         </div>
       </Panel>
       <Panel title="Attacks & Weapons" className="attacks-panel">
+        <Suspense fallback={<p>Loading target-specific racial bonuses...</p>}>
+          <CombatTargetContextSelector
+            targetTypes={combatTargetTypes}
+            onChange={(targetType) =>
+              setCombatTargetTypes((current) =>
+                current.includes(targetType)
+                  ? current.filter((entry) => entry !== targetType)
+                  : [...current, targetType],
+              )
+            }
+          />
+        </Suspense>
         <div className="combat-weapon-row">
           {(["Main Weapon", "Off Hand Weapon", "Ranged Weapon"] as const).map((slot) => {
             const attackPenalty =
               slot === "Main Weapon" || slot === "Off Hand Weapon"
                 ? getTwoWeaponAttackPenalty(character, slot)
                 : 0;
-            const stats = character.equipment?.[slot]
-              ? getEquippedWeaponStats(character, character.equipment[slot], attackPenalty, slot)
+            const equippedWeapon = getEffectiveWeaponKey(character, slot);
+            const sizeHandling = equippedWeapon ? getWeaponSizeHandling(character, equippedWeapon, slot) : null;
+            const towerShieldCoverActive = getTowerShieldState(character).coverActive;
+            const compatibilityWarning = equippedWeapon
+              ? getWeaponCompatibilityWarning(character, equippedWeapon, slot)
+              : null;
+            const stats = equippedWeapon
+              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes)
               : null;
             return (
-              <div className={`combat-weapon-stat${stats ? "" : " unequipped-weapon"}`} key={slot}>
+              <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
                 <small>{slot.replace(" Weapon", "")}</small>
                 {stats ? <>
-                <strong title={[stats.attackSequenceNote, ...getCombatEffectDetails(character, "attack")].join("\n")}>
+                <strong title={[stats.attackSequenceNote, stats.weaponSizeDetail, ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
                   Attack {stats.attackSequence.map(formatModifier).join(" / ")}
                 </strong>
+                {stats.weaponFocusBonus > 0 && <span>+1 Weapon Focus</span>}
                 <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
+                {stats.weaponSpecializationBonus > 0 && <span>+2 Weapon Specialization damage</span>}
                 <span>Crit {stats.critical}</span>
                 {(stats.rangeIncrement || stats.reach) && <span className="weapon-distance">
                   {[stats.reach && `Reach ${stats.reach}`, stats.rangeIncrement && `${stats.rangeLabel} ${stats.rangeIncrement}`].filter(Boolean).join(" · ")}
@@ -266,7 +295,21 @@ export function CharacterSheet({
                   title={stats.nonproficiencyPenalties.map((entry) => `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency`).join("\n")}>
                   {stats.nonproficiencyPenalties.map((entry) => `${formatModifier(entry.penalty)} ${entry.source}`).join(", ")}
                 </span>}
-                </> : <span>Not equipped</span>}
+                {stats.towerShieldAttackPenalty < 0 && <span className="attack-penalty">
+                  {formatModifier(stats.towerShieldAttackPenalty)} tower shield
+                </span>}
+                {stats.weaponSizePenalty < 0 && <span className="attack-penalty" title={stats.weaponSizeDetail}>
+                  {formatModifier(stats.weaponSizePenalty)} weapon size
+                </span>}
+                {stats.twoHandedGrip && <span>Two-handed grip</span>}
+                {stats.bucklerAttackPenalty !== 0 && <span className="attack-penalty">
+                  {formatModifier(stats.bucklerAttackPenalty)} buckler
+                </span>}
+                </> : <span title={compatibilityWarning ?? sizeHandling?.warning}>
+                  {towerShieldCoverActive && equippedWeapon
+                    ? "Unavailable while using tower shield for total cover"
+                    : compatibilityWarning ?? (sizeHandling && !sizeHandling.wieldable ? "Cannot wield: incompatible weapon size" : "Not equipped")}
+                </span>}
               </div>
             );
           })}
@@ -308,7 +351,7 @@ export function CharacterSheet({
                     Bonus language {index + 1}
                     <LanguagePicker
                       selected={current}
-                      options={languageCatalog.filter(
+                      options={getAvailableBonusLanguages(character).filter(
                         (language) =>
                           !taken.has(language) || language === current,
                       )}
@@ -329,7 +372,7 @@ export function CharacterSheet({
       <div className="sheet-secondary-column">
       <Panel title="Combat Summary" className="combat-panel">
         <div className="stat-grid">
-          <ArmorClassStat character={character} />
+          <ArmorClassStat character={character} targetTypes={combatTargetTypes} />
           <Stat
             label="Initiative"
             value={formatModifier(abilityModifier(getEffectiveAbilityScore(character, "dex")) +
@@ -364,10 +407,22 @@ export function CharacterSheet({
         </p>}
       </Panel>
       <Panel title="Saving Throws" className="saving-throws-panel">
+        <Suspense fallback={<p>Loading situational racial bonuses...</p>}>
+          <SavingThrowContextSelector
+            conditions={savingThrowConditions}
+            onChange={(condition) =>
+              setSavingThrowConditions((current) =>
+                current.includes(condition)
+                  ? current.filter((entry) => entry !== condition)
+                  : [...current, condition],
+              )
+            }
+          />
+        </Suspense>
         <div className="stat-grid saving-throws-grid">
-          <SavingThrowStat character={character} save="fortitude" label="Fortitude" />
-          <SavingThrowStat character={character} save="reflex" label="Reflex" />
-          <SavingThrowStat character={character} save="will" label="Will" />
+          <SavingThrowStat character={character} save="fortitude" label="Fortitude" conditions={savingThrowConditions} />
+          <SavingThrowStat character={character} save="reflex" label="Reflex" conditions={savingThrowConditions} />
+          <SavingThrowStat character={character} save="will" label="Will" conditions={savingThrowConditions} />
         </div>
       </Panel>
       </div>
@@ -388,7 +443,7 @@ export function CharacterSheet({
               getLevelUpClassId(levelUpOriginal, character),
             ) ===
             1
-            ? " - 1 point remains, but cross-class ranks cost 2"
+            ? " - 1 point remains (0.5 cross-class rank)"
             : ""
         })`}
         className="skills-panel"
@@ -414,7 +469,7 @@ export function CharacterSheet({
                   <span className="inline-tooltip" role="tooltip">
                     {isClassSkill(character, skill, skillDisplayClassId)
                       ? "Class skill: 1 point per rank; maximum ranks equal character level + 3."
-                      : "Cross-class skill: 2 points per rank; maximum ranks equal half of character level + 3."}
+                      : "Cross-class skill: 1 point buys 0.5 rank; maximum ranks equal half of (character level + 3)."}
                   </span>
                 </span>
                 <span className="tooltip-anchor" tabIndex={0}>
@@ -433,7 +488,7 @@ export function CharacterSheet({
                     >
                       {isClassSkill(character, skill, skillDisplayClassId)
                         ? "Class skill - 1 pt"
-                        : "Cross-class - 2 pts"}
+                        : "Cross-class - 1 pt / 0.5 rank"}
                     </span>
                   )}
                   <span className="inline-tooltip" role="tooltip">
@@ -470,7 +525,7 @@ export function CharacterSheet({
                         Number(levelUpOriginal.skills[skill] || 0)
                       : !character.skills[skill]
                   }
-                  aria-label={`Remove rank from ${skill}`}
+                  aria-label={`${isClassSkill(character, skill, skillDisplayClassId) ? "Remove rank from" : "Remove half rank from"} ${skill}`}
                 >
                   −
                 </button>
@@ -489,7 +544,7 @@ export function CharacterSheet({
                       creationMode,
                     )
                   }
-                  aria-label={`Add rank to ${skill}`}
+                  aria-label={`${isClassSkill(character, skill, skillDisplayClassId) ? "Add rank to" : "Add half rank to"} ${skill}`}
                 >
                   +
                 </button>
@@ -506,22 +561,66 @@ export function CharacterSheet({
           <div className="feats-column">
             <h3>Feats</h3>
             <div className="chosen-feats">
-              {Object.values(character.featSelections ?? {})
-                .filter(Boolean)
-                .map((featId) => {
+              {Object.entries(character.featSelections ?? {})
+                .filter(([, featId]) => Boolean(featId))
+                .map(([slotId, featId]) => {
                   const feat = featCatalog.find((entry) => entry.id === featId);
+                  const weapon = character.featWeaponSelections?.[slotId];
+                  const requiresWeapon = featId === "exotic-weapon-proficiency" ||
+                    featId === "weapon-focus" ||
+                    featId === "weapon-specialization";
+                  const weaponChoices = requiresWeapon
+                    ? getAvailableFeatWeaponChoices(character, featId, slotId)
+                    : [];
+                  const validWeapon = weapon && weaponChoices.includes(weapon)
+                    ? weapon
+                    : undefined;
+                  const showLegacyWeaponChoice =
+                    requiresWeapon &&
+                    !validWeapon &&
+                    (!allowFeatSelection || Boolean(levelUpOriginal));
+                  const featName = feat && requiresWeapon
+                    ? `${feat.name} (${validWeapon || "choose weapon"})`
+                    : feat?.name;
+                  const featDescription = feat && requiresWeapon
+                    ? `${feat.description} ${validWeapon ? `Selected weapon: ${validWeapon}.` : "Weapon choice required."}`
+                    : feat?.description;
                   return feat ? (
-                    <div className="chosen-feat" key={feat.id}>
+                    <div className="chosen-feat" key={slotId}>
                       <span className="chosen-feat-name tooltip-anchor">
-                        {feat.name}
+                        {featName}
                         <span className="inline-tooltip" role="tooltip">
-                          {feat.description}
+                          {featDescription}
                         </span>
                       </span>
                       <span className="chosen-feat-description">
                         {" "}
-                        - {feat.description}
+                        - {featDescription}
                       </span>
+                      {showLegacyWeaponChoice && (
+                        <label className="feat-weapon-choice">
+                          <span>Choose weapon type for {feat.name}</span>
+                          <select
+                            aria-label={`${slotId} weapon`}
+                            value=""
+                            disabled={weaponChoices.length === 0}
+                            onChange={(event) =>
+                              onFeatWeaponChange(slotId, event.target.value)
+                            }
+                          >
+                            <option value="">
+                              {weaponChoices.length
+                                ? "Choose a weapon..."
+                                : "No eligible weapon choices"}
+                            </option>
+                            {weaponChoices.map((choice) => (
+                              <option key={choice} value={choice}>
+                                {choice}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                     </div>
                   ) : null;
                 })}
@@ -540,6 +639,12 @@ export function CharacterSheet({
                   const selectedFeat = featCatalog.find(
                     (feat) => feat.id === selected,
                   );
+                  const weaponChoices =
+                    selected === "exotic-weapon-proficiency" ||
+                    selected === "weapon-focus" ||
+                    selected === "weapon-specialization"
+                      ? getAvailableFeatWeaponChoices(character, selected, slot.id)
+                      : [];
                   return (
                     <label key={slot.id}>
                       {slot.label}
@@ -549,6 +654,33 @@ export function CharacterSheet({
                         selectedFeat={selectedFeat}
                         onChange={(featId) => onFeatChange(slot.id, featId)}
                       />
+                      {weaponChoices.length > 0 ||
+                      selected === "exotic-weapon-proficiency" ||
+                      selected === "weapon-focus" ||
+                      selected === "weapon-specialization" ? (
+                        <div className="feat-weapon-choice">
+                          <span>Weapon type</span>
+                          <select
+                            aria-label={`${slot.label} weapon`}
+                            value={character.featWeaponSelections?.[slot.id] ?? ""}
+                            disabled={weaponChoices.length === 0}
+                            onChange={(event) =>
+                              onFeatWeaponChange(slot.id, event.target.value)
+                            }
+                          >
+                            <option value="">
+                              {weaponChoices.length
+                                ? "Choose a weapon..."
+                                : "No eligible weapon choices"}
+                            </option>
+                            {weaponChoices.map((weapon) => (
+                              <option key={weapon} value={weapon}>
+                                {weapon}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
                     </label>
                   );
                 })}

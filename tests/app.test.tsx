@@ -1493,16 +1493,9 @@ describe("application workflows", () => {
     expect(saved.hitPoints).toBe(12);
   });
 
-  it("enforces point-buy costs on base scores and applies racial modifiers to final scores", () => {
+  it("preserves point-buy costs and base scores when changing races", () => {
     const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Race" }));
-    fireEvent.click(
-      within(screen.getByRole("listbox", { name: "Race choices" })).getByRole(
-        "option",
-        { name: "Dwarf" },
-      ),
-    );
     fireEvent.click(screen.getByRole("button", { name: "Point Buy" }));
 
     fireEvent.change(screen.getByRole("combobox", { name: /^Charisma/ }), {
@@ -1522,23 +1515,59 @@ describe("application workflows", () => {
     });
 
     expect(screen.getByText("Points used: 25 / 25", { exact: true })).toBeDefined();
+    const chooseRace = (race: string) => {
+      fireEvent.click(screen.getByRole("button", { name: "Race" }));
+      fireEvent.click(
+        within(screen.getByRole("listbox", { name: "Race choices" })).getByRole(
+          "option",
+          { name: race },
+        ),
+      );
+    };
+    chooseRace("Dwarf");
+    expect(screen.getByText("Points used: 25 / 25", { exact: true })).toBeDefined();
     const strength = screen.getByRole("combobox", { name: /^Strength/ });
     expect(within(strength).getByRole("option", { name: /^16/ }).hasAttribute("disabled"))
       .toBe(true);
     const constitution = screen.getByRole("combobox", { name: /^Constitution/ }).parentElement;
     if (!constitution) throw new Error("Missing Constitution creation control.");
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: /^Constitution/ }).value)
+      .toBe("13");
     expect(within(constitution).getByText("15 (+2)", { exact: true })).toBeDefined();
     const charisma = screen.getByRole("combobox", { name: /^Charisma/ }).parentElement;
     if (!charisma) throw new Error("Missing Charisma creation control.");
     expect(within(charisma).getByText("6 (-2)", { exact: true })).toBeDefined();
+
+    chooseRace("Human");
+    expect(screen.getByText("Points used: 25 / 25", { exact: true })).toBeDefined();
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: /^Constitution/ }).value)
+      .toBe("13");
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: /^Charisma/ }).value)
+      .toBe("8");
+    const humanConstitution = screen.getByRole("combobox", {
+      name: /^Constitution/,
+    }).parentElement;
+    const humanCharisma = screen.getByRole("combobox", {
+      name: /^Charisma/,
+    }).parentElement;
+    if (!humanConstitution || !humanCharisma)
+      throw new Error("Missing racial ability score summaries.");
+    expect(within(humanConstitution).getByText("13 (+1)", {
+      exact: true,
+      selector: ".racial-adjustment",
+    })).toBeDefined();
+    expect(within(humanCharisma).getByText("8 (-1)", {
+      exact: true,
+      selector: ".racial-adjustment",
+    })).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
     expect(parseCharacter(
       JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
     )).toMatchObject({
-      race: "Dwarf",
-      abilities: { str: 15, dex: 14, con: 15, int: 12, wis: 10, cha: 6 },
+      race: "Human",
+      abilities: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
     });
   });
 

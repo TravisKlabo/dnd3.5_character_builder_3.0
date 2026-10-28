@@ -434,7 +434,7 @@ function getRangedAttackDistanceDetails(
 
 type WeaponMaterial = NonNullable<StoreItem["material"]>;
 type AmmunitionProfile = { label: string; pattern: RegExp };
-type CompatibleAmmunition = { name: string; quantity: number; material?: WeaponMaterial };
+type CompatibleAmmunition = { key: string; name: string; quantity: number; material?: WeaponMaterial };
 
 function getMaterialFromName(name: string): WeaponMaterial | undefined {
   if (/\badamantine\b/i.test(name)) return "adamantine";
@@ -468,7 +468,7 @@ function getCompatibleAmmunition(
     if (!Number.isSafeInteger(quantity) || quantity <= 0) return [];
     const details = getInventoryEntryDetails(key);
     return details.category === "Ammunition" && ammunition.pattern.test(details.name)
-      ? [{ name: details.name, quantity, material: details.material }]
+      ? [{ key, name: details.name, quantity, material: details.material }]
       : [];
   });
 }
@@ -525,6 +525,7 @@ function getTargetDamageReductionStatus(
   traits: ReturnType<typeof weaponTraits>,
   ammunition: AmmunitionProfile | undefined,
   compatibleAmmunition: CompatibleAmmunition[],
+  selectedAmmunitionKey: string | undefined,
 ) {
   if (!input?.trim()) return undefined;
   const match = input.trim().match(/^(?:DR\s*)?(\d+)\s*\/\s*(.+)$/i);
@@ -566,21 +567,22 @@ function getTargetDamageReductionStatus(
         message: `DR ${amount}/${qualifier}: no compatible ammunition is in inventory, so bypass cannot be evaluated.`,
       };
     }
-    const matchingAmmunition = compatibleAmmunition.filter((entry) => entry.material === targetMaterial);
-    if (matchingAmmunition.length === 0) {
+    const selectedAmmunition = compatibleAmmunition.find((entry) => entry.key === selectedAmmunitionKey);
+    if (!selectedAmmunitionKey || !selectedAmmunition) {
       return {
-        status: "applies" as const,
-        message: `DR ${amount}/${qualifier} applies with the compatible ammunition in inventory.`,
+        status: "manual" as const,
+        message: `DR ${amount}/${qualifier}: select a compatible ammunition package to evaluate this attack.`,
       };
     }
-    const names = [...new Set(matchingAmmunition.map((entry) => entry.name))].join(", ");
-    const silverNote = targetMaterial === "alchemical-silver"
-      ? " Silver ammunition also imposes -1 damage (minimum 1); choose it manually."
-      : "";
-    return {
-      status: "bypassed" as const,
-      message: `DR ${amount}/${qualifier} can be bypassed with ${names}; ammunition selection is manual.${silverNote}`,
-    };
+    return selectedAmmunition.material === targetMaterial
+      ? {
+          status: "bypassed" as const,
+          message: `DR ${amount}/${qualifier} is bypassed by selected ${selectedAmmunition.name}.`,
+        }
+      : {
+          status: "applies" as const,
+          message: `DR ${amount}/${qualifier} applies to selected ${selectedAmmunition.name}.`,
+        };
   }
 
   if (getWeaponMaterial(item, weaponName) === targetMaterial) {
@@ -1168,6 +1170,7 @@ export function getEquippedWeaponStats(
   targetTypes: CombatTargetType[] = [],
   targetDistanceFeet?: number,
   targetDamageReduction?: string,
+  selectedAmmunitionKey?: string,
 ) {
   const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
   const size = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
@@ -1258,6 +1261,10 @@ export function getEquippedWeaponStats(
   const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
   const ammunition = getWeaponAmmunitionProfile(item, isRanged);
   const compatibleAmmunition = getCompatibleAmmunition(character, ammunition);
+  const ammunitionOptions = isRanged && !traits.thrown && ammunition
+    ? compatibleAmmunition
+    : undefined;
+  const selectedAmmunition = ammunitionOptions?.find((entry) => entry.key === selectedAmmunitionKey);
   const rangedReadiness = getWeaponAmmunitionReadiness(item, isRanged, ammunition, compatibleAmmunition);
   const damageReductionStatus = getTargetDamageReductionStatus(
     targetDamageReduction,
@@ -1267,6 +1274,7 @@ export function getEquippedWeaponStats(
     traits,
     ammunition,
     compatibleAmmunition,
+    selectedAmmunitionKey,
   );
   const bucklerAttackPenalty = isBucklerEquipped(character) && !isRanged &&
     (slot === "Off Hand Weapon" || (slot === "Main Weapon" &&
@@ -1297,7 +1305,9 @@ export function getEquippedWeaponStats(
     damageAbility = Math.floor(strength * (slot === "Off Hand Weapon" ? 0.5 : !isRanged && twoHandedGrip ? 1.5 : 1));
   }
   const weaponMaterial = getWeaponMaterial(item, name);
-  const silverDamagePenalty = weaponMaterial === "alchemical-silver" && (!isRanged || traits.thrown) ? -1 : 0;
+  const silverWeaponDamagePenalty = weaponMaterial === "alchemical-silver" && (!isRanged || traits.thrown);
+  const silverAmmunitionDamagePenalty = selectedAmmunition?.material === "alchemical-silver";
+  const silverDamagePenalty = silverWeaponDamagePenalty || silverAmmunitionDamagePenalty ? -1 : 0;
   const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + silverDamagePenalty;
   const damageDice = getWeaponEndDamageForSize(item, size, usesAlternateEnd ? "off-hand" : "main");
   const elementalProperties = [
@@ -1320,11 +1330,15 @@ export function getEquippedWeaponStats(
     rangeOutOfRange: rangeDetails.outOfRange,
     rangeStatusMessage: rangeDetails.message,
     ...rangedReadiness,
+    ammunitionOptions: ammunitionOptions?.map(({ key, name, quantity }) => ({ key, name, quantity })),
+    selectedAmmunitionKey: selectedAmmunition?.key,
     damageReductionStatus,
     reach: isRanged ? undefined : getWeaponReach(character, item),
     damage: damageDice === "—" || damageDice === "varies" ? damageDice :
       `${damageDice}${damageBonus >= 0 ? `+${damageBonus}` : damageBonus}`,
-    materialDamageNote: silverDamagePenalty ? "Alchemical silver: -1 damage (minimum 1)." : undefined,
+    materialDamageNote: silverAmmunitionDamagePenalty
+      ? "Alchemical silver ammunition: -1 damage (minimum 1)."
+      : silverWeaponDamagePenalty ? "Alchemical silver: -1 damage (minimum 1)." : undefined,
     damageType: usesAlternateEnd
       ? item.offHandDamageType ?? profile.offHandDamageType ?? item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies"
       : item.damageType ?? weaponDamageTypes[traits.baseName] ?? "varies",

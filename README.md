@@ -188,12 +188,11 @@ darts check inventory for compatible ammunition; the sheets show missing ammo
 and draw/reload action notes, but do not consume ammo or track loaded state.
 The shared target DR context evaluates a single material qualifier for cold
 iron, silver, or adamantine, using weapon material for melee/thrown weapons and
-matching ammunition inventory for bows, crossbows, and slings. A ranged result
-only indicates that bypassing ammunition is available; ammunition is not
-selected automatically. Alchemical-silver melee/thrown weapons show the -1
-damage penalty (minimum 1), while silver ammunition's penalty is noted for
-manual application. Damage is not automatically reduced by target DR, and
-compound, magical, alignment, and other DR qualifiers remain manual. See the
+selected ammunition for bows, crossbows, and slings. Ammunition selection is
+session-only and does not consume inventory. Alchemical-silver melee/thrown
+weapons and selected silver ammunition apply the -1 damage penalty (minimum 1).
+Damage is not automatically reduced by target DR, and compound, magical,
+alignment, and other DR qualifiers remain manual. See the
 SRD [damage reduction](https://www.d20srd.org/srd/specialAbilities.htm#damageReduction)
 and [special materials](https://www.d20srd.org/srd/specialMaterials.htm) rules.
 Custom thrown weapons use Strength for

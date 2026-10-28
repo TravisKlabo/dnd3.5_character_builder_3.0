@@ -27,6 +27,7 @@ export function App() {
   const [character, setCharacter] = useState<Character>(() => savedState.character);
   const [rangedTargetDistanceFeet, setRangedTargetDistanceFeet] = useState<number | undefined>(undefined);
   const [targetDamageReduction, setTargetDamageReduction] = useState("");
+  const [selectedRangedAmmunitionKey, setSelectedRangedAmmunitionKey] = useState<string | undefined>();
   const [creationState, setCreationDraft] = useState<Character>(() =>
     cloneCharacter(savedState.character),
   );
@@ -1019,6 +1020,8 @@ export function App() {
             onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
             targetDamageReduction={targetDamageReduction}
             onTargetDamageReductionChange={setTargetDamageReduction}
+            selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
+            onRangedAmmunitionChange={setSelectedRangedAmmunitionKey}
             onAddNote={addCharacterNote}
             character={displayedCharacter}
             levelUpOriginal={levelUpDraft?.original}
@@ -1047,6 +1050,8 @@ export function App() {
           onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
           targetDamageReduction={targetDamageReduction}
           onTargetDamageReductionChange={setTargetDamageReduction}
+          selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
+          onRangedAmmunitionChange={setSelectedRangedAmmunitionKey}
           onEquipmentChange={updateEquipment}
           onMainWeaponGripChange={updateMainWeaponGrip}
           onDoubleWeaponModeChange={updateDoubleWeaponMode}

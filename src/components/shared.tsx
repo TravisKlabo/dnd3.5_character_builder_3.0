@@ -96,6 +96,32 @@ export function TargetDamageReductionControl({ value, onChange }: {
   );
 }
 
+export function RangedAmmunitionControl({ options, selectedKey, onChange }: {
+  options: { key: string; name: string; quantity: number }[];
+  selectedKey?: string;
+  onChange: (key: string | undefined) => void;
+}) {
+  const value = options.some((option) => option.key === selectedKey) ? selectedKey : "";
+  return (
+    <label className="ranged-ammunition-control">
+      Ammunition to fire
+      <select
+        aria-label="Ammunition to fire"
+        value={value}
+        onChange={(event) => onChange(event.target.value || undefined)}
+      >
+        <option value="">{options.length ? "Select ammunition..." : "No compatible ammunition"}</option>
+        {options.map((option) => (
+          <option value={option.key} key={option.key}>
+            {option.name} — {option.quantity} package{option.quantity === 1 ? "" : "s"}
+          </option>
+        ))}
+      </select>
+      <small>Session-only selection; ammunition is not consumed automatically.</small>
+    </label>
+  );
+}
+
 export function ArmorClassStat({ character, targetTypes = [] }: {
   character: Character;
   targetTypes?: CombatTargetType[];

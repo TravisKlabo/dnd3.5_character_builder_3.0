@@ -81,6 +81,9 @@
 .target-damage-reduction-control label { display: flex; align-items: center; gap: 8px; }
 .target-damage-reduction-control input { width: 150px; padding: 6px 8px; }
 .target-damage-reduction-control small { color: #68736f; font-size: .68rem; }
+.ranged-ammunition-control { display: flex; align-items: center; gap: 8px; grid-column: 2 / -1; color: #68736f; font-size: .78rem; }
+.ranged-ammunition-control select { min-width: 180px; padding: 6px 8px; }
+.ranged-ammunition-control small { font-size: .65rem; }
 .combat-weapon-stat small { color: #68736f; font-size: .7rem; text-transform: uppercase; }
 .combat-weapon-stat strong { color: #243447; font-size: .95rem; }
 .combat-weapon-stat span { color: #68736f; font-size: .85rem; }

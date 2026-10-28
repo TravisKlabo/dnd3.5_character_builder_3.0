@@ -640,6 +640,8 @@ describe("consistent equipment handling", () => {
       onRangedTargetDistanceFeetChange={vi.fn()}
       targetDamageReduction=""
       onTargetDamageReductionChange={vi.fn()}
+      selectedRangedAmmunitionKey={undefined}
+      onRangedAmmunitionChange={vi.fn()}
       onMainWeaponGripChange={vi.fn()}
       onDoubleWeaponModeChange={vi.fn()}
       onDoubleWeaponPrimaryEndChange={vi.fn()}
@@ -888,14 +890,26 @@ describe("touch, flat-footed, and grapple statistics", () => {
       character.inventory = { "Masterwork Arrows (20) (Medium)": 1 };
       expect(getEquippedWeaponStats(
         character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/silver",
+      )?.damageReductionStatus).toMatchObject({ status: "manual" });
+      expect(getEquippedWeaponStats(
+        character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/silver", "Masterwork Arrows (20) (Medium)",
       )?.damageReductionStatus).toMatchObject({ status: "applies" });
       character.inventory = { "Silver Arrows (20) (Medium)": 1 };
       expect(getEquippedWeaponStats(
         character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/silver",
-      )?.damageReductionStatus).toMatchObject({
-        status: "bypassed",
-        message: expect.stringContaining("ammunition selection is manual"),
+      )?.damageReductionStatus).toMatchObject({ status: "manual" });
+      const selectedSilverArrows = getEquippedWeaponStats(
+        character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/silver", "Silver Arrows (20) (Medium)",
+      );
+      expect(selectedSilverArrows).toMatchObject({
+        damage: "1d8-1",
+        materialDamageNote: "Alchemical silver ammunition: -1 damage (minimum 1).",
+        damageReductionStatus: {
+          status: "bypassed",
+          message: "DR 5/silver is bypassed by selected Silver Arrows (20).",
+        },
       });
+      expect(character.inventory["Silver Arrows (20) (Medium)"]).toBe(1);
     });
 
     it("applies the alchemical-silver damage penalty and custom weapon material metadata", () => {
@@ -986,15 +1000,27 @@ describe("touch, flat-footed, and grapple statistics", () => {
       render(<App />);
       await user.type(screen.getByRole("spinbutton", { name: "Target distance (ft.)" }), "150");
       await user.type(screen.getByRole("textbox", { name: "Target damage reduction" }), "5/silver");
+      expect(screen.getByText("DR 5/silver: select a compatible ammunition package to evaluate this attack.")).toBeDefined();
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: "Ammunition to fire" }),
+        "Silver Arrows (20) (Medium)",
+      );
       expect(screen.getByText("Attack +8 / +3")).toBeDefined();
       expect(screen.getByText("Maximum range 1000 ft.")).toBeDefined();
       expect(screen.getByText("At 150 ft.: -2 range penalty.")).toBeDefined();
-      expect(screen.getByText(/DR 5\/silver can be bypassed with Silver Arrows/)).toBeDefined();
+      expect(screen.getByText("DR 5/silver is bypassed by selected Silver Arrows (20).")).toBeDefined();
+      expect(screen.getByText("Damage 1d8-1")).toBeDefined();
+      expect(screen.getByText("Alchemical silver ammunition: -1 damage (minimum 1).")).toBeDefined();
       await user.click(screen.getByRole("button", { name: "Equipment" }));
       await screen.findByText("EQUIPMENT SLOTS");
       expect(screen.getByText("BAB full attack: +8 / +3")).toBeDefined();
       expect(screen.getByText("At 150 ft.: -2 range penalty.")).toBeDefined();
-      expect(screen.getByText(/DR 5\/silver can be bypassed with Silver Arrows/)).toBeDefined();
+      expect(screen.getByRole("combobox", { name: "Ammunition to fire" })).toHaveProperty(
+        "value",
+        "Silver Arrows (20) (Medium)",
+      );
+      expect(screen.getByText("DR 5/silver is bypassed by selected Silver Arrows (20).")).toBeDefined();
+      expect(screen.getByText("Compatible arrows in inventory: 1 package; not consumed automatically.")).toBeDefined();
     });
 
     it("shows missing ammunition and reload requirements on both sheets", async () => {

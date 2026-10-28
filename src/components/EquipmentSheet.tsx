@@ -1,5 +1,5 @@
 import { type Character } from "../domain";
-import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl } from "./shared";
+import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl } from "./shared";
 import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
 import { getEncumbrance, getMovement } from "../rules";
 
@@ -9,6 +9,8 @@ export function EquipmentSheet({
   onRangedTargetDistanceFeetChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
+  selectedRangedAmmunitionKey,
+  onRangedAmmunitionChange,
   onEquipmentChange,
   onMainWeaponGripChange,
   onDoubleWeaponModeChange,
@@ -23,6 +25,8 @@ export function EquipmentSheet({
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
+  selectedRangedAmmunitionKey?: string;
+  onRangedAmmunitionChange: (key: string | undefined) => void;
   onEquipmentChange: (equipment: Record<string, string>) => void;
   onMainWeaponGripChange: (grip: "one-handed" | "two-handed") => void;
   onDoubleWeaponModeChange: (enabled: boolean) => void;
@@ -210,7 +214,7 @@ export function EquipmentSheet({
             ? getWeaponCompatibilityWarning(character, weaponKey, slot)
             : null;
           const stats = weaponKey
-            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot, [], rangedTargetDistanceFeet, targetDamageReduction)
+            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot, [], rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey)
             : null;
           return (
             <div className="equipment-weapon-stat" key={slot}>
@@ -249,6 +253,11 @@ export function EquipmentSheet({
                   {stats.maximumRangeFeet !== undefined && <span>Maximum range: {stats.maximumRangeFeet} ft.</span>}
                   {stats.rangeStatusMessage && <span className={stats.rangeOutOfRange ? "combat-warning" : ""} role="status">{stats.rangeStatusMessage}</span>}
                   {stats.ammunitionStatus && <span className={stats.ammunitionStatus.status === "ready" ? "" : "combat-warning"} role={stats.ammunitionStatus.status === "missing" ? "alert" : "status"}>{stats.ammunitionStatus.message}</span>}
+                  {stats.ammunitionOptions !== undefined && <RangedAmmunitionControl
+                    options={stats.ammunitionOptions}
+                    selectedKey={stats.selectedAmmunitionKey}
+                    onChange={onRangedAmmunitionChange}
+                  />}
                   {stats.damageReductionStatus && <span className={stats.damageReductionStatus.status === "applies" || stats.damageReductionStatus.status === "manual" ? "combat-warning" : ""} role="status">{stats.damageReductionStatus.message}</span>}
                   {stats.reloadNote && <span>{stats.reloadNote}</span>}
                   {stats.nonproficiencyPenalty < 0 && <span className="attack-penalty"

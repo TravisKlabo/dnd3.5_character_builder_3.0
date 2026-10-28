@@ -3,7 +3,7 @@ import { type Character, type ClassId, type SavingThrowCondition, type CombatTar
 import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -49,6 +49,8 @@ export function CharacterSheet({
   onRangedTargetDistanceFeetChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
+  selectedRangedAmmunitionKey,
+  onRangedAmmunitionChange,
   onOpenSpells,
 }: {
   character: Character;
@@ -74,6 +76,8 @@ export function CharacterSheet({
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
+  selectedRangedAmmunitionKey?: string;
+  onRangedAmmunitionChange: (key: string | undefined) => void;
   onOpenSpells: () => void;
 }) {
   const [savingThrowConditions, setSavingThrowConditions] = useState<SavingThrowCondition[]>([]);
@@ -291,7 +295,7 @@ export function CharacterSheet({
               ? getWeaponCompatibilityWarning(character, equippedWeapon, slot)
               : null;
             const stats = equippedWeapon
-              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes, rangedTargetDistanceFeet, targetDamageReduction)
+              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes, rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey)
               : null;
             return (
               <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
@@ -303,6 +307,11 @@ export function CharacterSheet({
                 {stats.maximumRangeFeet !== undefined && <span>Maximum range {stats.maximumRangeFeet} ft.</span>}
                 {stats.rangeStatusMessage && <span className={stats.rangeOutOfRange ? "combat-warning" : ""} role="status">{stats.rangeStatusMessage}</span>}
                 {stats.ammunitionStatus && <span className={stats.ammunitionStatus.status === "ready" ? "" : "combat-warning"} role={stats.ammunitionStatus.status === "missing" ? "alert" : "status"}>{stats.ammunitionStatus.message}</span>}
+                {stats.ammunitionOptions !== undefined && <RangedAmmunitionControl
+                  options={stats.ammunitionOptions}
+                  selectedKey={stats.selectedAmmunitionKey}
+                  onChange={onRangedAmmunitionChange}
+                />}
                 {stats.damageReductionStatus && <span className={stats.damageReductionStatus.status === "applies" || stats.damageReductionStatus.status === "manual" ? "combat-warning" : ""} role="status">{stats.damageReductionStatus.message}</span>}
                 {stats.reloadNote && <span>{stats.reloadNote}</span>}
                 {stats.compositeBowStrengthRating !== undefined &&

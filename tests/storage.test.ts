@@ -14,7 +14,19 @@ describe("character persistence", () => {
     character.knownSpellsByClass = { wizard: ["Magic Missile"] };
     character.spellAcquisitionByClass = { wizard: { "Magic Missile": "spellbook" } };
     saveCharacter(character);
-    expect(loadSavedCharacter()).toEqual({ character, saved: true });
+    expect(loadSavedCharacter()).toEqual({ character, saved: true, setupDraft: false });
+  });
+
+  it("round-trips whether a saved character is still in setup", () => {
+    saveCharacter(initialCharacter, true);
+    expect(loadSavedCharacter()).toEqual({
+      character: initialCharacter,
+      saved: true,
+      setupDraft: true,
+    });
+
+    saveCharacter(initialCharacter);
+    expect(loadSavedCharacter().setupDraft).toBe(false);
   });
 
   it("starts with independent creation data when there is no save", () => {
@@ -22,6 +34,7 @@ describe("character persistence", () => {
     first.character.abilities.str = 20;
     expect(loadSavedCharacter().character.abilities.str).toBe(10);
     expect(first.saved).toBe(false);
+    expect(first.setupDraft).toBe(false);
   });
 
   it.each([
@@ -63,6 +76,7 @@ describe("character persistence", () => {
     window.localStorage.setItem(savedCharacterStorageKey, "{broken");
     const result = loadSavedCharacter();
     expect(result.saved).toBe(false);
+    expect(result.setupDraft).toBe(false);
     expect(result.error).toContain("Unable to load");
     expect(log).toHaveBeenCalledOnce();
     expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe("{broken");

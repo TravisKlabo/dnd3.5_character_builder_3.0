@@ -64,6 +64,11 @@ file containing the character and custom item catalog; Import accepts well-forme
 2.0 character exports. Export a character from 2.0 and import it into 3.0 to transfer
 between application origins or desktop installations.
 
+Level-up choices remain provisional until confirmation. Save and Export are disabled
+during a level-up draft so unvalidated choices cannot be persisted or transferred.
+Saving during initial setup stores a resumable draft; reopening it returns to setup,
+where the usual validation still applies before the character can be finalized.
+
 The application still has one active locally saved character. Use separate JSON
 exports to keep multiple characters. There is no cloud synchronization.
 

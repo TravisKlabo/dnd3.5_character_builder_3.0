@@ -4,9 +4,19 @@ import { parseCharacter, parseCustomItems } from "./validation";
 export const customStoreItemsStorageKey = "dnd35-character-builder.custom-store-items";
 
 export const savedCharacterStorageKey = "dnd35-character-builder-character";
+export const savedCharacterSetupDraftStorageKey = "dnd35-character-builder-setup-draft";
 
-export function loadSavedCharacter(): { character: Character; saved: boolean; error?: string } {
-  const empty = () => ({ character: cloneCharacter(initialCharacter), saved: false });
+export function loadSavedCharacter(): {
+  character: Character;
+  saved: boolean;
+  setupDraft: boolean;
+  error?: string;
+} {
+  const empty = () => ({
+    character: cloneCharacter(initialCharacter),
+    saved: false,
+    setupDraft: false,
+  });
   if (typeof window === "undefined") return empty();
   try {
     const stored = window.localStorage.getItem(savedCharacterStorageKey);
@@ -21,6 +31,7 @@ export function loadSavedCharacter(): { character: Character; saved: boolean; er
         ),
       },
       saved: true,
+      setupDraft: window.localStorage.getItem(savedCharacterSetupDraftStorageKey) === "true",
     };
   } catch (error: unknown) {
     const message = `Unable to load the saved character. ${error instanceof Error ? error.message : String(error)}`;
@@ -41,7 +52,10 @@ export function loadCustomStoreItems() {
   }
 }
 
-export function saveCharacter(character: Character) {
+export function saveCharacter(character: Character, setupDraft = false) {
   parseCharacter(character);
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  if (setupDraft)
+    window.localStorage.setItem(savedCharacterSetupDraftStorageKey, "true");
+  else window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
 }

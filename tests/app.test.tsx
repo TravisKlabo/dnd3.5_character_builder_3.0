@@ -4,13 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { cloneCharacter, initialCharacter } from "../src/domain";
 import { deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatalog";
-import { savedCharacterStorageKey } from "../src/storage";
+import { loadSpellCatalog } from "../src/data/spellCatalog";
+import { savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 
 function savedHero() {
   const character = cloneCharacter(initialCharacter);
   character.name = "Regression Hero";
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
   return character;
 }
 
@@ -28,10 +30,12 @@ describe("application workflows", () => {
     expect(character.weight).toBe("82.5 kg");
     view.unmount();
     render(<App />);
-    expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Age:" }).value).toBe("about 30");
-    expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Weight:" }).value).toBe("82.5 kg");
-    fireEvent.change(screen.getByRole("textbox", { name: "Age:" }), { target: { value: "" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Weight:" }), { target: { value: "" } });
+    const savedFieldLabel = saved ? "Age:" : "Age";
+    const savedWeightLabel = saved ? "Weight:" : "Weight";
+    expect(screen.getByRole<HTMLInputElement>("textbox", { name: savedFieldLabel }).value).toBe("about 30");
+    expect(screen.getByRole<HTMLInputElement>("textbox", { name: savedWeightLabel }).value).toBe("82.5 kg");
+    fireEvent.change(screen.getByRole("textbox", { name: savedFieldLabel }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: savedWeightLabel }), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     const cleared = parseCharacter(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"));
     expect(cleared.age).toBe("");
@@ -71,6 +75,25 @@ describe("application workflows", () => {
     expect(screen.getByLabelText("Import character JSON")).toBeDefined();
   });
 
+  it("reopens a saved setup draft in editable creation mode", async () => {
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    const view = render(<App />);
+    fireEvent.change(screen.getAllByRole("textbox", { name: "Character name" })[0], {
+      target: { value: "Saved Setup Draft" },
+    });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenCalledWith("Character saved.");
+
+    view.unmount();
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Create Character" })).toBeDefined();
+    expect(screen.getAllByRole<HTMLInputElement>("textbox", { name: "Character name" })[0].value)
+      .toBe("Saved Setup Draft");
+    expect(screen.getByRole("button", { name: "Finalize Character" }).hasAttribute("disabled"))
+      .toBe(true);
+  });
+
   it("preserves existing characters, lazy screens, and level-up cancellation", async () => {
     const user = userEvent.setup();
     const original = savedHero();
@@ -90,6 +113,786 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Discard Draft" }));
     expect(screen.queryByText("Level-Up Draft")).toBeNull();
     expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(original);
+  });
+
+  it("keeps an unconfirmed level-up out of save and export", async () => {
+    const user = userEvent.setup();
+    const original = savedHero();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+
+    const save = screen.getByRole("button", { name: "Save" });
+    const exportButton = screen.getByRole("button", { name: "Export" });
+    expect(save.hasAttribute("disabled")).toBe(true);
+    expect(exportButton.hasAttribute("disabled")).toBe(true);
+    await user.click(save);
+    await user.click(exportButton);
+    expect(JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null")).toEqual(original);
+  });
+
+  it("creates, advances, saves, exports, and reimports a core fighter", async () => {
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+
+    await user.clear(screen.getAllByRole("textbox", { name: "Character name" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Character name" })[0], "Audit Fighter");
+    await user.clear(screen.getAllByRole("textbox", { name: "Player" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Player" })[0], "Audit Player");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Strength/ }), "13");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Constitution/ }), "14");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Intelligence/ }), "12");
+
+    for (const skill of ["Climb", "Craft", "Handle Animal", "Intimidate"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      for (let rank = 0; rank < 4; rank += 1)
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    await chooseFeat("General feat (level 1)", "Toughness");
+    await chooseFeat("Human bonus feat", "Improved Initiative");
+    await chooseFeat("Fighter bonus feat (fighter level 1)", "Power Attack");
+
+    const tabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(tabs.getByRole("button", { name: "Store" }));
+    await screen.findByRole("heading", { name: "General Store" });
+    await user.click(screen.getAllByRole("button", { name: "Choose an item..." })[0]);
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Equipment choices" })).getByRole(
+        "option",
+        { name: /^Longsword —/ },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Purchase Longsword" }));
+    await user.click(screen.getByRole("button", { name: "Equip" }));
+    await user.click(tabs.getByRole("button", { name: "Character" }));
+
+    const finalize = screen.getByRole("button", { name: "Finalize Character" });
+    expect(finalize.hasAttribute("disabled")).toBe(false);
+    await user.click(finalize);
+    expect(screen.getByRole("heading", { name: "Audit Fighter (Audit Player)" })).toBeDefined();
+    expect(screen.getByText("12 / 12", { exact: true })).toBeDefined();
+    expect(screen.getByText("Skills (16/16)", { exact: true })).toBeDefined();
+    expect(screen.getByText("Attack +2", { exact: true })).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    for (const skill of ["Climb", "Craft", "Handle Animal", "Intimidate"]) {
+      await user.click(
+        within(screen.getByRole("group", { name: `${skill} skill` })).getByRole(
+          "button",
+          { name: `Add rank to ${skill}` },
+        ),
+      );
+    }
+    await chooseFeat("Fighter bonus feat (fighter level 2)", "Cleave");
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    random.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+
+    expect(screen.getByText("24 / 24", { exact: true })).toBeDefined();
+    expect(screen.getByText("Attack +3", { exact: true })).toBeDefined();
+    expect(screen.getByText("Skills (20/20)", { exact: true })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenCalledWith("Character saved.");
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      name: "Audit Fighter",
+      player: "Audit Player",
+      race: "Human",
+      abilities: { str: 13, con: 14, int: 12 },
+      classLevels: [{ classId: "fighter", level: 2 }],
+      hitPoints: 24,
+      featSelections: {
+        "general-1": "toughness",
+        "human-1": "improved-initiative",
+        "fighter-1": "power-attack",
+        "fighter-2": "cleave",
+      },
+      inventory: { "Longsword (Medium)": 1 },
+      equipment: { "Main Weapon": "Longsword (Medium)" },
+      skills: { Climb: 5, Craft: 5, "Handle Animal": 5, Intimidate: 5 },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:audit-fighter";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No character JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+
+    view.unmount();
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "audit-fighter.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    await screen.findByRole("heading", { name: "Audit Fighter (Audit Player)" });
+    expect(
+      parseCharacter(
+        JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+      ),
+    ).toMatchObject({
+      classLevels: [{ classId: "fighter", level: 2 }],
+      hitPoints: 24,
+      skills: { Climb: 5, Craft: 5, "Handle Animal": 5, Intimidate: 5 },
+    });
+    importedView.unmount();
+  });
+
+  it("adds a Rogue level to a Fighter and preserves multiclass skills and HP", async () => {
+    const original = savedHero();
+    original.name = "Multiclass Hero";
+    original.abilities = { ...original.abilities, str: 13, con: 14, int: 12 };
+    original.hitPoints = 12;
+    original.skills = {
+      Climb: 4,
+      Craft: 4,
+      "Handle Animal": 4,
+      Intimidate: 4,
+    };
+    original.skillRanksByClass = {
+      fighter: {
+        Climb: 4,
+        Craft: 4,
+        "Handle Animal": 4,
+        Intimidate: 4,
+      },
+    };
+    original.feats = ["Toughness", "Improved Initiative", "Power Attack"];
+    original.featSelections = {
+      "general-1": "toughness",
+      "human-1": "improved-initiative",
+      "fighter-1": "power-attack",
+    };
+    original.inventory = { "Longsword (Medium)": 1 };
+    original.equipment = { "Main Weapon": "Longsword (Medium)" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "rogue");
+    expect(screen.getByText("Skills (16/26)", { exact: true })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Confirm Level-Up" }).hasAttribute("disabled"))
+      .toBe(true);
+
+    for (const skill of ["Disable Device", "Open Lock"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      for (let rank = 0; rank < 5; rank += 1)
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+    expect(screen.getByText("Skills (26/26)", { exact: true })).toBeDefined();
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
+    random.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+
+    expect(screen.getByText("20 / 20", { exact: true })).toBeDefined();
+    expect(screen.getByText("Attack +2", { exact: true })).toBeDefined();
+    expect(screen.getByText("Skills (26/26)", { exact: true })).toBeDefined();
+    const reflex = screen.getByText("Reflex", { selector: ".stat > small" }).parentElement;
+    if (!reflex) throw new Error("Missing Reflex save summary.");
+    expect(within(reflex).getByRole("strong").textContent).toBe("+2");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      classLevels: [
+        { classId: "fighter", level: 1 },
+        { classId: "rogue", level: 1 },
+      ],
+      hitPoints: 20,
+      skills: {
+        Climb: 4,
+        Craft: 4,
+        "Handle Animal": 4,
+        Intimidate: 4,
+        "Disable Device": 5,
+        "Open Lock": 5,
+      },
+      skillRanksByClass: {
+        fighter: {
+          Climb: 4,
+          Craft: 4,
+          "Handle Animal": 4,
+          Intimidate: 4,
+        },
+        rogue: { "Disable Device": 5, "Open Lock": 5 },
+      },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:multiclass-hero";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No multiclass JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(parseCharacter(JSON.parse(exportedJson))).toMatchObject({
+      classLevels: [
+        { classId: "fighter", level: 1 },
+        { classId: "rogue", level: 1 },
+      ],
+      skillRanksByClass: {
+        rogue: { "Disable Device": 5, "Open Lock": 5 },
+      },
+    });
+
+    view.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "multiclass-hero.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByRole("heading", { name: "Multiclass Hero (Player)" })).toBeDefined();
+    expect(screen.getByText("20 / 20", { exact: true })).toBeDefined();
+    expect(screen.getByText("Skills (26/26)", { exact: true })).toBeDefined();
+    expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    importedView.unmount();
+  });
+
+  it("creates, resumes, finalizes, exports, and imports a wizard with spellbook choices", async () => {
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Class" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: "Wizard" },
+      ),
+    );
+    const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Neutral Good" },
+      ),
+    );
+    await user.clear(screen.getAllByRole("textbox", { name: "Character name" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Character name" })[0], "Audit Wizard");
+    await user.clear(screen.getAllByRole("textbox", { name: "Player" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Player" })[0], "Audit Player");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Intelligence/ }), "11");
+
+    for (const skill of ["Concentration", "Knowledge (arcana)", "Spellcraft"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      for (let rank = 0; rank < 4; rank += 1)
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    await chooseFeat("General feat (level 1)", "Toughness");
+    await chooseFeat("Human bonus feat", "Improved Initiative");
+
+    await user.click(tabs.getByRole("button", { name: "Store" }));
+    await screen.findByRole("heading", { name: "General Store" });
+    await user.click(screen.getAllByRole("button", { name: "Choose an item..." })[0]);
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Equipment choices" })).getByRole(
+        "option",
+        { name: /^Dagger —/ },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Purchase Dagger" }));
+
+    await user.click(tabs.getByRole("button", { name: "Spells" }));
+    await user.click(await screen.findByRole("button", { name: "Add starting cantrips" }));
+    const freeSpell = screen.getByLabelText("Free wizard spell");
+    for (const spell of ["Mage Armor", "Magic Missile", "Shield"]) {
+      await user.selectOptions(freeSpell, spell);
+      await user.click(screen.getByRole("button", { name: "Add free spell" }));
+    }
+    expect(screen.getByText(/Free starting spells: 3\/3/)).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    view.unmount();
+
+    const resumedView = render(<App />);
+    expect(screen.getByRole("heading", { name: "Create Character" })).toBeDefined();
+    expect(screen.getAllByRole<HTMLInputElement>("textbox", { name: "Character name" })[0].value)
+      .toBe("Audit Wizard");
+    const resumedTabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(resumedTabs.getByRole("button", { name: "Spells" }));
+    expect(await screen.findByText("Detect Magic", { exact: true })).toBeDefined();
+    expect(screen.getByText("Mage Armor", { exact: true })).toBeDefined();
+    expect(screen.getByText(/Free starting spells: 3\/3/)).toBeDefined();
+    await user.click(resumedTabs.getByRole("button", { name: "Character" }));
+
+    const finalize = screen.getByRole("button", { name: "Finalize Character" });
+    expect(finalize.hasAttribute("disabled")).toBe(false);
+    await user.click(finalize);
+    expect(screen.getByRole("heading", { name: "Audit Wizard (Audit Player)" })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      race: "Human",
+      classLevels: [{ classId: "wizard", level: 1 }],
+      knownSpellsByClass: {
+        wizard: expect.arrayContaining(["Detect Magic", "Mage Armor", "Magic Missile", "Shield"]),
+      },
+      spellAcquisitionByClass: {
+        wizard: {
+          "Mage Armor": "starting",
+          "Magic Missile": "starting",
+          Shield: "starting",
+        },
+      },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:audit-wizard";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No wizard JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(parseCharacter(JSON.parse(exportedJson)).knownSpellsByClass?.wizard)
+      .toEqual(saved.knownSpellsByClass?.wizard);
+
+    resumedView.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "audit-wizard.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByRole("heading", { name: "Audit Wizard (Audit Player)" })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Spells" }));
+    expect(await screen.findByText("Detect Magic", { exact: true })).toBeDefined();
+    expect(screen.getByText("Mage Armor", { exact: true })).toBeDefined();
+    expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    importedView.unmount();
+  });
+
+  it("creates, resumes, finalizes, exports, and imports a cleric with deity and domain choices", async () => {
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Class" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: "Cleric" },
+      ),
+    );
+    const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Neutral Good" },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Deity" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Deity choices" })).getByRole(
+        "option",
+        { name: /^Pelor/ },
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Lawful Evil" },
+      ),
+    );
+    expect(screen.getByText("Cleric alignment must be within one step of Pelor.")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Finalize Character" }).hasAttribute("disabled"))
+      .toBe(true);
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Neutral Good" },
+      ),
+    );
+    expect(screen.queryByText("Cleric alignment must be within one step of Pelor.")).toBeNull();
+
+    await user.clear(screen.getAllByRole("textbox", { name: "Character name" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Character name" })[0], "Audit Cleric");
+    await user.clear(screen.getAllByRole("textbox", { name: "Player" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Player" })[0], "Audit Player");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Wisdom/ }), "11");
+
+    for (const skill of ["Concentration", "Heal", "Knowledge (religion)"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      for (let rank = 0; rank < 4; rank += 1)
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    await chooseFeat("General feat (level 1)", "Toughness");
+    await chooseFeat("Human bonus feat", "Improved Initiative");
+
+    await user.click(tabs.getByRole("button", { name: "Store" }));
+    await screen.findByRole("heading", { name: "General Store" });
+    await user.click(screen.getAllByRole("button", { name: "Choose an item..." })[0]);
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Equipment choices" })).getByRole(
+        "option",
+        { name: /^Dagger —/ },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Purchase Dagger" }));
+
+    await user.click(tabs.getByRole("button", { name: "Spells" }));
+    await screen.findByRole("heading", { name: "Cleric Domains" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Domain 1" }), "good");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Domain 2" }), "healing");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Level 1 domain spell" }),
+      "healing:Cure Light Wounds",
+    );
+    for (const spell of ["Detect Magic", "Guidance", "Light", "Bless"])
+      fireEvent.change(screen.getByRole("spinbutton", { name: `Prepare ${spell}` }), {
+        target: { value: "1" },
+      });
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    view.unmount();
+
+    const resumedView = render(<App />);
+    expect(screen.getByRole("heading", { name: "Create Character" })).toBeDefined();
+    const resumedTabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(resumedTabs.getByRole("button", { name: "Spells" }));
+    expect((await screen.findByRole<HTMLSelectElement>("combobox", { name: "Domain 1" })).value)
+      .toBe("good");
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Domain 2" }).value)
+      .toBe("healing");
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Level 1 domain spell" }).value)
+      .toBe("healing:Cure Light Wounds");
+    await user.click(resumedTabs.getByRole("button", { name: "Character" }));
+    const finalize = screen.getByRole("button", { name: "Finalize Character" });
+    expect(finalize.hasAttribute("disabled")).toBe(false);
+    await user.click(finalize);
+    expect(screen.getByRole("heading", { name: "Audit Cleric (Audit Player)" })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      race: "Human",
+      alignment: "Neutral Good",
+      deity: "pelor",
+      classLevels: [{ classId: "cleric", level: 1 }],
+      clericDomains: ["good", "healing"],
+      clericDomainPreparation: {
+        "1": { domain: "healing", spell: "Cure Light Wounds" },
+      },
+      preparedSpellsByClass: {
+        cleric: expect.arrayContaining(["Detect Magic", "Guidance", "Light", "Bless"]),
+      },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:audit-cleric";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No cleric JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(parseCharacter(JSON.parse(exportedJson))).toMatchObject({
+      deity: "pelor",
+      clericDomains: ["good", "healing"],
+      clericDomainPreparation: {
+        "1": { domain: "healing", spell: "Cure Light Wounds" },
+      },
+    });
+
+    resumedView.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "audit-cleric.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByRole("heading", { name: "Audit Cleric (Audit Player)" })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Spells" }));
+    expect((await screen.findByRole<HTMLSelectElement>("combobox", { name: "Domain 1" })).value)
+      .toBe("good");
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Domain 2" }).value)
+      .toBe("healing");
+    expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    importedView.unmount();
+  });
+
+  it("creates, resumes, finalizes, exports, and imports a Charisma-based sorcerer", async () => {
+    const user = userEvent.setup();
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await loadSpellCatalog();
+    const view = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Class" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: "Sorcerer" },
+      ),
+    );
+    const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Neutral Good" },
+      ),
+    );
+    await user.clear(screen.getAllByRole("textbox", { name: "Character name" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Character name" })[0], "Audit Sorcerer");
+    await user.clear(screen.getAllByRole("textbox", { name: "Player" })[0]);
+    await user.type(screen.getAllByRole("textbox", { name: "Player" })[0], "Audit Player");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Charisma/ }), "11");
+
+    for (const skill of ["Concentration", "Knowledge (arcana)", "Spellcraft"]) {
+      const row = within(screen.getByRole("group", { name: `${skill} skill` }));
+      for (let rank = 0; rank < 4; rank += 1)
+        await user.click(row.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const chooseFeat = async (slot: string, feat: string) => {
+      await user.click(screen.getByRole("button", { name: slot }));
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
+          "option",
+          { name: feat },
+        ),
+      );
+    };
+    await chooseFeat("General feat (level 1)", "Toughness");
+    await chooseFeat("Human bonus feat", "Improved Initiative");
+
+    await user.click(tabs.getByRole("button", { name: "Store" }));
+    await screen.findByRole("heading", { name: "General Store" });
+    await user.click(screen.getAllByRole("button", { name: "Choose an item..." })[0]);
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Equipment choices" })).getByRole(
+        "option",
+        { name: /^Dagger —/ },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Purchase Dagger" }));
+
+    await user.click(tabs.getByRole("button", { name: "Spells" }));
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Spellcasting Ability" })).value)
+      .toBe("CHA 11");
+    const chooseSpell = async (heading: string, spell: string) => {
+      const section = screen.getByText(heading, { exact: true }).closest("section");
+      if (!(section instanceof HTMLElement)) throw new Error(`Missing ${heading} spell section.`);
+      await user.click(within(section).getAllByRole("button", { name: "Choose a spell" })[0]);
+      await user.click(
+        within(screen.getByRole("listbox", { name: "Spell choices" })).getByRole(
+          "option",
+          { name: new RegExp(`^${spell} \\(Level`) },
+        ),
+      );
+    };
+    for (const spell of ["Acid Splash", "Detect Magic", "Mage Hand", "Read Magic"])
+      await chooseSpell("CANTRIPS", spell);
+    for (const spell of ["Mage Armor", "Magic Missile"])
+      await chooseSpell("LEVEL 1 SPELLS", spell);
+    expect(screen.getByText("Known 4/4", { exact: true })).toBeDefined();
+    expect(screen.getByText("Known 2/2", { exact: true })).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(alert).toHaveBeenLastCalledWith("Character saved.");
+    view.unmount();
+
+    const resumedView = render(<App />);
+    expect(screen.getByRole("heading", { name: "Create Character" })).toBeDefined();
+    const resumedTabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(resumedTabs.getByRole("button", { name: "Spells" }));
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Spellcasting Ability" })).value)
+      .toBe("CHA 11");
+    expect(screen.getByText("Acid Splash (Level 0)", { exact: true })).toBeDefined();
+    expect(screen.getByText("Magic Missile (Level 1)", { exact: true })).toBeDefined();
+    expect(screen.getByText("Known 4/4", { exact: true })).toBeDefined();
+    expect(screen.getByText("Known 2/2", { exact: true })).toBeDefined();
+    await user.click(resumedTabs.getByRole("button", { name: "Character" }));
+    const finalize = screen.getByRole("button", { name: "Finalize Character" });
+    expect(finalize.hasAttribute("disabled")).toBe(false);
+    await user.click(finalize);
+    expect(screen.getByRole("heading", { name: "Audit Sorcerer (Audit Player)" })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const saved = parseCharacter(
+      JSON.parse(window.localStorage.getItem(savedCharacterStorageKey) ?? "null"),
+    );
+    expect(saved).toMatchObject({
+      race: "Human",
+      alignment: "Neutral Good",
+      abilities: { cha: 11 },
+      classLevels: [{ classId: "sorcerer", level: 1 }],
+      knownSpellsByClass: {
+        sorcerer: expect.arrayContaining([
+          "Acid Splash",
+          "Detect Magic",
+          "Mage Hand",
+          "Read Magic",
+          "Mage Armor",
+          "Magic Missile",
+        ]),
+      },
+    });
+
+    let exportedBlob: Blob | undefined;
+    class TestURL extends URL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:audit-sorcerer";
+      }
+      static revokeObjectURL = vi.fn();
+    }
+    vi.stubGlobal("URL", TestURL);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    if (!exportedBlob) throw new Error("No sorcerer JSON was exported.");
+    const exportedJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        typeof reader.result === "string"
+          ? resolve(reader.result)
+          : reject(new Error("Expected text export."));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    expect(parseCharacter(JSON.parse(exportedJson)).knownSpellsByClass?.sorcerer)
+      .toEqual(saved.knownSpellsByClass?.sorcerer);
+
+    resumedView.unmount();
+    window.localStorage.removeItem(savedCharacterStorageKey);
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+    const importedView = render(<App />);
+    const input = importedView.container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!input) throw new Error("Missing import input.");
+    const file = new File([exportedJson], "audit-sorcerer.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", { value: async () => exportedJson });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByRole("heading", { name: "Audit Sorcerer (Audit Player)" })).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Spells" }));
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Spellcasting Ability" })).value)
+      .toBe("CHA 11");
+    expect(screen.getByText("Acid Splash", { exact: true })).toBeDefined();
+    expect(screen.getByText("Magic Missile", { exact: true })).toBeDefined();
+    expect(alert).toHaveBeenLastCalledWith("Character imported.");
+    importedView.unmount();
   });
 
   it("blocks a class level-up that conflicts with the character's alignment", async () => {

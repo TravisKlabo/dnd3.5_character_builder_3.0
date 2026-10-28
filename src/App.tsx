@@ -31,8 +31,8 @@ export function App() {
   const [creationState, setCreationDraft] = useState<Character>(() =>
     cloneCharacter(savedState.character),
   );
-  const [creationOpen, setCreationOpen] = useState(!savedState.saved);
-  const [creationLocked, setCreationLocked] = useState(savedState.saved);
+  const [creationOpen, setCreationOpen] = useState(!savedState.saved || savedState.setupDraft);
+  const [creationLocked, setCreationLocked] = useState(savedState.saved && !savedState.setupDraft);
   const [ruleset, setRuleset] = useState<
     "core-35-srd" | "dragonlance-user-pack" | "dragonlance-monster-classes"
   >("core-35-srd");
@@ -737,7 +737,7 @@ export function App() {
     levelUpTotalLevel !== undefined && levelUpTotalLevel % 4 === 0;
   const saveCharacter = () => {
     try {
-      persistCharacter(displayedCharacter);
+      persistCharacter(displayedCharacter, !creationLocked);
       setOperationError(undefined);
       window.alert("Character saved.");
     } catch (error: unknown) {
@@ -801,10 +801,10 @@ export function App() {
           </h1>
         </div>
         <div className="header-actions">
-          <button className="quiet-button" type="button" onClick={saveCharacter}>
+          <button className="quiet-button" type="button" onClick={saveCharacter} disabled={levelUpMode}>
             Save
           </button>
-          <button className="quiet-button" type="button" onClick={exportCharacter}>
+          <button className="quiet-button" type="button" onClick={exportCharacter} disabled={levelUpMode}>
             Export
           </button>
           <label className="quiet-button import-file-label">

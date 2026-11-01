@@ -39,6 +39,7 @@ export function App() {
   const [character, setCharacter] = useState<Character>(() => savedState.character);
   const [rangedTargetDistanceFeet, setRangedTargetDistanceFeet] = useState<number | undefined>(undefined);
   const [combatExpertiseAmount, setCombatExpertiseAmount] = useState(0);
+  const [powerAttackAmount, setPowerAttackAmount] = useState(0);
   const [targetDamageReduction, setTargetDamageReduction] = useState("");
   const [selectedRangedAmmunitionKey, setSelectedRangedAmmunitionKey] = useState<string | undefined>();
   const [creationState, setCreationDraft] = useState<Character>(() =>
@@ -1082,6 +1083,8 @@ export function App() {
             onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
             combatExpertiseAmount={combatExpertiseAmount}
             onCombatExpertiseAmountChange={setCombatExpertiseAmount}
+            powerAttackAmount={powerAttackAmount}
+            onPowerAttackAmountChange={setPowerAttackAmount}
             targetDamageReduction={targetDamageReduction}
             onTargetDamageReductionChange={setTargetDamageReduction}
             selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
@@ -1115,6 +1118,8 @@ export function App() {
           onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
           combatExpertiseAmount={combatExpertiseAmount}
           onCombatExpertiseAmountChange={setCombatExpertiseAmount}
+          powerAttackAmount={powerAttackAmount}
+          onPowerAttackAmountChange={setPowerAttackAmount}
           targetDamageReduction={targetDamageReduction}
           onTargetDamageReductionChange={setTargetDamageReduction}
           selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}

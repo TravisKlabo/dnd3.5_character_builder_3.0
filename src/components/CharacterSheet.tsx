@@ -4,7 +4,7 @@ import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAtta
 import { type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, ContentSourceLabel } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, ContentSourceLabel } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -51,6 +51,8 @@ export function CharacterSheet({
   onRangedTargetDistanceFeetChange,
   combatExpertiseAmount,
   onCombatExpertiseAmountChange,
+  powerAttackAmount,
+  onPowerAttackAmountChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
@@ -81,6 +83,8 @@ export function CharacterSheet({
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
   combatExpertiseAmount: number;
   onCombatExpertiseAmountChange: (amount: number) => void;
+  powerAttackAmount: number;
+  onPowerAttackAmountChange: (amount: number) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
@@ -306,6 +310,11 @@ export function CharacterSheet({
           amount={combatExpertiseAmount}
           onChange={onCombatExpertiseAmountChange}
         />
+        <PowerAttackControl
+          character={character}
+          amount={powerAttackAmount}
+          onChange={onPowerAttackAmountChange}
+        />
         <Suspense fallback={<p>Loading target-specific racial bonuses...</p>}>
           <CombatTargetContextSelector
             targetTypes={combatTargetTypes}
@@ -344,13 +353,13 @@ export function CharacterSheet({
               ? getWeaponCompatibilityWarning(character, equippedWeapon, slot)
               : null;
             const stats = equippedWeapon
-              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes, rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount)
+              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes, rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount, powerAttackAmount)
               : null;
             return (
               <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
                 <small>{slot.replace(" Weapon", "")}</small>
                 {stats ? <>
-                <strong title={[stats.attackSequenceNote, stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.combatExpertisePenalty ? [`Combat Expertise ${formatModifier(stats.combatExpertisePenalty)} attack`] : []), ...(stats.pointBlankShotBonus ? ["Point Blank Shot +1 attack and damage"] : []), ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
+                <strong title={[stats.attackSequenceNote, stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.combatExpertisePenalty ? [`Combat Expertise ${formatModifier(stats.combatExpertisePenalty)} attack`] : []), ...(stats.powerAttackPenalty ? [`Power Attack ${formatModifier(stats.powerAttackPenalty)} attack`] : []), ...(stats.pointBlankShotBonus ? ["Point Blank Shot +1 attack and damage"] : []), ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
                   {stats.rangeOutOfRange ? "Out of range" : `Attack ${stats.attackSequence.map(formatModifier).join(" / ")}`}
                 </strong>
                 {stats.maximumRangeFeet !== undefined && <span>Maximum range {stats.maximumRangeFeet} ft.</span>}
@@ -373,7 +382,13 @@ export function CharacterSheet({
                 {stats.combatExpertisePenalty < 0 && <span className="attack-penalty">
                   {formatModifier(stats.combatExpertisePenalty)} Combat Expertise attack
                 </span>}
+                {stats.powerAttackPenalty < 0 && <span className="attack-penalty">
+                  {formatModifier(stats.powerAttackPenalty)} Power Attack
+                </span>}
                 <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
+                {stats.powerAttackDamageBonus > 0 && <span>
+                  +{stats.powerAttackDamageBonus} Power Attack damage
+                </span>}
                 {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
                 {stats.weaponSpecializationBonus > 0 && <span>+2 Weapon Specialization damage</span>}
                 <span>Crit {stats.critical}</span>

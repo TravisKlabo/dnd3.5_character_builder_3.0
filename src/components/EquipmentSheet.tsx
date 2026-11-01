@@ -1,5 +1,5 @@
 import { type Character } from "../domain";
-import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl } from "./shared";
+import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl } from "./shared";
 import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
 import { getEncumbrance, getMovement } from "../rules";
 
@@ -9,6 +9,8 @@ export function EquipmentSheet({
   onRangedTargetDistanceFeetChange,
   combatExpertiseAmount,
   onCombatExpertiseAmountChange,
+  powerAttackAmount,
+  onPowerAttackAmountChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
@@ -27,6 +29,8 @@ export function EquipmentSheet({
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
   combatExpertiseAmount: number;
   onCombatExpertiseAmountChange: (amount: number) => void;
+  powerAttackAmount: number;
+  onPowerAttackAmountChange: (amount: number) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
@@ -129,6 +133,11 @@ export function EquipmentSheet({
           amount={combatExpertiseAmount}
           onChange={onCombatExpertiseAmountChange}
         />
+        <PowerAttackControl
+          character={character}
+          amount={powerAttackAmount}
+          onChange={onPowerAttackAmountChange}
+        />
         {towerShieldState.equipped && (
           <label className="weapon-grip-control">
             <input
@@ -223,7 +232,7 @@ export function EquipmentSheet({
             ? getWeaponCompatibilityWarning(character, weaponKey, slot)
             : null;
           const stats = weaponKey
-            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot, [], rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount)
+            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot, [], rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount, powerAttackAmount)
             : null;
           return (
             <div className="equipment-weapon-stat" key={slot}>
@@ -283,12 +292,18 @@ export function EquipmentSheet({
                   {stats.combatExpertisePenalty < 0 && <span className="attack-penalty">
                     Combat Expertise: {formatModifier(stats.combatExpertisePenalty)} attack
                   </span>}
+                  {stats.powerAttackPenalty < 0 && <span className="attack-penalty">
+                    Power Attack: {formatModifier(stats.powerAttackPenalty)} attack
+                  </span>}
                   {stats.twoHandedGrip && <span>Two-handed grip</span>}
                   {stats.bucklerAttackPenalty !== 0 && <span>Buckler use: {formatModifier(stats.bucklerAttackPenalty)} attack</span>}
                   {stats.weaponSizePenalty < 0 && <span className="attack-penalty" title={stats.weaponSizeDetail}>
                     Weapon-size mismatch: {formatModifier(stats.weaponSizePenalty)} attack; treated as {stats.effectiveHandedness}.
                   </span>}
                   <span>Damage: {stats.damage} ({stats.damageType})</span>
+                  {stats.powerAttackDamageBonus > 0 && <span>
+                    Power Attack damage: +{stats.powerAttackDamageBonus}
+                  </span>}
                   {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
                   {stats.weaponSpecializationBonus > 0 && <span>Weapon Specialization: +2 damage</span>}
                   <span>Critical: {stats.critical}</span>

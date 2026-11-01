@@ -2,11 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus, getCombatExpertiseLimit } from "../src/rules";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
-import { CombatExpertiseControl } from "../src/components/shared";
+import { CombatExpertiseControl, PowerAttackControl } from "../src/components/shared";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
@@ -122,6 +122,84 @@ describe("SRD weapon attack and damage", () => {
     expect(screen.getByText(/Session-only/)).toBeDefined();
     await userEvent.selectOptions(selector, "1");
     expect(onChange).toHaveBeenCalledWith(1);
+  });
+
+  it("trades melee attack bonus for Power Attack damage based on weapon type and grip", () => {
+    const character = fighter();
+    character.featSelections = { "general-1": "power-attack" };
+    const longsword = getEquippedWeaponStats(character, "Longsword (Medium)")!;
+    const longswordPowerAttack = getEquippedWeaponStats(
+      character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 1,
+    )!;
+    const greatsword = getEquippedWeaponStats(character, "Greatsword (Medium)")!;
+    const greatswordPowerAttack = getEquippedWeaponStats(
+      character, "Greatsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 1,
+    )!;
+    character.mainWeaponGrip = "two-handed";
+    const twoHandedLongsword = getEquippedWeaponStats(character, "Longsword (Medium)")!;
+    const twoHandedLongswordPowerAttack = getEquippedWeaponStats(
+      character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 1,
+    )!;
+    character.mainWeaponGrip = "one-handed";
+    const dagger = getEquippedWeaponStats(character, "Dagger (Medium)")!;
+    const daggerPowerAttack = getEquippedWeaponStats(
+      character, "Dagger (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 1,
+    )!;
+    const longbow = getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon")!;
+    const rangedPowerAttack = getEquippedWeaponStats(
+      character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, undefined, undefined, 0, 1,
+    )!;
+
+    expect(getPowerAttackLimit(character)).toBe(1);
+    expect(longswordPowerAttack).toMatchObject({
+      attack: longsword.attack - 1,
+      damage: "1d8+4",
+      powerAttackPenalty: -1,
+      powerAttackDamageBonus: 1,
+    });
+    expect(greatswordPowerAttack).toMatchObject({
+      attack: greatsword.attack - 1,
+      damage: "2d6+6",
+      powerAttackDamageBonus: 2,
+    });
+    expect(twoHandedLongswordPowerAttack).toMatchObject({
+      attack: twoHandedLongsword.attack - 1,
+      damage: "1d8+6",
+      powerAttackDamageBonus: 2,
+    });
+    expect(daggerPowerAttack).toMatchObject({
+      attack: dagger.attack - 1,
+      damage: dagger.damage,
+      powerAttackDamageBonus: 0,
+    });
+    expect(rangedPowerAttack).toMatchObject({
+      attack: longbow.attack,
+      damage: longbow.damage,
+      powerAttackPenalty: 0,
+      powerAttackDamageBonus: 0,
+    });
+
+    character.classLevels = [{ classId: "fighter", level: 8 }];
+    expect(getPowerAttackLimit(character)).toBe(8);
+    expect(getEquippedWeaponStats(
+      character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 9,
+    )?.powerAttackPenalty).toBe(0);
+    character.abilities.str = 12;
+    expect(getPowerAttackLimit(character)).toBe(0);
+  });
+
+  it("offers a session-only Power Attack selector through the character's BAB", async () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "fighter", level: 8 }];
+    character.featSelections = { "general-1": "power-attack" };
+    const onChange = vi.fn();
+    render(<PowerAttackControl character={character} amount={0} onChange={onChange} />);
+    const selector = screen.getByRole("combobox", { name: "Power Attack penalty" });
+
+    expect(within(selector).getAllByRole("option")).toHaveLength(9);
+    expect(screen.getByText(/Session-only/)).toBeDefined();
+    await userEvent.selectOptions(selector, "8");
+    expect(onChange).toHaveBeenCalledWith(8);
   });
 
   it("applies weapon feats to light, heavy, spiked, and unspiked shield bashes as one type", () => {
@@ -755,6 +833,8 @@ describe("consistent equipment handling", () => {
       onRangedTargetDistanceFeetChange={vi.fn()}
       combatExpertiseAmount={0}
       onCombatExpertiseAmountChange={vi.fn()}
+      powerAttackAmount={0}
+      onPowerAttackAmountChange={vi.fn()}
       targetDamageReduction=""
       onTargetDamageReductionChange={vi.fn()}
       selectedRangedAmmunitionKey={undefined}

@@ -213,6 +213,12 @@ the character's BAB, whichever is lower. It requires the feat and effective
 Intelligence 13; the dodge bonus also applies to flat-footed AC when Uncanny
 Dodge is retained. The change lasts until the character's next action, which
 must be cleared manually because turn timing is not tracked.
+The session-only Power Attack selector trades a chosen penalty, up to BAB, from
+melee attacks for damage until the next turn. It requires the feat and effective
+Strength 13; two-handed weapons double the damage bonus, while light weapons
+receive no bonus. Unarmed and natural-weapon attacks aren't represented in the
+weapon rows and remain manual. Clear it manually because turn timing is not
+tracked.
 The shared target DR context evaluates cold iron, silver, adamantine, and magic
 qualifiers, including `and`/`or` combinations of those types. It uses weapon
 material for melee/thrown weapons and selected ammunition for bows, crossbows,

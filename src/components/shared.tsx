@@ -1,5 +1,5 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
-import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit } from "../rules";
+import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit } from "../rules";
 
 export function ContentSourceLabel({ source, book }: { source: ContentSourceId; book?: string }) {
   return (
@@ -156,6 +156,36 @@ export function CombatExpertiseControl({ character, amount, onChange }: {
         </select>
       </label>
       <small>Session-only. Applies to melee attack/full attack actions until your next action; clear it manually then.</small>
+    </div>
+  );
+}
+
+export function PowerAttackControl({ character, amount, onChange }: {
+  character: Character;
+  amount: number;
+  onChange: (amount: number) => void;
+}) {
+  const limit = getPowerAttackLimit(character);
+  if (limit === 0) return null;
+  const selectedAmount = getPowerAttackAmount(character, amount);
+  return (
+    <div className="power-attack-control">
+      <label className="weapon-grip-control">
+        Power Attack penalty
+        <select
+          aria-label="Power Attack penalty"
+          value={String(selectedAmount)}
+          onChange={(event) => onChange(Number(event.currentTarget.value))}
+        >
+          <option value="0">Off</option>
+          {Array.from({ length: limit }, (_, index) => index + 1).map((value) => (
+            <option value={value} key={value}>
+              -{value} melee attack
+            </option>
+          ))}
+        </select>
+      </label>
+      <small>Session-only until your next turn; clear it manually then. Two-handed weapons double the damage bonus; light weapons get none. Unarmed and natural-weapon attacks aren't represented in weapon rows.</small>
     </div>
   );
 }

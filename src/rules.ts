@@ -1290,6 +1290,21 @@ export function getCombatExpertiseAmount(character: Character, selectedAmount = 
     : 0;
 }
 
+export function getPowerAttackLimit(character: Character) {
+  if (
+    !getChosenFeats(character).includes("power-attack") ||
+    getEffectiveAbilityScore(character, "str") < 13
+  ) return 0;
+  return getBaseAttackBonus(character);
+}
+
+export function getPowerAttackAmount(character: Character, selectedAmount = 0) {
+  const limit = getPowerAttackLimit(character);
+  return Number.isInteger(selectedAmount) && selectedAmount > 0 && selectedAmount <= limit
+    ? selectedAmount
+    : 0;
+}
+
 export function getInitiativeModifier(character: Character) {
   return abilityModifier(getEffectiveAbilityScore(character, "dex")) +
     getImprovedInitiativeBonus(character) +
@@ -1308,6 +1323,7 @@ export function getEquippedWeaponStats(
   targetDamageReduction?: string,
   selectedAmmunitionKey?: string,
   selectedCombatExpertiseAmount = 0,
+  selectedPowerAttackAmount = 0,
 ) {
   const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
   const size = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
@@ -1348,6 +1364,8 @@ export function getEquippedWeaponStats(
   const combatExpertisePenalty = isRanged
     ? 0
     : -getCombatExpertiseAmount(character, selectedCombatExpertiseAmount);
+  const powerAttackAmount = isRanged ? 0 : getPowerAttackAmount(character, selectedPowerAttackAmount);
+  const powerAttackPenalty = powerAttackAmount > 0 ? -powerAttackAmount : 0;
   const abilityAttackBonus = isRanged || usesFinesse ? dexterity : strength;
   const sizeAttackBonus = sizeModifier(character);
   const finessePenalty = usesFinesse ? shieldPenalty : 0;
@@ -1404,7 +1422,7 @@ export function getEquippedWeaponStats(
       : []),
     ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
   ];
-  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + combatExpertisePenalty + activeAttack;
+  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + combatExpertisePenalty + powerAttackPenalty + activeAttack;
   const rangeIncrement = getWeaponRangeForSize(item, size);
   const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
   const ammunition = getWeaponAmmunitionProfile(item, isRanged);
@@ -1457,7 +1475,13 @@ export function getEquippedWeaponStats(
   const silverWeaponDamagePenalty = weaponMaterial === "alchemical-silver" && (!isRanged || traits.thrown);
   const silverAmmunitionDamagePenalty = selectedAmmunition?.material === "alchemical-silver";
   const silverDamagePenalty = silverWeaponDamagePenalty || silverAmmunitionDamagePenalty ? -1 : 0;
-  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + pointBlankShotBonus + silverDamagePenalty;
+  const powerAttackDamageBonus = powerAttackAmount === 0 ||
+    sizeHandling.effectiveHandedness === "light"
+    ? 0
+    : twoHandedGrip
+      ? powerAttackAmount * 2
+      : powerAttackAmount;
+  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + pointBlankShotBonus + powerAttackDamageBonus + silverDamagePenalty;
   const damageDice = getWeaponEndDamageForSize(item, size, usesAlternateEnd ? "off-hand" : "main");
   const elementalProperties = [
     ["Flaming", "fire"],
@@ -1468,6 +1492,8 @@ export function getEquippedWeaponStats(
     name: displayName,
     attack: finalAttack,
     combatExpertisePenalty,
+    powerAttackPenalty,
+    powerAttackDamageBonus,
     attackSequence: rangeDetails.outOfRange ? [] : Array.from(
       { length: slot === "Off Hand Weapon" ? 1 : Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5))) },
       (_, index) => finalAttack - index * 5,

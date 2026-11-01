@@ -4,7 +4,7 @@ import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAtta
 import { type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, ContentSourceLabel } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, ContentSourceLabel } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -53,6 +53,8 @@ export function CharacterSheet({
   onCombatExpertiseAmountChange,
   powerAttackAmount,
   onPowerAttackAmountChange,
+  dodgeTargetSelected,
+  onDodgeTargetSelectedChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
@@ -85,6 +87,8 @@ export function CharacterSheet({
   onCombatExpertiseAmountChange: (amount: number) => void;
   powerAttackAmount: number;
   onPowerAttackAmountChange: (amount: number) => void;
+  dodgeTargetSelected: boolean;
+  onDodgeTargetSelectedChange: (selected: boolean) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
@@ -475,11 +479,17 @@ export function CharacterSheet({
       </div>
       <div className="sheet-secondary-column">
       <Panel title="Combat Summary" className="combat-panel">
+        <DodgeTargetControl
+          character={character}
+          selectedOpponent={dodgeTargetSelected}
+          onChange={onDodgeTargetSelectedChange}
+        />
         <div className="stat-grid">
           <ArmorClassStat
             character={character}
             targetTypes={combatTargetTypes}
             combatExpertiseAmount={combatExpertiseAmount}
+            dodgeTargetSelected={dodgeTargetSelected}
           />
           <Stat
             label="Initiative"

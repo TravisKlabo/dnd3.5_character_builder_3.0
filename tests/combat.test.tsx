@@ -6,7 +6,7 @@ import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, 
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
-import { CombatExpertiseControl, PowerAttackControl } from "../src/components/shared";
+import { CombatExpertiseControl, PowerAttackControl, DodgeTargetControl } from "../src/components/shared";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
@@ -835,6 +835,8 @@ describe("consistent equipment handling", () => {
       onCombatExpertiseAmountChange={vi.fn()}
       powerAttackAmount={0}
       onPowerAttackAmountChange={vi.fn()}
+      dodgeTargetSelected={false}
+      onDodgeTargetSelectedChange={vi.fn()}
       targetDamageReduction=""
       onTargetDamageReductionChange={vi.fn()}
       selectedRangedAmmunitionKey={undefined}
@@ -969,6 +971,50 @@ it("shows attack, damage, and critical values for all three equipped weapon slot
 });
 
 describe("touch, flat-footed, and grapple statistics", () => {
+  it("applies Dodge against the selected opponent and loses it with Dexterity unless Uncanny Dodge applies", () => {
+    const character = fighter();
+    character.featSelections = { "general-1": "dodge" };
+
+    expect(getArmorClassValues(character, [], 0, true)).toMatchObject({
+      normal: 15,
+      touch: 15,
+      flatFooted: 10,
+      dodgeFeatBonus: 1,
+    });
+
+    character.classLevels = [{ classId: "rogue", level: 4 }];
+    expect(getArmorClassValues(character, [], 0, true)).toMatchObject({
+      flatFooted: 15,
+      retainsDexterity: true,
+    });
+
+    character.race = "Dwarf";
+    expect(getArmorClassValues(character, ["giant"], 0, true)).toMatchObject({
+      normal: 19,
+      racialDodgeACBonus: 4,
+      dodgeFeatBonus: 1,
+    });
+
+    character.abilities.dex = 12;
+    expect(getArmorClassValues(character, [], 0, true).dodgeFeatBonus).toBe(0);
+  });
+
+  it("offers a session-only current-opponent selector when Dodge is usable", async () => {
+    const character = fighter();
+    character.featSelections = { "general-1": "dodge" };
+    const onChange = vi.fn();
+    render(
+      <DodgeTargetControl character={character} selectedOpponent={false} onChange={onChange} />,
+    );
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Apply Dodge against current opponent",
+    });
+
+    await userEvent.click(checkbox);
+    expect(onChange).toHaveBeenCalledWith(true);
+    expect(screen.getByText(/Session-only/)).toBeDefined();
+  });
+
   it("applies Combat Expertise as dodge AC and retains it flat-footed only with Uncanny Dodge", () => {
     const character = fighter();
     character.abilities.int = 13;

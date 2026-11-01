@@ -219,6 +219,11 @@ Strength 13; two-handed weapons double the damage bonus, while light weapons
 receive no bonus. Unarmed and natural-weapon attacks aren't represented in the
 weapon rows and remain manual. Clear it manually because turn timing is not
 tracked.
+The session-only Dodge toggle adds +1 dodge AC against the current opponent
+when the feat and effective Dexterity 13 prerequisite are met. The bonus is
+lost whenever Dexterity to AC is denied; the flat-footed AC omits it unless
+Uncanny Dodge applies. The app does not track opponent identity or other
+Dexterity-denial conditions.
 The shared target DR context evaluates cold iron, silver, adamantine, and magic
 qualifiers, including `and`/`or` combinations of those types. It uses weapon
 material for melee/thrown weapons and selected ammunition for bows, crossbows,

@@ -1,5 +1,5 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
-import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit } from "../rules";
+import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit, getDodgeFeatBonus } from "../rules";
 
 export function ContentSourceLabel({ source, book }: { source: ContentSourceId; book?: string }) {
   return (
@@ -190,16 +190,50 @@ export function PowerAttackControl({ character, amount, onChange }: {
   );
 }
 
-export function ArmorClassStat({ character, targetTypes = [], combatExpertiseAmount = 0 }: {
+export function DodgeTargetControl({ character, selectedOpponent, onChange }: {
+  character: Character;
+  selectedOpponent: boolean;
+  onChange: (selected: boolean) => void;
+}) {
+  if (getDodgeFeatBonus(character, true) === 0) return null;
+  return (
+    <div className="dodge-target-control">
+      <label className="weapon-grip-control">
+        <input
+          type="checkbox"
+          aria-label="Apply Dodge against current opponent"
+          checked={selectedOpponent}
+          onChange={(event) => onChange(event.currentTarget.checked)}
+        />
+        Apply Dodge +1 AC against current opponent
+      </label>
+      <small>Session-only. Select the opponent chosen for Dodge; its bonus is lost when you are denied your Dexterity bonus, including while flat-footed unless Uncanny Dodge applies.</small>
+    </div>
+  );
+}
+
+export function ArmorClassStat({
+  character,
+  targetTypes = [],
+  combatExpertiseAmount = 0,
+  dodgeTargetSelected = false,
+}: {
   character: Character;
   targetTypes?: CombatTargetType[];
   combatExpertiseAmount?: number;
+  dodgeTargetSelected?: boolean;
 }) {
-  const defenses = getArmorClassValues(character, targetTypes, combatExpertiseAmount);
+  const defenses = getArmorClassValues(
+    character,
+    targetTypes,
+    combatExpertiseAmount,
+    dodgeTargetSelected,
+  );
   return <Stat label="Armor Class" value={String(defenses.normal)}
     detail={[
       `Touch ${defenses.touch}`,
       `Flat-footed ${defenses.flatFooted}`,
+      ...(defenses.dodgeFeatBonus ? ["+1 Dodge AC against selected opponent"] : []),
       ...(defenses.towerShieldCoverActive ? ["Total cover via tower shield; no attacks until the start of your next turn."] : []),
       ...(defenses.shieldBashACBonusLost ? ["Shield AC bonus lost until your next action after a shield bash."] : []),
       ...getArmorClassRestrictions(character),

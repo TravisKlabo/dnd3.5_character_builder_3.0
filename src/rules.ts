@@ -288,6 +288,7 @@ export function getArmorClassValues(
   character: Character,
   targetTypes: CombatTargetType[] = [],
   selectedCombatExpertiseAmount = 0,
+  dodgeTargetSelected = false,
 ) {
   const equipment = character.equipment ?? {};
   const armorName = equipment.Armor ?? "";
@@ -335,13 +336,15 @@ export function getArmorClassValues(
     (classId === "barbarian" && level >= 2) || (classId === "rogue" && level >= 4)) ||
     (character.classFeatures ?? []).some((feature) => /\buncanny dodge\b/i.test(feature));
   const combatExpertiseBonus = getCombatExpertiseAmount(character, selectedCombatExpertiseAmount);
+  const dodgeFeatBonus = getDodgeFeatBonus(character, dodgeTargetSelected);
   return {
-    normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialDodgeACBonus + combatExpertiseBonus + activeArmorClass,
-    touch: base + dexterity + deflection + racialDodgeACBonus + combatExpertiseBonus + activeArmorClass,
-    flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus + combatExpertiseBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
+    normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + activeArmorClass,
+    touch: base + dexterity + deflection + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + activeArmorClass,
+    flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
     retainsDexterity,
     racialDodgeACBonus,
     combatExpertiseBonus,
+    dodgeFeatBonus,
     towerShieldCoverActive: towerShieldState.coverActive,
     shieldBashACBonusLost: shieldBashState.enabled,
     detail: [
@@ -355,6 +358,7 @@ export function getArmorClassValues(
         : []),
       ...(dodgeTarget && race ? [`${race.name} dodge vs. ${combatTargetLabels[dodgeTarget]} ${formatModifier(racialDodgeACBonus)}`] : []),
       ...(combatExpertiseBonus ? [`Combat Expertise ${formatModifier(combatExpertiseBonus)} dodge bonus`] : []),
+      ...(dodgeFeatBonus ? ["Dodge +1 vs. selected opponent"] : []),
       ...getAbilityEquipmentBonus(character, "dex").detail,
       ...bonuses.deflection.detail,
       ...bonuses.naturalArmorEnhancement.detail,
@@ -1302,6 +1306,14 @@ export function getPowerAttackAmount(character: Character, selectedAmount = 0) {
   const limit = getPowerAttackLimit(character);
   return Number.isInteger(selectedAmount) && selectedAmount > 0 && selectedAmount <= limit
     ? selectedAmount
+    : 0;
+}
+
+export function getDodgeFeatBonus(character: Character, againstSelectedOpponent = false) {
+  return againstSelectedOpponent &&
+    getChosenFeats(character).includes("dodge") &&
+    getEffectiveAbilityScore(character, "dex") >= 13
+    ? 1
     : 0;
 }
 

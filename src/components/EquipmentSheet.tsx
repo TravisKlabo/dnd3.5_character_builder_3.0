@@ -1,5 +1,5 @@
 import { type Character } from "../domain";
-import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl } from "./shared";
+import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl } from "./shared";
 import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
 import { getEncumbrance, getMovement } from "../rules";
 
@@ -11,6 +11,8 @@ export function EquipmentSheet({
   onCombatExpertiseAmountChange,
   powerAttackAmount,
   onPowerAttackAmountChange,
+  dodgeTargetSelected,
+  onDodgeTargetSelectedChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
@@ -31,6 +33,8 @@ export function EquipmentSheet({
   onCombatExpertiseAmountChange: (amount: number) => void;
   powerAttackAmount: number;
   onPowerAttackAmountChange: (amount: number) => void;
+  dodgeTargetSelected: boolean;
+  onDodgeTargetSelectedChange: (selected: boolean) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
@@ -116,11 +120,20 @@ export function EquipmentSheet({
           />
         </label>
       </div>
+      <DodgeTargetControl
+        character={character}
+        selectedOpponent={dodgeTargetSelected}
+        onChange={onDodgeTargetSelectedChange}
+      />
       <div className="equipment-summary">
         <Stat label="Load" value={encumbrance.load}
           title={`Light: up to ${encumbrance.capacity.light} lb.; medium: up to ${encumbrance.capacity.medium} lb.; heavy: up to ${encumbrance.capacity.heavy} lb.`} />
         <Stat label="Carried Weight" value={`${getCarriedWeight(character).toLocaleString()} lb.`} />
-        <ArmorClassStat character={character} combatExpertiseAmount={combatExpertiseAmount} />
+        <ArmorClassStat
+          character={character}
+          combatExpertiseAmount={combatExpertiseAmount}
+          dodgeTargetSelected={dodgeTargetSelected}
+        />
         <Stat label="Speed" value={`${movement.speed} ft.`} detail={movement.causes} />
       </div>
       {encumbrance.unknownWeights.length > 0 && <p className="combat-note" role="status">

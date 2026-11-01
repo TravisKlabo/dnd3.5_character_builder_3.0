@@ -529,7 +529,7 @@ export function CreationPanel({
                           }}
                         >
                           <span>{definition.name}</span>
-                          <ContentSourceLabel source={definition.source} />
+                          <ContentSourceLabel source={definition.source} book={definition.sourceBook} />
                         </button>
                       ))}
                   </div>
@@ -652,7 +652,7 @@ export function CreationPanel({
                           }}
                         >
                           <span>{definition.name}</span>
-                          <ContentSourceLabel source={definition.source} />
+                          <ContentSourceLabel source={definition.source} book={definition.sourceBook} />
                         </button>
                       ))}
                   </div>

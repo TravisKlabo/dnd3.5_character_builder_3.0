@@ -1,8 +1,12 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
 import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow } from "../rules";
 
-export function ContentSourceLabel({ source }: { source: ContentSourceId }) {
-  return <small className="content-source-label">Source: {contentSources[source].name}</small>;
+export function ContentSourceLabel({ source, book }: { source: ContentSourceId; book?: string }) {
+  return (
+    <small className="content-source-label">
+      Source: {contentSources[source].name}{book ? `; Book: ${book}` : ""}
+    </small>
+  );
 }
 
 export function Panel({

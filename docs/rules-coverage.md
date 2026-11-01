@@ -25,8 +25,12 @@ coverage.
 | Dragonlance and other supplemental rules | Unverified / incomplete | Some optional content and class/data entries are present | Not source-verified as a complete rules implementation; do not treat availability in the UI as rules certification | [README rules and scope](../README.md#rules-and-scope), [3.0 design](3.0-design.md) |
 
 Catalog source labels identify the broad source group (Core SRD or Dragonlance
-user content pack), not the original publication book. Book-level provenance
-has not been verified.
+user content pack). Feats and verified classes additionally show book-level
+cross-checks to the *Player's Handbook* (3.5), *Dungeon Master's Guide* (3.5),
+*Dragonlance Campaign Setting* (3.5), and *Towers of High Sorcery* (3.5).
+*Master of the Way* remains broad-source-only because its book source is
+unverified. Page-level citations and primary-source verification remain
+outstanding; spells do not yet have book-level provenance.
 | Printable/player-sheet generation | Deferred / out of scope | The app has an interactive character sheet | Printing and PDF generation are intentionally excluded from the current character-creation goal | [3.0 design](3.0-design.md) |
 
 ## What this says about completeness

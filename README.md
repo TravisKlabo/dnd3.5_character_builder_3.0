@@ -124,9 +124,13 @@ Great Fortitude, Lightning Reflexes, and Iron Will are included in their
 respective saving throw totals and breakdowns.
 
 Feat, spell, class, and prestige-class entries display their broad catalog
-source (Core SRD or Dragonlance user content pack). These labels identify the
-catalog group, not the original publication book; exact book and page
-attributions remain unverified unless shown explicitly.
+source (Core SRD or Dragonlance user content pack). Feats and verified classes
+also show book-level cross-checks: core classes and feats to the *Player's
+Handbook* (3.5), core prestige classes to the *Dungeon Master's Guide* (3.5),
+and Dragonlance classes to their respective sourcebooks. The *Master of the
+Way* entry remains broad-source-only because its book source is unverified.
+Page-level citations and primary-source verification remain outstanding;
+spells still show only their broad source group.
 
 On wide screens, Ability Scores, Attacks & Weapons, and Languages stack
 independently beside Combat Summary and Saving Throws, avoiding gaps caused by

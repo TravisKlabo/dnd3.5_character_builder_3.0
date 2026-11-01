@@ -285,7 +285,7 @@ export function FeatPicker({
         {selectedFeat?.name ?? "Choose a feat"}
         <span aria-hidden="true">▾</span>
       </button>
-      {selectedFeat && <ContentSourceLabel source={selectedFeat.source} />}
+      {selectedFeat && <ContentSourceLabel source={selectedFeat.source} book={selectedFeat.sourceBook} />}
       {hoveredDescription && (
         <span
           className="feat-picker-tooltip"
@@ -344,7 +344,7 @@ export function FeatPicker({
               }}
             >
               <span>{feat.name}</span>
-              <ContentSourceLabel source={feat.source} />
+              <ContentSourceLabel source={feat.source} book={feat.sourceBook} />
             </button>
           ))}
           {!filteredChoices.length && (

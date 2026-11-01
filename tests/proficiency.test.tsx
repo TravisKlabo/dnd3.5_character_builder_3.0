@@ -333,6 +333,7 @@ describe("armor and shield proficiency", () => {
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
     const weaponFocusOption = within(featSlot).getByRole("option", { name: /^Weapon Focus/ });
     expect(weaponFocusOption.textContent).toContain("Source: D&D 3.5 Core SRD");
+    expect(weaponFocusOption.textContent).toContain("Book: Player's Handbook (3.5)");
     fireEvent.click(weaponFocusOption);
     fireEvent.change(
       within(featSlot).getByRole("combobox", {
@@ -343,6 +344,8 @@ describe("armor and shield proficiency", () => {
     const chosenFeat = screen.getByText("Weapon Focus (Longsword)");
     expect(chosenFeat.closest(".chosen-feat")?.textContent)
       .toContain("Source: D&D 3.5 Core SRD");
+    expect(chosenFeat.closest(".chosen-feat")?.textContent)
+      .toContain("Book: Player's Handbook (3.5)");
   });
 
   it("allows repeat Skill Focus choices only for different skills", () => {

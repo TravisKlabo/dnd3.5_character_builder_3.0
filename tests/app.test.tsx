@@ -26,8 +26,12 @@ describe("application workflows", () => {
 
     expect(document.querySelector(".finalized-class-field")?.textContent)
       .toContain("Source: D&D 3.5 Core SRD");
+    expect(document.querySelector(".finalized-class-field")?.textContent)
+      .toContain("Book: Player's Handbook (3.5)");
     expect(document.querySelector(".finalized-prestige-field")?.textContent)
       .toContain("Source: D&D 3.5 Core SRD");
+    expect(document.querySelector(".finalized-prestige-field")?.textContent)
+      .toContain("Book: Dungeon Master's Guide (3.5)");
   });
 
   it.each([false, true])("preserves free-form age and weight in setup/finalized mode (saved: %s)", async (saved) => {

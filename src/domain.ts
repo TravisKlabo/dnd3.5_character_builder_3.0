@@ -37,6 +37,7 @@ export interface ClassDefinition {
   id: ClassId
   name: string
   source: ContentSourceId
+  sourceBook?: string
   hitDie: 4 | 6 | 8 | 10 | 12
   skillPoints: number
   baseAttackBonus: 'good' | 'medium' | 'poor'
@@ -122,6 +123,7 @@ export interface PrestigeClassDefinition {
   id: PrestigeClassId
   name: string
   source: ContentSourceId
+  sourceBook?: string
   prerequisites: { bab?: number; ability?: Partial<Record<AbilityName, number>>; feats?: string[]; classes?: ClassId[]; races?: string[] }
   features: string[]
 }
@@ -141,6 +143,7 @@ export interface FeatDefinition {
   id: FeatId
   name: string
   source: ContentSourceId
+  sourceBook?: string
   description: string
   prerequisites?: {
     abilities?: Partial<Record<AbilityName, number>>
@@ -218,19 +221,19 @@ export interface LevelUpDraft {
 }
 
 export const classDefinitions: Record<ClassId, ClassDefinition> = {
-  barbarian: { id: 'barbarian', name: 'Barbarian', source: 'core-35-srd', hitDie: 12, skillPoints: 4, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'poor', spellcasting: false },
-  bard: { id: 'bard', name: 'Bard', source: 'core-35-srd', hitDie: 6, skillPoints: 6, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'good', spellcasting: true },
-  fighter: { id: 'fighter', name: 'Fighter', source: 'core-35-srd', hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'poor', spellcasting: false },
-  druid: { id: 'druid', name: 'Druid', source: 'core-35-srd', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
-  monk: { id: 'monk', name: 'Monk', source: 'core-35-srd', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'good', will: 'good', spellcasting: false },
-  paladin: { id: 'paladin', name: 'Paladin', source: 'core-35-srd', hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
-  ranger: { id: 'ranger', name: 'Ranger', source: 'core-35-srd', hitDie: 8, skillPoints: 6, baseAttackBonus: 'good', fortitude: 'good', reflex: 'good', will: 'poor', spellcasting: true },
-  rogue: { id: 'rogue', name: 'Rogue', source: 'core-35-srd', hitDie: 6, skillPoints: 8, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'poor', spellcasting: false },
-  sorcerer: { id: 'sorcerer', name: 'Sorcerer', source: 'core-35-srd', hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
-  wizard: { id: 'wizard', name: 'Wizard', source: 'core-35-srd', hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
-  cleric: { id: 'cleric', name: 'Cleric', source: 'core-35-srd', hitDie: 8, skillPoints: 2, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
-  mystic: { id: 'mystic', name: 'Mystic', source: 'dragonlance-user-pack', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
-  noble: { id: 'noble', name: 'Noble', source: 'dragonlance-user-pack', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'good', spellcasting: false },
+  barbarian: { id: 'barbarian', name: 'Barbarian', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 12, skillPoints: 4, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'poor', spellcasting: false },
+  bard: { id: 'bard', name: 'Bard', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 6, skillPoints: 6, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'good', spellcasting: true },
+  fighter: { id: 'fighter', name: 'Fighter', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'poor', spellcasting: false },
+  druid: { id: 'druid', name: 'Druid', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
+  monk: { id: 'monk', name: 'Monk', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'good', will: 'good', spellcasting: false },
+  paladin: { id: 'paladin', name: 'Paladin', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
+  ranger: { id: 'ranger', name: 'Ranger', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 6, baseAttackBonus: 'good', fortitude: 'good', reflex: 'good', will: 'poor', spellcasting: true },
+  rogue: { id: 'rogue', name: 'Rogue', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 6, skillPoints: 8, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'poor', spellcasting: false },
+  sorcerer: { id: 'sorcerer', name: 'Sorcerer', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
+  wizard: { id: 'wizard', name: 'Wizard', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
+  cleric: { id: 'cleric', name: 'Cleric', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 2, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
+  mystic: { id: 'mystic', name: 'Mystic', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
+  noble: { id: 'noble', name: 'Noble', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'good', spellcasting: false },
 }
 
 export const raceDefinitions: Record<string, RaceDefinition> = {
@@ -262,28 +265,28 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
 }
 
 export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDefinition> = {
-  'arcane-archer': { id: 'arcane-archer', name: 'Arcane Archer', source: 'core-35-srd', prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Point Blank Shot', 'Precise Shot'], classes: ['fighter', 'ranger'] }, features: ['Enhance arrows', 'Imbue arrow', 'Seeker arrow', 'Phase arrow', 'Hail of arrows'] },
-  'arcane-trickster': { id: 'arcane-trickster', name: 'Arcane Trickster', source: 'core-35-srd', prerequisites: { ability: { int: 13 }, feats: ['Mage Hand'], classes: ['rogue', 'sorcerer', 'wizard'] }, features: ['Ranged legerdemain', 'Sneak attack', 'Impromptu sneak attack'] },
-  assassin: { id: 'assassin', name: 'Assassin', source: 'core-35-srd', prerequisites: { ability: { dex: 13 }, classes: ['rogue'] }, features: ['Poison use', 'Sneak attack', 'Death attack', 'Hide in plain sight'] },
-  'dragon-disciple': { id: 'dragon-disciple', name: 'Dragon Disciple', source: 'core-35-srd', prerequisites: { ability: { cha: 13 }, classes: ['sorcerer'] }, features: ['Draconic abilities', 'Natural armor', 'Breath weapon', 'Wings'] },
-  duelist: { id: 'duelist', name: 'Duelist', source: 'core-35-srd', prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Combat Expertise', 'Weapon Finesse'], classes: ['fighter', 'rogue'] }, features: ['Canny defense', 'Improved reaction', 'Grace', 'Precise strike'] },
-  'dwarven-defender': { id: 'dwarven-defender', name: 'Dwarven Defender', source: 'core-35-srd', prerequisites: { bab: 7, ability: { con: 13 }, feats: ['Dodge'], races: ['dwarf'] }, features: ['Defensive stance', 'Uncanny dodge', 'Damage reduction'] },
-  'eldritch-knight': { id: 'eldritch-knight', name: 'Eldritch Knight', source: 'core-35-srd', prerequisites: { bab: 3, feats: ['Martial Weapon Proficiency'], classes: ['fighter', 'sorcerer', 'wizard'] }, features: ['Bonus feat', 'Spellcasting advancement'] },
-  hierophant: { id: 'hierophant', name: 'Hierophant', source: 'core-35-srd', prerequisites: { ability: { wis: 15 }, classes: ['cleric', 'druid'] }, features: ['Special ability', 'Spell-like ability'] },
-  'horizon-walker': { id: 'horizon-walker', name: 'Horizon Walker', source: 'core-35-srd', prerequisites: { bab: 6, feats: ['Endurance'], classes: ['barbarian', 'fighter', 'ranger'] }, features: ['Terrain mastery', 'Planar terrain mastery'] },
-  loremaster: { id: 'loremaster', name: 'Loremaster', source: 'core-35-srd', prerequisites: { ability: { int: 13 }, feats: ['Any metamagic feat', 'Any item creation feat'], classes: ['bard', 'cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Secret', 'Lore', 'Greater lore'] },
-  'mystic-theurge': { id: 'mystic-theurge', name: 'Mystic Theurge', source: 'core-35-srd', prerequisites: { classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Dual spellcasting advancement'] },
-  shadowdancer: { id: 'shadowdancer', name: 'Shadowdancer', source: 'core-35-srd', prerequisites: { ability: { dex: 13 }, feats: ['Combat Reflexes', 'Dodge', 'Mobility'], classes: ['bard', 'monk', 'rogue'] }, features: ['Hide in plain sight', 'Darkvision', 'Shadow companion'] },
-  thaumaturgist: { id: 'thaumaturgist', name: 'Thaumaturgist', source: 'core-35-srd', prerequisites: { ability: { wis: 13 }, feats: ['Spell Focus'], classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Improved ally', 'Planar cohort', 'Planar durance'] },
-  'knight-of-the-crown': { id: 'knight-of-the-crown', name: 'Knight of the Crown', source: 'dragonlance-user-pack', prerequisites: { bab: 4, feats: ['Mounted Combat'], classes: ['fighter', 'paladin', 'ranger'] }, features: ['Crown oath', 'Knightly challenge', 'Mounted combat training'] },
-  'knight-of-the-sword': { id: 'knight-of-the-sword', name: 'Knight of the Sword', source: 'dragonlance-user-pack', prerequisites: { bab: 5, feats: ['Weapon Focus'], classes: ['fighter', 'paladin'] }, features: ['Sword oath', 'Fearless courage', 'Smite evil improvement'] },
-  'knight-of-the-rose': { id: 'knight-of-the-rose', name: 'Knight of the Rose', source: 'dragonlance-user-pack', prerequisites: { bab: 6, feats: ['Leadership'], classes: ['fighter', 'paladin'] }, features: ['Rose oath', 'Inspire courage', 'Command authority'] },
-  'knight-of-neraka': { id: 'knight-of-neraka', name: 'Knight of Neraka', source: 'dragonlance-user-pack', prerequisites: { bab: 5, feats: ['Knight of Takhisis'], classes: ['fighter', 'paladin', 'ranger'] }, features: ['Dark allegiance', 'Aura of command', 'Terror tactics'] },
-  'renegade-hunter': { id: 'renegade-hunter', name: 'Renegade Hunter', source: 'dragonlance-user-pack', prerequisites: { feats: ['Spell Focus'] }, features: ['Magic detection', 'Counterspell training', 'Hunter of renegades'] },
-  'wizard-of-high-sorcery': { id: 'wizard-of-high-sorcery', name: 'High Sorcery', source: 'dragonlance-user-pack', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Order oath', 'Lunar spell power'] },
-  'white-robed-wizard': { id: 'white-robed-wizard', name: 'White-Robed Wizard', source: 'dragonlance-user-pack', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['White robe oath', 'Protective magic', 'Lunar spell power'] },
-  'red-robed-wizard': { id: 'red-robed-wizard', name: 'Red-Robed Wizard', source: 'dragonlance-user-pack', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Red robe oath', 'Neutral magic', 'Lunar spell power'] },
-  'black-robed-wizard': { id: 'black-robed-wizard', name: 'Black-Robed Wizard', source: 'dragonlance-user-pack', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Black robe oath', 'Aggressive magic', 'Lunar spell power'] },
+  'arcane-archer': { id: 'arcane-archer', name: 'Arcane Archer', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Point Blank Shot', 'Precise Shot'], classes: ['fighter', 'ranger'] }, features: ['Enhance arrows', 'Imbue arrow', 'Seeker arrow', 'Phase arrow', 'Hail of arrows'] },
+  'arcane-trickster': { id: 'arcane-trickster', name: 'Arcane Trickster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, feats: ['Mage Hand'], classes: ['rogue', 'sorcerer', 'wizard'] }, features: ['Ranged legerdemain', 'Sneak attack', 'Impromptu sneak attack'] },
+  assassin: { id: 'assassin', name: 'Assassin', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { dex: 13 }, classes: ['rogue'] }, features: ['Poison use', 'Sneak attack', 'Death attack', 'Hide in plain sight'] },
+  'dragon-disciple': { id: 'dragon-disciple', name: 'Dragon Disciple', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { cha: 13 }, classes: ['sorcerer'] }, features: ['Draconic abilities', 'Natural armor', 'Breath weapon', 'Wings'] },
+  duelist: { id: 'duelist', name: 'Duelist', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Combat Expertise', 'Weapon Finesse'], classes: ['fighter', 'rogue'] }, features: ['Canny defense', 'Improved reaction', 'Grace', 'Precise strike'] },
+  'dwarven-defender': { id: 'dwarven-defender', name: 'Dwarven Defender', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 7, ability: { con: 13 }, feats: ['Dodge'], races: ['dwarf'] }, features: ['Defensive stance', 'Uncanny dodge', 'Damage reduction'] },
+  'eldritch-knight': { id: 'eldritch-knight', name: 'Eldritch Knight', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 3, feats: ['Martial Weapon Proficiency'], classes: ['fighter', 'sorcerer', 'wizard'] }, features: ['Bonus feat', 'Spellcasting advancement'] },
+  hierophant: { id: 'hierophant', name: 'Hierophant', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { wis: 15 }, classes: ['cleric', 'druid'] }, features: ['Special ability', 'Spell-like ability'] },
+  'horizon-walker': { id: 'horizon-walker', name: 'Horizon Walker', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, feats: ['Endurance'], classes: ['barbarian', 'fighter', 'ranger'] }, features: ['Terrain mastery', 'Planar terrain mastery'] },
+  loremaster: { id: 'loremaster', name: 'Loremaster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, feats: ['Any metamagic feat', 'Any item creation feat'], classes: ['bard', 'cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Secret', 'Lore', 'Greater lore'] },
+  'mystic-theurge': { id: 'mystic-theurge', name: 'Mystic Theurge', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Dual spellcasting advancement'] },
+  shadowdancer: { id: 'shadowdancer', name: 'Shadowdancer', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { dex: 13 }, feats: ['Combat Reflexes', 'Dodge', 'Mobility'], classes: ['bard', 'monk', 'rogue'] }, features: ['Hide in plain sight', 'Darkvision', 'Shadow companion'] },
+  thaumaturgist: { id: 'thaumaturgist', name: 'Thaumaturgist', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { wis: 13 }, feats: ['Spell Focus'], classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Improved ally', 'Planar cohort', 'Planar durance'] },
+  'knight-of-the-crown': { id: 'knight-of-the-crown', name: 'Knight of the Crown', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { bab: 4, feats: ['Mounted Combat'], classes: ['fighter', 'paladin', 'ranger'] }, features: ['Crown oath', 'Knightly challenge', 'Mounted combat training'] },
+  'knight-of-the-sword': { id: 'knight-of-the-sword', name: 'Knight of the Sword', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { bab: 5, feats: ['Weapon Focus'], classes: ['fighter', 'paladin'] }, features: ['Sword oath', 'Fearless courage', 'Smite evil improvement'] },
+  'knight-of-the-rose': { id: 'knight-of-the-rose', name: 'Knight of the Rose', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { bab: 6, feats: ['Leadership'], classes: ['fighter', 'paladin'] }, features: ['Rose oath', 'Inspire courage', 'Command authority'] },
+  'knight-of-neraka': { id: 'knight-of-neraka', name: 'Knight of Neraka', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { bab: 5, feats: ['Knight of Takhisis'], classes: ['fighter', 'paladin', 'ranger'] }, features: ['Dark allegiance', 'Aura of command', 'Terror tactics'] },
+  'renegade-hunter': { id: 'renegade-hunter', name: 'Renegade Hunter', source: 'dragonlance-user-pack', sourceBook: 'Towers of High Sorcery (3.5)', prerequisites: { feats: ['Spell Focus'] }, features: ['Magic detection', 'Counterspell training', 'Hunter of renegades'] },
+  'wizard-of-high-sorcery': { id: 'wizard-of-high-sorcery', name: 'High Sorcery', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Order oath', 'Lunar spell power'] },
+  'white-robed-wizard': { id: 'white-robed-wizard', name: 'White-Robed Wizard', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['White robe oath', 'Protective magic', 'Lunar spell power'] },
+  'red-robed-wizard': { id: 'red-robed-wizard', name: 'Red-Robed Wizard', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Red robe oath', 'Neutral magic', 'Lunar spell power'] },
+  'black-robed-wizard': { id: 'black-robed-wizard', name: 'Black-Robed Wizard', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Black robe oath', 'Aggressive magic', 'Lunar spell power'] },
   'master-of-the-way': { id: 'master-of-the-way', name: 'Master of the Way', source: 'dragonlance-user-pack', prerequisites: { ability: { wis: 13 }, feats: ['Improved Unarmed Strike'], classes: ['monk'] }, features: ['Monastic discipline', 'Ki strike', 'Way mastery'] },
 }
 

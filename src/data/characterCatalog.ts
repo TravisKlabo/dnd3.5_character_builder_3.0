@@ -448,7 +448,9 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
   ],
 };
 
-export const featCatalog: FeatDefinition[] = [
+const featCatalogSourceBook = "Player's Handbook (3.5)";
+
+export const featCatalog: FeatDefinition[] = ([
   {
     id: "armor-proficiency-light",
     name: "Armor Proficiency (Light)",
@@ -903,7 +905,7 @@ export const featCatalog: FeatDefinition[] = [
     },
     fighterBonus: true,
   },
-];
+] satisfies FeatDefinition[]).map((feat) => ({ ...feat, sourceBook: featCatalogSourceBook }));
 
 export const abilityNames: AbilityName[] = ["str", "dex", "con", "int", "wis", "cha"];
 

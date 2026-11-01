@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type ContentSourceId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
+import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
 import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getRangerCombatStyleStatus, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
 import { type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
@@ -113,15 +113,17 @@ export function CharacterSheet({
         : [],
     )
     .join(" / ");
-  const classSourceIds = [...new Set(
-    character.classLevels
-      .map((level) =>
-        "prestigeClassId" in level
-          ? dragonlancePrestigeClasses[level.prestigeClassId]?.source
-          : classDefinitions[level.classId]?.source,
-      )
-      .filter((source): source is ContentSourceId => Boolean(source)),
-  )];
+  const classSources = [...new Map(
+    character.classLevels.map((level) => {
+      const definition = "prestigeClassId" in level
+        ? dragonlancePrestigeClasses[level.prestigeClassId]
+        : classDefinitions[level.classId];
+      return [
+        `${definition.source}:${definition.sourceBook ?? ""}`,
+        { source: definition.source, book: definition.sourceBook },
+      ] as const;
+    }),
+  ).values()];
   const characterRace =
     raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ??
     raceDefinitions.human;
@@ -223,7 +225,9 @@ export function CharacterSheet({
             ) : (
               <input value={classSummary} readOnly />
             )}
-            {classSourceIds.map((source) => <ContentSourceLabel key={source} source={source} />)}
+            {classSources.map(({ source, book }) => (
+              <ContentSourceLabel key={`${source}:${book ?? ""}`} source={source} book={book} />
+            ))}
           </label>
           {character.prestigeClass && (
             <label className="finalized-prestige-field">
@@ -232,7 +236,10 @@ export function CharacterSheet({
                 {dragonlancePrestigeClasses[character.prestigeClass]?.name ?? "Prestige Class"}
               </span>
               {dragonlancePrestigeClasses[character.prestigeClass] && (
-                <ContentSourceLabel source={dragonlancePrestigeClasses[character.prestigeClass].source} />
+                <ContentSourceLabel
+                  source={dragonlancePrestigeClasses[character.prestigeClass].source}
+                  book={dragonlancePrestigeClasses[character.prestigeClass].sourceBook}
+                />
               )}
             </label>
           )}
@@ -754,7 +761,7 @@ export function CharacterSheet({
                       <span className="chosen-feat-description">
                         {" "}
                         - {featDescription}
-                        <ContentSourceLabel source={feat.source} />
+                        <ContentSourceLabel source={feat.source} book={feat.sourceBook} />
                       </span>
                       {showLegacyWeaponChoice && (
                         <label className="feat-weapon-choice">

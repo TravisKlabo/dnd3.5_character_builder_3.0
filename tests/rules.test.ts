@@ -6,7 +6,7 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getAvailableBonusLanguages, getClassFeatureDisplay, getClassFeatureSkillSynergy,
   getLanguageBonusSlots,
   getAvailableFeats, getFeatSlots, getLevelUpSkillWarnings, getRacialSkillBonus,
-  getRacialSkillContextOptions, getRacialSpellLikeAbilities, getSkillCheckModifier, getSkillTotalTooltip,
+  getDwarfStabilityBonus, getRacialSkillContextOptions, getRacialSpellLikeAbilities, getSkillCheckModifier, getSkillTotalTooltip,
   formatRaceDetails, getImprovedInitiativeBonus, getInitiativeModifier,
   getNewLevelUpFeatSlots, getSavingThrow, getSkillMaximum, getSpentSkillPoints,
   normalizeFeatSelections,
@@ -206,6 +206,17 @@ describe("character rules preserved from 2.0", () => {
     expect(getRacialSpellLikeAbilities(gnome).map((ability) => ability.name))
       .toEqual(["Speak with Animals"]);
     expect(getRacialSpellLikeAbilities(cloneCharacter(initialCharacter))).toEqual([]);
+  });
+
+  it("applies Dwarf Stability only to grounded bull rush and trip checks", () => {
+    const dwarf = cloneCharacter(initialCharacter);
+    dwarf.race = "Dwarf";
+    expect(getDwarfStabilityBonus(dwarf, "bull-rush", true)).toBe(4);
+    expect(getDwarfStabilityBonus(dwarf, "trip", true)).toBe(4);
+    expect(getDwarfStabilityBonus(dwarf, "bull-rush", false)).toBe(0);
+    expect(getDwarfStabilityBonus(dwarf, "trip", false)).toBe(0);
+    expect(getDwarfStabilityBonus(dwarf, undefined, true)).toBe(0);
+    expect(getDwarfStabilityBonus(cloneCharacter(initialCharacter), "trip", true)).toBe(0);
   });
 
   it("applies the Small-size Hide bonus and includes it in the check breakdown", () => {

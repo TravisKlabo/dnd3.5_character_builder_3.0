@@ -118,6 +118,13 @@
 .combat-effects-list li > div { display: grid; gap: 3px; }
 .combat-effects-list li span, .combat-effects-list li small { color: #68736f; font-size: .66rem; }
 .combat-effects-empty { margin: 8px 0; color: #68736f; font-size: .7rem; }
+.combat-effects-stability { display: grid; gap: 7px; margin: 8px 0; padding: 8px; border: 1px solid #c6c9c2; background: #fff; }
+.combat-effects-stability h4 { margin: 0; color: #243447; font-size: .72rem; }
+.combat-effects-stability label { display: grid; gap: 3px; color: #68736f; font-size: .66rem; }
+.combat-effects-stability select { min-width: 0; padding: 5px 7px; font-size: .72rem; }
+.combat-effects-stability .combat-effects-grounded { display: flex; align-items: center; gap: 6px; }
+.combat-effects-stability p { margin: 0; color: #243447; font-weight: 700; }
+.combat-effects-stability small { color: #68736f; font-size: .64rem; line-height: 1.4; }
 .combat-effects-form fieldset { display: grid; gap: 8px; min-width: 0; margin: 8px 0 0; padding: 8px; border: 1px solid #c6c9c2; }
 .combat-effects-form legend { padding: 0 4px; color: #68736f; font-size: .68rem; }
 .combat-effects-form label { display: grid; gap: 3px; color: #68736f; font-size: .66rem; }

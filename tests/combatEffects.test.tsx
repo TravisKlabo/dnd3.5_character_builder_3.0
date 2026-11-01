@@ -62,6 +62,28 @@ describe("active combat effects", () => {
 });
 
 describe("combat effect tracker", () => {
+  it("previews Dwarf Stability only for grounded bull rush or trip checks", async () => {
+    const dwarf = cloneCharacter(initialCharacter);
+    dwarf.race = "Dwarf";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(dwarf));
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+
+    const stability = screen.getByRole("group", { name: "Dwarf Stability" });
+    const check = within(stability).getByRole("combobox", { name: "Check to resist" });
+    const grounded = within(stability).getByRole("checkbox", { name: "Standing firmly on the ground" });
+    const result = within(stability).getByRole("status");
+
+    fireEvent.change(check, { target: { value: "bull-rush" } });
+    expect(result.textContent).toBe("Stability modifier: +0");
+    fireEvent.click(grounded);
+    expect(result.textContent).toBe("Stability modifier: +4");
+    fireEvent.change(check, { target: { value: "trip" } });
+    expect(result.textContent).toBe("Stability modifier: +4");
+    fireEvent.click(grounded);
+    expect(result.textContent).toBe("Stability modifier: +0");
+  });
+
   it("adds presets, applies their modifiers, advances rounds, and persists expiration", async () => {
     const character = cloneCharacter(initialCharacter);
     character.equipment["Main Weapon"] = "Longsword (Medium)";

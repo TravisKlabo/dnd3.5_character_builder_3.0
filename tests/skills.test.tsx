@@ -455,6 +455,16 @@ it("shows Gnome racial spell-like abilities and the applicable save DC", async (
   expect(screen.queryByText("Spell-like abilities (1/day)")).toBeNull();
 });
 
+it("shows the Elf secret-door Search trigger", async () => {
+  const character = cloneCharacter(initialCharacter);
+  character.race = "Elf";
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  render(<App />);
+
+  expect(await screen.findByText(/Search check for secret\/concealed doors when passing within 5 ft\./))
+    .toBeTruthy();
+});
+
 it("updates training immediately when assigning or removing a rank during setup", () => {
   render(<App />);
   const row = skillRow("Climb");

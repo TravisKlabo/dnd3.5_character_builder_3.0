@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { type Character } from "../domain";
 import { advanceCombatRound, type CombatEffect, type CombatEffectModifier, type CombatEffectModifiers } from "../combatEffects";
+import { formatModifier, getCharacterRace, getDwarfStabilityBonus, type DwarfStabilityCheck } from "../rules";
 
 const createZeroModifiers = (): CombatEffectModifiers => ({
   attack: 0,
@@ -53,8 +54,15 @@ export function CombatEffectsTracker({
   const [modifiers, setModifiers] = useState<CombatEffectModifiers>(createZeroModifiers);
   const [duration, setDuration] = useState("3");
   const [error, setError] = useState("");
+  const [stabilityCheck, setStabilityCheck] = useState<DwarfStabilityCheck | "">("");
+  const [standingFirmly, setStandingFirmly] = useState(false);
   const round = character.combatRound ?? 1;
   const effects = character.combatEffects ?? [];
+  const stabilityBonus = getDwarfStabilityBonus(
+    character,
+    stabilityCheck || undefined,
+    standingFirmly,
+  );
 
   const selectPreset = (value: PresetId) => {
     const preset = presets[value];
@@ -122,6 +130,32 @@ export function CombatEffectsTracker({
           })}
         </ul>
       ) : <p className="combat-effects-empty">No active conditions or effects.</p>}
+      {getCharacterRace(character) === "Dwarf" && (
+        <div className="combat-effects-stability" role="group" aria-label="Dwarf Stability">
+          <h4>Dwarf Stability</h4>
+          <label>Check to resist
+            <select aria-label="Check to resist" disabled={!enabled} value={stabilityCheck}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                if (value === "bull-rush" || value === "trip") setStabilityCheck(value);
+                else setStabilityCheck("");
+              }}>
+              <option value="">Select a check...</option>
+              <option value="bull-rush">Bull rush</option>
+              <option value="trip">Trip</option>
+            </select>
+          </label>
+          <label className="combat-effects-grounded">
+            <input type="checkbox" aria-label="Standing firmly on the ground" disabled={!enabled}
+              checked={standingFirmly} onChange={(event) => setStandingFirmly(event.currentTarget.checked)} />
+            Standing firmly on the ground
+          </label>
+          <p role="status">{stabilityCheck
+            ? `Stability modifier: ${formatModifier(stabilityBonus)}`
+            : "Select a bull rush or trip check to evaluate Stability."}</p>
+          <small>+4 applies only to ability checks to resist bull rush or trip while firmly grounded. No bonus while climbing, flying, riding, or otherwise not firmly on the ground. Roll the check manually.</small>
+        </div>
+      )}
       <form className="combat-effects-form" onSubmit={addEffect}>
         <fieldset disabled={!enabled}>
           <legend>Add an effect</legend>

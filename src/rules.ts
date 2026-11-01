@@ -2713,6 +2713,19 @@ export function getCharacterRace(character: Character) {
   );
 }
 
+export type DwarfStabilityCheck = "bull-rush" | "trip";
+
+export function getDwarfStabilityBonus(
+  character: Character,
+  check: DwarfStabilityCheck | undefined,
+  firmlyGrounded: boolean,
+) {
+  if (getCharacterRace(character) !== "Dwarf" || !check || !firmlyGrounded) {
+    return 0;
+  }
+  return 4;
+}
+
 export function getSkillTotalTooltip(
   character: Character,
   skill: string,

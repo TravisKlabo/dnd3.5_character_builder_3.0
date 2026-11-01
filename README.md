@@ -665,10 +665,15 @@ weapon/slings attack bonus use the selected target types and weapon mode. Small
 creatures receive their size-based Hide bonus, and Gnome illusion spells include
 the +1 racial save DC adjustment. Gnome spell-like abilities show their names,
 daily uses, caster level, Charisma requirement, and applicable save DC; tracking
-when those daily uses are spent remains manual. Other features that need
-encounter or effect resolution—such as Dwarf stability, Elf secret-door
-detection triggers, and sleep immunity—remain manual. Optional Dragonlance race
-data is not verified. See the SRD [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
+when those daily uses are spent remains manual. The Elf's ability to make a
+Search check when passing within 5 feet of a secret or concealed door is shown
+as a reminder; rolling and adjudicating the check remain manual. The Dwarf
+Stability control previews its +4 bonus only for a bull rush or trip check when
+the character is confirmed firmly grounded; the check itself remains manual.
+Other features that need encounter or effect resolution—such as sleep immunity—
+remain manual. Optional Dragonlance race data is not verified. See the SRD
+[Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
+[Elf](https://www.d20srd.org/srd/skills/search.htm#special),
 [Gnome](https://www.d20srd.org/srd/races.htm#gnomes), and
 [Halfling](https://www.d20srd.org/srd/races.htm#halflings) rules.
 

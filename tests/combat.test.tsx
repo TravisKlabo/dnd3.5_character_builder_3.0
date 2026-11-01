@@ -57,6 +57,29 @@ describe("SRD weapon attack and damage", () => {
     });
   });
 
+  it("applies Point Blank Shot to ranged attacks and damage at 30 feet or less", () => {
+    const character = fighter();
+    character.featSelections = { "general-1": "point-blank-shot" };
+    const at30Feet = getEquippedWeaponStats(
+      character, "Longbow (Medium)", 0, "Ranged Weapon", [], 30,
+    );
+    const at31Feet = getEquippedWeaponStats(
+      character, "Longbow (Medium)", 0, "Ranged Weapon", [], 31,
+    );
+    const unknownDistance = getEquippedWeaponStats(
+      character, "Longbow (Medium)", 0, "Ranged Weapon",
+    );
+    const melee = getEquippedWeaponStats(
+      character, "Longsword (Medium)", 0, "Main Weapon", [], 30,
+    );
+
+    expect(at30Feet).toMatchObject({ pointBlankShotBonus: 1, damage: "1d8+1" });
+    expect(at30Feet?.attack).toBe((at31Feet?.attack ?? 0) + 1);
+    expect(at31Feet).toMatchObject({ pointBlankShotBonus: 0, damage: "1d8+0" });
+    expect(unknownDistance).toMatchObject({ pointBlankShotBonus: 0, damage: "1d8+0" });
+    expect(melee?.pointBlankShotBonus).toBe(0);
+  });
+
   it("applies weapon feats to light, heavy, spiked, and unspiked shield bashes as one type", () => {
     const character = fighter();
     character.equipment = { Shield: "Heavy Steel Shield" };
@@ -1106,6 +1129,23 @@ describe("touch, flat-footed, and grapple statistics", () => {
       );
       expect(screen.getByText("DR 5/silver is bypassed by this weapon and selected Silver Arrows (20).")).toBeDefined();
       expect(screen.getByText("Compatible arrows in inventory: 1 package; not consumed automatically.")).toBeDefined();
+    });
+
+    it("shows Point Blank Shot only when the ranged target is within 30 feet", async () => {
+      const character = fighter();
+      character.featSelections = { "general-1": "point-blank-shot" };
+      character.equipment = { "Ranged Weapon": "Longbow (Medium)" };
+      window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+      render(<App />);
+
+      const distance = screen.getByRole("spinbutton", { name: "Target distance (ft.)" });
+      fireEvent.change(distance, { target: { value: "30" } });
+      expect(screen.getByText("+1 Point Blank Shot attack and damage")).toBeDefined();
+      expect(screen.getByText("Damage 1d8+1")).toBeDefined();
+
+      fireEvent.change(distance, { target: { value: "31" } });
+      expect(screen.queryByText("+1 Point Blank Shot attack and damage")).toBeNull();
+      expect(screen.getByText("Damage 1d8+0")).toBeDefined();
     });
 
     it("shows missing ammunition and reload requirements on both sheets", async () => {

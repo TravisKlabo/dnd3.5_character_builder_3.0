@@ -341,7 +341,7 @@ export function CharacterSheet({
               <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
                 <small>{slot.replace(" Weapon", "")}</small>
                 {stats ? <>
-                <strong title={[stats.attackSequenceNote, stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
+                <strong title={[stats.attackSequenceNote, stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.pointBlankShotBonus ? ["Point Blank Shot +1 attack and damage"] : []), ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
                   {stats.rangeOutOfRange ? "Out of range" : `Attack ${stats.attackSequence.map(formatModifier).join(" / ")}`}
                 </strong>
                 {stats.maximumRangeFeet !== undefined && <span>Maximum range {stats.maximumRangeFeet} ft.</span>}
@@ -360,6 +360,7 @@ export function CharacterSheet({
                   {formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating
                 </span>}
                 {stats.weaponFocusBonus > 0 && <span>+1 Weapon Focus</span>}
+                {stats.pointBlankShotBonus > 0 && <span>+1 Point Blank Shot attack and damage</span>}
                 <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
                 {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
                 {stats.weaponSpecializationBonus > 0 && <span>+2 Weapon Specialization damage</span>}

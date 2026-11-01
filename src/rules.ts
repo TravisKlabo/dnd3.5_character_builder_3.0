@@ -1340,6 +1340,14 @@ export function getEquippedWeaponStats(
     0,
     ...targetTypes.map((targetType) => race?.racialAttackBonuses?.[targetType] ?? 0),
   );
+  const pointBlankShotBonus =
+    isRanged &&
+    targetDistanceFeet !== undefined &&
+    targetDistanceFeet >= 0 &&
+    targetDistanceFeet <= 30 &&
+    getChosenFeats(character).includes("point-blank-shot")
+      ? 1
+      : 0;
   const matchingTarget = targetTypes.find(
     (targetType) => race?.racialAttackBonuses?.[targetType] === targetAttackBonus && targetAttackBonus > 0,
   );
@@ -1370,7 +1378,7 @@ export function getEquippedWeaponStats(
       : []),
     ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
   ];
-  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + weaponFocusBonus + activeAttack;
+  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + activeAttack;
   const rangeIncrement = getWeaponRangeForSize(item, size);
   const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
   const ammunition = getWeaponAmmunitionProfile(item, isRanged);
@@ -1423,7 +1431,7 @@ export function getEquippedWeaponStats(
   const silverWeaponDamagePenalty = weaponMaterial === "alchemical-silver" && (!isRanged || traits.thrown);
   const silverAmmunitionDamagePenalty = selectedAmmunition?.material === "alchemical-silver";
   const silverDamagePenalty = silverWeaponDamagePenalty || silverAmmunitionDamagePenalty ? -1 : 0;
-  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + silverDamagePenalty;
+  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + pointBlankShotBonus + silverDamagePenalty;
   const damageDice = getWeaponEndDamageForSize(item, size, usesAlternateEnd ? "off-hand" : "main");
   const elementalProperties = [
     ["Flaming", "fire"],
@@ -1475,6 +1483,7 @@ export function getEquippedWeaponStats(
     towerShieldAttackPenalty,
     racialAttackBonus,
     racialAttackDetails,
+    pointBlankShotBonus,
     weaponFocusBonus,
     weaponSpecializationBonus,
     damageAbility,

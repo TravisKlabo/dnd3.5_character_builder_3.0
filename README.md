@@ -202,9 +202,10 @@ by 5 each time (at most four). Off-hand rows show one attack, not a complete
 two-weapon routine. These sequences do not add haste, flurry, or feat-granted
 attacks, though tracked attack modifiers do apply. Each full range increment
 imposes a cumulative -2 attack penalty; targets closer than the first increment
-are unpenalized. Thrown weapons are limited to five increments and projectile
-weapons to ten. Target distance is session-only. Bows, crossbows, slings, and
-darts check inventory for compatible ammunition; the sheets show missing ammo
+are unpenalized. Point Blank Shot adds +1 attack and damage with ranged weapons
+when a target distance of 30 feet or less is entered. Thrown weapons are limited
+to five increments and projectile weapons to ten. Target distance is
+session-only. Bows, crossbows, slings, and darts check inventory for compatible ammunition; the sheets show missing ammo
 and draw/reload action notes, but do not consume ammo or track loaded state.
 The shared target DR context evaluates cold iron, silver, adamantine, and magic
 qualifiers, including `and`/`or` combinations of those types. It uses weapon

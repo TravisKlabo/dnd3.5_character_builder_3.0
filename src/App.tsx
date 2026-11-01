@@ -3,7 +3,7 @@ import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initia
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
 import { customItemsLoadFailed } from "./customItemsStorage";
 import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
-import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState } from "./rules";
+import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
 import { storeItems, addCustomStoreItems, type StoreItem } from "./data/equipmentCatalog";
@@ -110,7 +110,6 @@ export function App() {
     const freshDraft = beginLevelUp(cloneCharacter(character), classId);
     setLevelUpDraft({
       ...freshDraft,
-      hitPointRoll: null,
       abilityIncrease: null,
       validationErrors: [],
     });
@@ -125,13 +124,6 @@ export function App() {
       proposed: { ...levelUpDraft.proposed, abilities },
       validationErrors: [],
     });
-  };
-  const rollDraftHitPoints = () => {
-    if (!levelUpDraft || levelUpDraft.hitPointRoll !== null) return;
-    const hitPointRoll = rollHitDie(
-      classDefinitions[levelUpDraft.classId].hitDie,
-    );
-    setLevelUpDraft({ ...levelUpDraft, hitPointRoll, validationErrors: [] });
   };
   const confirmLevelUp = () => {
     if (!levelUpDraft) return;
@@ -155,6 +147,10 @@ export function App() {
         levelUpDraft.proposed,
         getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
       ),
+      ...getFeatSkillSelectionWarnings(
+        levelUpDraft.proposed,
+        getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+      ),
       ...getLevelUpSpellWarnings(
         levelUpDraft.original,
         levelUpDraft.proposed,
@@ -167,7 +163,7 @@ export function App() {
     const hpGain = levelUpHitPointGain(
       levelUpDraft.original,
       levelUpDraft.proposed,
-      levelUpDraft.hitPointRoll!,
+      rollHitDie(classDefinitions[levelUpDraft.classId].hitDie),
     );
     const proposed = {
       ...levelUpDraft.proposed,
@@ -272,17 +268,25 @@ export function App() {
         [slotId]: featId,
       });
       const weaponSelections = { ...(current.featWeaponSelections ?? {}) };
+      const skillSelections = { ...(current.featSkillSelections ?? {}) };
       if (current.featSelections?.[slotId] !== featId)
         delete weaponSelections[slotId];
+      if (current.featSelections?.[slotId] !== featId)
+        delete skillSelections[slotId];
       const featSelectionContext = { ...current, featSelections };
       const featWeaponSelections = normalizeFeatWeaponSelections(
         featSelectionContext,
         weaponSelections,
       );
+      const featSkillSelections = normalizeFeatSkillSelections(
+        { ...featSelectionContext, featSkillSelections: skillSelections },
+        skillSelections,
+      );
       return {
         ...current,
         featSelections,
         featWeaponSelections,
+        featSkillSelections,
         feats: Object.values(featSelections).filter(Boolean),
       };
     };
@@ -313,11 +317,31 @@ export function App() {
       });
     else setCharacter(update);
   };
+  const updateFeatSkillSelection = (slotId: string, skill: string) => {
+    const update = (current: Character) => {
+      const selections = { ...(current.featSkillSelections ?? {}) };
+      if (skill) selections[slotId] = skill;
+      else delete selections[slotId];
+      const featSkillSelections = normalizeFeatSkillSelections(
+        current,
+        selections,
+      );
+      return { ...current, featSkillSelections };
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+      });
+    else setCharacter(update);
+  };
   const resetCreationChoices = (draft: Character): Character => ({
     ...draft,
     feats: [],
     featSelections: {},
     featWeaponSelections: {},
+    featSkillSelections: {},
     skills: {},
     skillRanksByClass: {},
   });
@@ -722,11 +746,8 @@ export function App() {
           0,
         ) % 4 === 0 && !levelUpDraft.abilityIncrease
           ? [
-              "Choose an ability score to increase by +1 before rolling hit points.",
+              "Choose an ability score to increase by +1 before confirming the level-up.",
             ]
-          : []),
-        ...(levelUpDraft.hitPointRoll === null
-          ? ["Roll hit points before confirming the level-up."]
           : []),
         ...getLevelUpSkillWarnings(
           levelUpDraft.original,
@@ -742,17 +763,19 @@ export function App() {
           levelUpDraft.proposed,
           getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
         ),
+        ...getFeatSkillSelectionWarnings(
+          levelUpDraft.proposed,
+          getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+        ),
         ...getLevelUpSpellWarnings(
           levelUpDraft.original,
           levelUpDraft.proposed,
         ),
       ]
     : [];
-  const canRollAndConfirmLevelUp =
+  const canConfirmLevelUp =
     levelUpDraft !== null &&
-    levelUpWarnings.every(
-      (warning) => warning !== "Roll hit points before confirming the level-up.",
-    );
+    levelUpWarnings.length === 0;
   const levelUpTotalLevel = levelUpDraft?.proposed.classLevels.reduce(
     (total, entry) => total + entry.level,
     0,
@@ -957,25 +980,8 @@ export function App() {
             )}
             <div className="level-roll-controls">
               <span>
-                Hit die: d{classDefinitions[levelUpDraft.classId].hitDie}{" "}
-                {levelUpDraft.hitPointRoll === null
-                  ? "not rolled"
-                  : `roll ${levelUpDraft.hitPointRoll}`}
+                Hit die: d{classDefinitions[levelUpDraft.classId].hitDie}. HP is rolled when you confirm.
               </span>
-              <button
-                className="quiet-button"
-                type="button"
-                onClick={rollDraftHitPoints}
-                disabled={
-                  levelUpDraft.hitPointRoll !== null ||
-                  levelUpWarnings.some(
-                    (warning) =>
-                      warning !== "Roll hit points before confirming the level-up.",
-                  )
-                }
-              >
-                Roll Hit Points
-              </button>
             </div>
             <div className="level-todo-list">
               {levelUpWarnings.map((warning) => (
@@ -1002,7 +1008,7 @@ export function App() {
               className="level-button"
               type="button"
               onClick={confirmLevelUp}
-              disabled={!levelUpDraft.hitPointRoll || !canRollAndConfirmLevelUp}
+              disabled={!canConfirmLevelUp}
             >
               Confirm Level-Up
             </button>
@@ -1085,6 +1091,7 @@ export function App() {
             onSkillRankChange={updateSkillRanks}
             onFeatChange={updateFeatSelection}
             onFeatWeaponChange={updateFeatWeaponSelection}
+            onFeatSkillChange={updateFeatSkillSelection}
             onLanguagesChange={updateLanguages}
             allowFeatSelection={!creationLocked || levelUpMode}
             finalized={creationLocked && !levelUpMode}

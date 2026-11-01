@@ -64,7 +64,9 @@ file containing the character and custom item catalog; Import accepts well-forme
 2.0 character exports. Export a character from 2.0 and import it into 3.0 to transfer
 between application origins or desktop installations.
 
-Level-up choices remain provisional until confirmation. Save and Export are disabled
+Level-up choices remain provisional until confirmation. Confirming a valid level-up
+rolls and applies the new level's HP gain together with its other changes; cancelling
+the draft does not roll HP or alter the saved character. Save and Export are disabled
 during a level-up draft so unvalidated choices cannot be persisted or transferred.
 Saving during initial setup stores a resumable draft; reopening it returns to setup,
 where the usual validation still applies before the character can be finalized.
@@ -118,6 +120,13 @@ removes those that expire. Effects are saved with the character. Enter only
 modifiers that stack; bonus-type stacking, situational limits, and exact effect
 timing remain adjudicated manually. The preset for bless applies its attack bonus;
 its save bonus against fear is situational and must be tracked separately.
+Great Fortitude, Lightning Reflexes, and Iron Will are included in their
+respective saving throw totals and breakdowns.
+
+Feat, spell, class, and prestige-class entries display their broad catalog
+source (Core SRD or Dragonlance user content pack). These labels identify the
+catalog group, not the original publication book; exact book and page
+attributions remain unverified unless shown explicitly.
 
 On wide screens, Ability Scores, Attacks & Weapons, and Languages stack
 independently beside Combat Summary and Saving Throws, avoiding gaps caused by
@@ -251,7 +260,9 @@ checks in the Special Abilities list; those feature checks remain manual.
 Status is derived from existing ranks and updates during setup and level-up;
 discarding a draft restores the original training. No extra training flags are
 saved. Displayed modifiers include ability, whole ranks, racial bonuses,
-equipped armor/shield check penalties, and tracked effects. A compact label such as **-5 armor,
+Skill Focus, skill synergies, equipped armor/shield check penalties, and tracked effects.
+Skill Focus adds +3 to its selected skill; it can be selected multiple times for
+different skills. A compact label such as **-5 armor,
 -2 shield** appears only when a penalty applies; the skill and modifier tooltips
 identify the actual items. Normal armor penalties apply to Balance, Climb, Escape
 Artist, Hide, Jump, Move Silently, Sleight of Hand, Tumble, and Swim (doubled).
@@ -288,9 +299,10 @@ and are not offered as redundant choices.
 Equipped nonproficient armor/shields apply their adjusted armor check penalties
 to every weapon attack and all Strength/Dexterity skill checks, including Ride,
 Use Rope, and trained Open Lock. Initiative, a Dexterity ability check, also
-includes these penalties. Armor and shield nonproficiency penalties stack with
-each other, but a skill already affected by normal armor penalties does not
-take the same item's penalty twice. Normal load-vs-armor comparisons and doubled
+includes these penalties and the +4 bonus from Improved Initiative when selected.
+Armor and shield nonproficiency penalties stack with each other, but a skill
+already affected by normal armor penalties does not take the same item's penalty
+twice. Normal load-vs-armor comparisons and doubled
 Swim penalties remain unchanged. Weapon Finesse's separate shield penalty still
 applies in addition to shield nonproficiency.
 
@@ -645,10 +657,12 @@ applied when their context is selected in the Saving Throws panel. Dwarf and
 Gnome target-specific attack and dodge AC bonuses, plus the Halfling thrown
 weapon/slings attack bonus use the selected target types and weapon mode. Small
 creatures receive their size-based Hide bonus, and Gnome illusion spells include
-the +1 racial save DC adjustment. Other features that need encounter or effect
-resolution—such as Dwarf stability, Elf secret-door detection triggers, sleep
-immunity, and spell-like abilities—remain manual. Optional Dragonlance race data
-is not verified. See the SRD [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
+the +1 racial save DC adjustment. Gnome spell-like abilities show their names,
+daily uses, caster level, Charisma requirement, and applicable save DC; tracking
+when those daily uses are spent remains manual. Other features that need
+encounter or effect resolution—such as Dwarf stability, Elf secret-door
+detection triggers, and sleep immunity—remain manual. Optional Dragonlance race
+data is not verified. See the SRD [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
 [Gnome](https://www.d20srd.org/srd/races.htm#gnomes), and
 [Halfling](https://www.d20srd.org/srd/races.htm#halflings) rules.
 
@@ -663,5 +677,4 @@ adjustments. Slot expenditure is manual rather than automatically linked to
 casting a specific prepared spell.
 Dragonlance content remains unverified.
 
-The application still rolls hit points **before** level-up confirmation.
 See [the design notes](docs/3.0-design.md) for retained goals and unfinished work.

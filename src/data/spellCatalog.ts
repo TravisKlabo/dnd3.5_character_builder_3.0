@@ -1,6 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react";
-import type { ClassId } from "../domain";
+import type { ClassId, ContentSourceId } from "../domain";
 import type { SrdSpell } from "../srdSpells";
+
+export const srdSpellContentSource: ContentSourceId = "core-35-srd";
 
 export const spells: SrdSpell[] = [];
 const spellsByClass = new Map<ClassId, SrdSpell[]>();

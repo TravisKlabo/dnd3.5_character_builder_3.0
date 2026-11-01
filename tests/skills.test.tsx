@@ -119,6 +119,26 @@ const coreClassSkillExpectations: readonly [ClassId, readonly string[]][] = [
 ];
 
 describe("skill training and untrained use", () => {
+  it("applies each Skill Focus bonus to its selected skill without stacking duplicates", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.skills.Listen = 2;
+    character.featSelections = {
+      "general-1": "skill-focus",
+      "human-1": "skill-focus",
+    };
+    character.featSkillSelections = {
+      "general-1": "Listen",
+      "human-1": "Knowledge (arcana)",
+    };
+    expect(getSkillCheckModifier(character, "Listen")).toBe(5);
+    expect(getSkillCheckModifier(character, "Knowledge (arcana)")).toBe(3);
+    expect(getSkillCheckModifier(character, "Spot")).toBe(0);
+    expect(getSkillTotalTooltip(character, "Listen")).toContain("Skill Focus: +3");
+
+    character.featSkillSelections["human-1"] = "Listen";
+    expect(getSkillCheckModifier(character, "Listen")).toBe(5);
+  });
+
   it.each(coreClassSkillExpectations)(
     "matches the SRD class-skill list for %s",
     (classId, expected) => {
@@ -419,6 +439,20 @@ it("shows a qualifying class-feature synergy in the Special Abilities list", asy
   expect(feature.parentElement?.textContent).toContain(
     "+2 synergy from Knowledge (history) to Bardic Knowledge checks",
   );
+});
+
+it("shows Gnome racial spell-like abilities and the applicable save DC", async () => {
+  const character = cloneCharacter(initialCharacter);
+  character.race = "Gnome";
+  character.abilities.cha = 14;
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  render(<App />);
+
+  expect((await screen.findByText(/Speak with Animals/)).textContent)
+    .toContain("Burrowing mammals only; duration 1 minute.");
+  expect((await screen.findByText(/Ghost Sound/)).textContent)
+    .toContain("Will disbelief DC 13 (+1 racial illusion bonus)");
+  expect(screen.queryByText("Spell-like abilities (1/day)")).toBeNull();
 });
 
 it("updates training immediately when assigning or removing a rank during setup", () => {

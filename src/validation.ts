@@ -88,6 +88,7 @@ export function assertCharacter(value: unknown): asserts value is Character {
       !["feats", "knownSpells", "preparedSpells", "languages"].every((key) => isStringList(value[key])) ||
       !isMap(value.featSelections, isString) ||
       (value.featWeaponSelections !== undefined && !isMap(value.featWeaponSelections, isString)) ||
+      (value.featSkillSelections !== undefined && !isMap(value.featSkillSelections, isString)) ||
       !isMap(value.skills, isNumber) ||
       !isMap(value.skillRanksByClass, (entry) => isMap(entry, isNumber)) ||
       !isMap(value.equipment, isString) ||

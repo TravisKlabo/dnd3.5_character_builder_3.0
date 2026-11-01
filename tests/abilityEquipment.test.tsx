@@ -193,6 +193,17 @@ describe("ability-enhancement equipment", () => {
 });
 
 describe("situational racial saving throws", () => {
+  it("displays the selected saving throw feat bonus", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.featSelections["general-1"] = "iron-will";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    const will = screen.getByText("Will", { selector: ".stat > small" }).parentElement!;
+    expect(within(will).getByRole("strong").textContent).toBe("+2");
+    expect(will.title).toContain("feat +2");
+  });
+
   it("applies a selected context through the character sheet controls", async () => {
     const character = cloneCharacter(initialCharacter);
     character.race = "Halfling";
@@ -228,6 +239,17 @@ describe("situational racial saving throws", () => {
 });
 
 describe("effective score display and persistence", () => {
+  it("applies Improved Initiative to the displayed initiative modifier", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.featSelections["general-1"] = "improved-initiative";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    const initiative = screen.getByText("Initiative", { selector: ".stat > small" }).parentElement!;
+    expect(within(initiative).getByRole("strong").textContent).toBe("+4");
+    expect(initiative.title).toContain("+4 Improved Initiative");
+  });
+
   it("updates effective cards and initiative, reverts equipment, and saves only base scores", async () => {
     const character = cloneCharacter(initialCharacter);
     character.equipment = { Hands: "Gloves of Dexterity +4", Waist: "Belt of Giant Strength +2" };

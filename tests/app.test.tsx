@@ -18,6 +18,18 @@ function savedHero() {
 }
 
 describe("application workflows", () => {
+  it("shows catalog sources for selected class and prestige class", () => {
+    const character = savedHero();
+    character.prestigeClass = "arcane-trickster";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    expect(document.querySelector(".finalized-class-field")?.textContent)
+      .toContain("Source: D&D 3.5 Core SRD");
+    expect(document.querySelector(".finalized-prestige-field")?.textContent)
+      .toContain("Source: D&D 3.5 Core SRD");
+  });
+
   it.each([false, true])("preserves free-form age and weight in setup/finalized mode (saved: %s)", async (saved) => {
     if (saved) savedHero();
     vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -212,7 +224,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -253,9 +265,8 @@ describe("application workflows", () => {
     }
     await chooseFeat("Fighter bonus feat (fighter level 2)", "Cleave");
     const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    random.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    random.mockRestore();
 
     expect(screen.getByText("24 / 24", { exact: true })).toBeDefined();
     expect(screen.getByText("Attack +3", { exact: true })).toBeDefined();
@@ -361,7 +372,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -377,11 +388,10 @@ describe("application workflows", () => {
     await addFighterSkillRanks();
     await chooseFeat("General feat (level 3)", "Endurance");
     expect(screen.getByRole("button", { name: "Confirm Level-Up" }).hasAttribute("disabled"))
-      .toBe(true);
+      .toBe(false);
     const thirdLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    thirdLevelRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    thirdLevelRoll.mockRestore();
     expect(screen.getByText("33 / 33", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (24/24)", { exact: true })).toBeDefined();
 
@@ -396,9 +406,8 @@ describe("application workflows", () => {
     await addFighterSkillRanks();
     await chooseFeat("Fighter bonus feat (fighter level 4)", "Blind-Fight");
     const fourthLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    fourthLevelRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    fourthLevelRoll.mockRestore();
 
     expect(screen.getByText("48 / 48", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (28/28)", { exact: true })).toBeDefined();
@@ -542,7 +551,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -573,9 +582,8 @@ describe("application workflows", () => {
     await addPaladinSkillRanks();
     await chooseFeat("General feat (level 3)", "Endurance");
     const thirdLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    thirdLevelRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    thirdLevelRoll.mockRestore();
     expect(screen.getByText("33 / 33", { exact: true })).toBeDefined();
 
     await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
@@ -599,9 +607,8 @@ describe("application workflows", () => {
     );
     await addPaladinSkillRanks();
     const fourthLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    fourthLevelRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    fourthLevelRoll.mockRestore();
 
     expect(screen.getByText("44 / 44", { exact: true })).toBeDefined();
     const strength = screen.getByText("STR").parentElement;
@@ -697,9 +704,8 @@ describe("application workflows", () => {
     }
     expect(screen.getByText("Skills (26/26)", { exact: true })).toBeDefined();
     const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    random.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    random.mockRestore();
 
     expect(screen.getByText("20 / 20", { exact: true })).toBeDefined();
     expect(screen.getByText("Attack +2", { exact: true })).toBeDefined();
@@ -825,7 +831,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -838,9 +844,8 @@ describe("application workflows", () => {
     }
     await chooseFeat("Fighter bonus feat (fighter level 1)", "Blind-Fight");
     const fighterRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    fighterRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    fighterRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Save" }));
     const afterFighterLevel = readStoredCharacter();
     expect(afterFighterLevel).toMatchObject({
@@ -891,9 +896,8 @@ describe("application workflows", () => {
     }
     await chooseFeat("General feat (level 3)", "Endurance");
     const wizardRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    wizardRoll.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    wizardRoll.mockRestore();
 
     await user.click(
       within(await screen.findByRole("navigation", { name: "Character sheets" })).getByRole(
@@ -968,13 +972,12 @@ describe("application workflows", () => {
     await user.click(
       within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
         "option",
-        { name: "Rapid Shot" },
+        { name: /^Rapid Shot/ },
       ),
     );
     const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    random.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    random.mockRestore();
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     const saved = readStoredCharacter();
@@ -1023,16 +1026,15 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
     await chooseFeat("Monk bonus feat (monk level 1)", "Stunning Fist");
     await chooseFeat("Monk bonus feat (monk level 2)", "Deflect Arrows");
     const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
-    await user.click(screen.getByRole("button", { name: "Roll Hit Points" }));
-    random.mockRestore();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    random.mockRestore();
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     const saved = readStoredCharacter();
@@ -1055,7 +1057,7 @@ describe("application workflows", () => {
     await user.click(
       within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
         "option",
-        { name: "Wizard" },
+        { name: /^Wizard/ },
       ),
     );
     const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
@@ -1083,7 +1085,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -1198,7 +1200,7 @@ describe("application workflows", () => {
     await user.click(
       within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
         "option",
-        { name: "Cleric" },
+        { name: /^Cleric/ },
       ),
     );
     const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
@@ -1253,7 +1255,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -1380,7 +1382,7 @@ describe("application workflows", () => {
     await user.click(
       within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
         "option",
-        { name: "Sorcerer" },
+        { name: /^Sorcerer/ },
       ),
     );
     const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
@@ -1408,7 +1410,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };
@@ -1559,7 +1561,7 @@ describe("application workflows", () => {
     await user.click(
       within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
         "option",
-        { name: "Paladin" },
+        { name: /^Paladin/ },
       ),
     );
 
@@ -2190,7 +2192,7 @@ describe("application workflows", () => {
       await user.click(
         within(screen.getByRole("listbox", { name: "Feat choices" })).getByRole(
           "option",
-          { name: feat },
+          { name: new RegExp(`^${feat}`) },
         ),
       );
     };

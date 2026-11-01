@@ -135,22 +135,38 @@ describe("HP tracker workflow", () => {
     const character = { ...cloneCharacter(initialCharacter), currentHitPoints: 4,
       classLevels: [{ classId: "barbarian", level: 1 }] as const };
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
-    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
     fireEvent.change(screen.getByRole("combobox", { name: /class/i }), { target: { value: "barbarian" } });
     const climb = within(screen.getByRole("group", { name: "Climb skill" }));
     for (let index = 0; index < 5; index++) fireEvent.click(climb.getByRole("button", { name: "Add rank to Climb" }));
-    const roll = screen.getByRole<HTMLButtonElement>("button", { name: "Roll Hit Points" });
-    expect(roll.disabled, document.querySelector(".level-todo-list")?.textContent).toBe(false);
-    fireEvent.click(roll);
+    expect(random).not.toHaveBeenCalled();
     const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
     expect(confirm.disabled).toBe(false);
     fireEvent.click(confirm);
+    expect(random).toHaveBeenCalledTimes(1);
     expect(screen.getByText("HP 11 / 17")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(loadSavedCharacter().character).toMatchObject({ hitPoints: 17, currentHitPoints: 11 });
+  });
+
+  it("does not roll or change saved HP when a level-up draft is discarded", () => {
+    const character = {
+      ...cloneCharacter(initialCharacter),
+      hitPoints: 17,
+      currentHitPoints: 12,
+      classLevels: [{ classId: "fighter", level: 1 }] as const,
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    const random = vi.spyOn(Math, "random");
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    expect(random).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Discard Draft" }));
+    expect(random).not.toHaveBeenCalled();
+    expect(loadSavedCharacter().character).toMatchObject({ hitPoints: 17, currentHitPoints: 12 });
   });
 
   it("preserves damage and avoids baking equipped Constitution into level-up HP", () => {
@@ -165,9 +181,6 @@ describe("HP tracker workflow", () => {
     fireEvent.change(screen.getByRole("combobox", { name: /class/i }), { target: { value: "barbarian" } });
     const climb = within(screen.getByRole("group", { name: "Climb skill" }));
     for (let index = 0; index < 5; index++) fireEvent.click(climb.getByRole("button", { name: "Add rank to Climb" }));
-    const roll = screen.getByRole<HTMLButtonElement>("button", { name: "Roll Hit Points" });
-    expect(roll.disabled, document.querySelector(".level-todo-list")?.textContent).toBe(false);
-    fireEvent.click(roll);
     fireEvent.click(screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" }));
     expect(screen.getByText("HP 15 / 21")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -210,7 +223,6 @@ describe("HP tracker workflow", () => {
         { name: /Improved Initiative/ },
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Roll Hit Points" }));
     const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
     expect(confirm.disabled, document.querySelector(".level-todo-list")?.textContent).toBe(false);
     fireEvent.click(confirm);

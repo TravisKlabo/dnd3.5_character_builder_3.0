@@ -6,8 +6,9 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getAvailableBonusLanguages, getClassFeatureDisplay, getClassFeatureSkillSynergy,
   getLanguageBonusSlots,
   getAvailableFeats, getFeatSlots, getLevelUpSkillWarnings, getRacialSkillBonus,
-  getRacialSkillContextOptions, getSkillCheckModifier, getSkillTotalTooltip,
-  formatRaceDetails, getNewLevelUpFeatSlots, getSkillMaximum, getSpentSkillPoints,
+  getRacialSkillContextOptions, getRacialSpellLikeAbilities, getSkillCheckModifier, getSkillTotalTooltip,
+  formatRaceDetails, getImprovedInitiativeBonus, getInitiativeModifier,
+  getNewLevelUpFeatSlots, getSavingThrow, getSkillMaximum, getSpentSkillPoints,
   normalizeFeatSelections,
   getTwoWeaponAttackPenalty, isClassAlignmentAllowed } from "../src/rules";
 import { featCatalog } from "../src/data/characterCatalog";
@@ -50,10 +51,8 @@ describe("character rules preserved from 2.0", () => {
     expect(nextClassLevel(draft.proposed, "wizard")).toBe(2);
   });
 
-  it("requires a hit point roll before confirmation, preserving current behavior", () => {
+  it("validates level-up choices without rolling hit points", () => {
     const draft = beginLevelUp(cloneCharacter(initialCharacter), "fighter");
-    expect(validateLevelUp(draft)).toContain("Roll hit points before confirming the level-up.");
-    draft.hitPointRoll = 6;
     expect(validateLevelUp(draft)).toEqual([]);
     draft.proposed.classLevels[0].level = 5;
     expect(validateLevelUp(draft)).toContain("A level-up must add exactly one class level.");
@@ -63,7 +62,6 @@ describe("character rules preserved from 2.0", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels[0].level = 3;
     const draft = beginLevelUp(character, "fighter");
-    draft.hitPointRoll = 5;
     expect(validateLevelUp(draft)).toContain("Choose an ability score to increase before confirming the level-up.");
     draft.abilityIncrease = "str";
     expect(validateLevelUp(draft)).toEqual([]);
@@ -145,6 +143,69 @@ describe("character rules preserved from 2.0", () => {
     expect(getRacialSkillBonus(halfElf, "Search")).toBe(1);
     expect(getRacialSkillBonus(halfElf, "Diplomacy")).toBe(2);
     expect(getRacialSkillBonus(halfElf, "Gather Information")).toBe(2);
+  });
+
+  it("adds Improved Initiative once to the initiative modifier", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.abilities.dex = 14;
+    expect(getInitiativeModifier(character)).toBe(2);
+
+    character.featSelections["general-1"] = "improved-initiative";
+    expect(getImprovedInitiativeBonus(character)).toBe(4);
+    expect(getInitiativeModifier(character)).toBe(6);
+
+    character.featSelections["fighter-1"] = "improved-initiative";
+    expect(getInitiativeModifier(character)).toBe(6);
+  });
+
+  it.each([
+    ["fortitude", "great-fortitude"],
+    ["reflex", "lightning-reflexes"],
+    ["will", "iron-will"],
+  ] as const)("applies the %s saving throw feat", (save, featId) => {
+    const character = cloneCharacter(initialCharacter);
+    character.featSelections["general-1"] = featId;
+
+    const result = getSavingThrow(character, save);
+    expect(result.total).toBe(getBaseSave(character, save) + 2);
+    expect(result.detail).toContain("feat +2");
+  });
+
+  it("stacks Iron Will with a matching racial bonus and resistance, but not another copy", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Gnome";
+    character.featSelections["general-1"] = "iron-will";
+    character.featSelections["fighter-1"] = "iron-will";
+    character.equipment.Shoulders = "Cloak of Resistance +2";
+
+    const result = getSavingThrow(character, "will", ["illusion"]);
+    expect(result.total).toBe(6);
+    expect(result.detail).toContain("illusion racial +2");
+    expect(result.detail).toContain("feat +2");
+    expect(result.detail).toContain("resistance +2");
+  });
+
+  it("calculates Gnome spell-like ability access and save DCs", () => {
+    const gnome = cloneCharacter(initialCharacter);
+    gnome.race = "Gnome";
+    gnome.abilities.cha = 14;
+    expect(getRacialSpellLikeAbilities(gnome).map((ability) => ({
+      name: ability.name,
+      usesPerDay: ability.usesPerDay,
+      casterLevel: ability.casterLevel,
+      saveDC: ability.saveDC,
+      racialSaveDcBonus: ability.racialSaveDcBonus,
+    }))).toEqual([
+      { name: "Speak with Animals", usesPerDay: 1, casterLevel: 1, saveDC: undefined, racialSaveDcBonus: 0 },
+      { name: "Dancing Lights", usesPerDay: 1, casterLevel: 1, saveDC: undefined, racialSaveDcBonus: 0 },
+      { name: "Ghost Sound", usesPerDay: 1, casterLevel: 1, saveDC: 13, racialSaveDcBonus: 1 },
+      { name: "Prestidigitation", usesPerDay: 1, casterLevel: 1, saveDC: undefined, racialSaveDcBonus: 0 },
+    ]);
+
+    gnome.abilities.cha = 9;
+    expect(getRacialSpellLikeAbilities(gnome).map((ability) => ability.name))
+      .toEqual(["Speak with Animals"]);
+    expect(getRacialSpellLikeAbilities(cloneCharacter(initialCharacter))).toEqual([]);
   });
 
   it("applies the Small-size Hide bonus and includes it in the check breakdown", () => {

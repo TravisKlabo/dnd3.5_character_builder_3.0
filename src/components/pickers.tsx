@@ -4,6 +4,8 @@ import { handleScrollableMenuKeyDown } from "../menuNavigation";
 import { getSizedWeaponDamage, getWeaponProfile, getWeaponSizeNote, getStoreItemDescription, getSizedStoreWeight, getSizedStorePrice } from "../rules";
 import { createPortal } from "react-dom";
 import { type FeatDefinition, classDefinitions, type ClassId } from "../domain";
+import { srdSpellContentSource } from "../data/spellCatalog";
+import { ContentSourceLabel } from "./shared";
 
 export function EquipmentItemPicker({
   items,
@@ -283,6 +285,7 @@ export function FeatPicker({
         {selectedFeat?.name ?? "Choose a feat"}
         <span aria-hidden="true">▾</span>
       </button>
+      {selectedFeat && <ContentSourceLabel source={selectedFeat.source} />}
       {hoveredDescription && (
         <span
           className="feat-picker-tooltip"
@@ -341,6 +344,7 @@ export function FeatPicker({
               }}
             >
               <span>{feat.name}</span>
+              <ContentSourceLabel source={feat.source} />
             </button>
           ))}
           {!filteredChoices.length && (
@@ -548,6 +552,7 @@ export function SpellPicker({
         {selectedSpell ? `${selectedSpell.name} (Level ${selectedSpell.level})` : placeholder}
         <span aria-hidden="true">▾</span>
       </button>
+      {selectedSpell && <ContentSourceLabel source={srdSpellContentSource} />}
       {hoveredSpell && (
         <span
           className="feat-picker-tooltip"
@@ -624,6 +629,7 @@ export function SpellPicker({
               }}
             >
               {spell.name} (Level {spell.level})
+              <ContentSourceLabel source={srdSpellContentSource} />
             </button>
           ))}
           {!filteredSpells.length && (

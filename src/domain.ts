@@ -101,6 +101,17 @@ export interface RaceDefinition {
   speed?: number
   traits?: string[]
   specialAbilities?: string[]
+  racialSpellLikeAbilities?: {
+    name: string
+    usesPerDay: number
+    casterLevel: number
+    spellLevel?: number
+    school?: string
+    savingThrow?: string
+    minimumCharisma?: number
+    notes?: string
+  }[]
+  racialSpellSchoolDcBonuses?: Record<string, number>
 }
 
 export type SavingThrowCondition = 'fear' | 'poison' | 'spell' | 'enchantment' | 'illusion'
@@ -167,6 +178,7 @@ export interface Character {
   feats: string[]
   featSelections: Record<string, FeatId | ''>
   featWeaponSelections?: Record<string, string>
+  featSkillSelections?: Record<string, string>
   skills: Record<string, number>
   skillRanksByClass: Record<string, Record<string, number>>
   knownSpells: string[]
@@ -201,7 +213,6 @@ export interface LevelUpDraft {
   original: Character
   proposed: Character
   classId: ClassId
-  hitPointRoll: number | null
   abilityIncrease: AbilityName | null
   validationErrors: string[]
 }
@@ -227,7 +238,12 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
   dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability', 'Waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. orcs/goblinoids; +4 dodge AC vs. giants', 'Stone/metal Appraise/Craft +2'] },
   elf: { id: 'elf', name: 'Elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision', 'Sleep immunity', 'Enchantment saves +2', 'Elf weapon proficiencies'] },
   halfling: { id: 'halfling', name: 'Halfling', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { dex: 2, str: -2 }, racialSkillBonuses: { Climb: 2, Jump: 2, Listen: 2, 'Move Silently': 2 }, racialSavingThrowBonus: 1, racialSituationalSaveBonuses: { fear: 2 }, specialAbilities: ['All saves +1; fear +2', 'Thrown/slings attacks +1'] },
-  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSkillBonuses: { Craft: { alchemy: 2 } }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2', 'Spell-like abilities (1/day)'] },
+  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSkillBonuses: { Craft: { alchemy: 2 } }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, racialSpellLikeAbilities: [
+    { name: 'Speak with Animals', usesPerDay: 1, casterLevel: 1, notes: 'Burrowing mammals only; duration 1 minute.' },
+    { name: 'Dancing Lights', usesPerDay: 1, casterLevel: 1, spellLevel: 0, school: 'evocation', minimumCharisma: 10 },
+    { name: 'Ghost Sound', usesPerDay: 1, casterLevel: 1, spellLevel: 0, school: 'illusion', savingThrow: 'Will disbelief', minimumCharisma: 10 },
+    { name: 'Prestidigitation', usesPerDay: 1, casterLevel: 1, spellLevel: 0, school: 'universal', minimumCharisma: 10 },
+  ], racialSpellSchoolDcBonuses: { illusion: 1 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2'] },
   'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Orc blood'] },
   'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision', 'Sleep immunity', 'Enchantment saves +2', 'Elven blood'] },
   kender: { id: 'kender', name: 'Kender', source: 'dragonlance-user-pack', size: 'Small', speed: 20, abilityModifiers: { str: -2, dex: 2, cha: 2 }, traits: ['Fearless', 'Kender Pockets', 'Taunt', 'Curiosity'] },
@@ -274,7 +290,7 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
 export const initialCharacter: Character = {
   name: 'Unnamed Hero', player: 'Player', gender: '', age: '', height: '5 ft. 7 in.', weight: '', hairColor: '', eyeColor: '', skinColor: '', temporaryHitPoints: 0, nonlethalDamage: 0, damageReduction: '', spellResistance: '', notes: '', race: 'Human', alignment: 'Neutral Good',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], knownSpellClasses: {}, knownSpellsByClass: {}, spellAcquisitionByClass: {}, preparedSpells: [], preparedSpellsByClass: {}, equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
+  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, featSkillSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], knownSpellClasses: {}, knownSpellsByClass: {}, spellAcquisitionByClass: {}, preparedSpells: [], preparedSpellsByClass: {}, equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
 }
 
 export function abilityModifier(score: number) {
@@ -372,7 +388,7 @@ export function beginLevelUp(character: Character, classId: ClassId): LevelUpDra
   const existingClass = proposed.classLevels.find((entry) => entry.classId === classId)
   if (existingClass) existingClass.level = nextClassLevel(character, classId)
   else proposed.classLevels = [...proposed.classLevels, { classId, level: 1 }]
-  return { original: cloneCharacter(character), proposed, classId, hitPointRoll: null, abilityIncrease: null, validationErrors: [] }
+  return { original: cloneCharacter(character), proposed, classId, abilityIncrease: null, validationErrors: [] }
 }
 
 export function validateLevelUp(draft: LevelUpDraft): string[] {
@@ -383,6 +399,5 @@ export function validateLevelUp(draft: LevelUpDraft): string[] {
   if (draft.proposed.classLevels.some((entry) => entry.level < 1)) errors.push('Class levels must be at least 1.')
   if (proposedTotalLevel % 4 === 0 && !draft.abilityIncrease)
     errors.push('Choose an ability score to increase before confirming the level-up.')
-  if (draft.hitPointRoll === null) errors.push('Roll hit points before confirming the level-up.')
   return errors
 }

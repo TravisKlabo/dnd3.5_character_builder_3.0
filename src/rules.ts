@@ -98,6 +98,32 @@ export function getSpellSaveDC(
     racialBonus;
 }
 
+export function getRacialSpellLikeAbilities(character: Character) {
+  const race =
+    raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ??
+    raceDefinitions.human;
+  const charisma = getEffectiveAbilityScore(character, "cha");
+
+  return (race.racialSpellLikeAbilities ?? [])
+    .filter((ability) =>
+      ability.minimumCharisma === undefined ||
+      charisma >= ability.minimumCharisma
+    )
+    .map((ability) => {
+      const racialSaveDcBonus = ability.school
+        ? race.racialSpellSchoolDcBonuses?.[ability.school.toLowerCase()] ?? 0
+        : 0;
+      return {
+        ...ability,
+        saveDC: ability.savingThrow
+          ? 10 + (ability.spellLevel ?? 0) + abilityModifier(charisma) +
+            racialSaveDcBonus
+          : undefined,
+        racialSaveDcBonus,
+      };
+    });
+}
+
 export function getArcaneSpellFailure(character: Character, classId: ClassId) {
   if (!["bard", "sorcerer", "wizard"].includes(classId)) return undefined;
   const details: string[] = [];
@@ -1238,6 +1264,18 @@ export function getArmorNonproficiencyPenalties(character: Character) {
   });
 }
 
+export function getImprovedInitiativeBonus(character: Character) {
+  return getChosenFeats(character).includes("improved-initiative") ? 4 : 0;
+}
+
+export function getInitiativeModifier(character: Character) {
+  return abilityModifier(getEffectiveAbilityScore(character, "dex")) +
+    getImprovedInitiativeBonus(character) +
+    getCombatEffectModifier(character, "checks") +
+    getArmorNonproficiencyPenalties(character)
+      .reduce((total, entry) => total + entry.penalty, 0);
+}
+
 export function getEquippedWeaponStats(
   character: Character,
   key: string,
@@ -1839,11 +1877,17 @@ export function getSavingThrow(
   const situationalBonus = matchingCondition
     ? race?.racialSituationalSaveBonuses?.[matchingCondition] ?? 0
     : 0;
+  const savingThrowFeat = {
+    fortitude: "great-fortitude",
+    reflex: "lightning-reflexes",
+    will: "iron-will",
+  }[save];
+  const featBonus = getChosenFeats(character).includes(savingThrowFeat) ? 2 : 0;
   const resistance = getEquipmentDefenseBonuses(character).resistance;
   const activeSaves = getCombatEffectModifier(character, "saves");
-  const breakdown = `Base ${formatModifier(base)} · ${ability[save].toUpperCase()} ${formatModifier(abilityBonus)}${racialBonus ? ` · racial ${formatModifier(racialBonus)}` : ""}${matchingCondition ? ` · ${matchingCondition} ${matchingCondition === "fear" ? "morale" : "racial"} ${formatModifier(situationalBonus)}` : ""}`;
+  const breakdown = `Base ${formatModifier(base)} · ${ability[save].toUpperCase()} ${formatModifier(abilityBonus)}${racialBonus ? ` · racial ${formatModifier(racialBonus)}` : ""}${matchingCondition ? ` · ${matchingCondition} ${matchingCondition === "fear" ? "morale" : "racial"} ${formatModifier(situationalBonus)}` : ""}${featBonus ? ` · feat ${formatModifier(featBonus)}` : ""}`;
   return {
-    total: base + abilityBonus + racialBonus + situationalBonus + resistance.bonus + activeSaves,
+    total: base + abilityBonus + racialBonus + situationalBonus + featBonus + resistance.bonus + activeSaves,
     detail: `${breakdown}${resistance.bonus ? ` · resistance ${formatModifier(resistance.bonus)}` : ""}${activeSaves ? ` · active effects ${formatModifier(activeSaves)}` : ""}`,
     title: [breakdown, conditions.length ? `Context: ${conditions.join(", ")}` : "Select context for situational racial bonuses.", ...getAbilityEquipmentBonus(character, ability[save]).detail, ...resistance.detail, ...getCombatEffectDetails(character, "saves"), "Active effects are applied as entered; check bonus types and situational limits."].join("\n"),
   };
@@ -2031,6 +2075,7 @@ const repeatableWeaponFeats = new Set([
   "weapon-focus",
   "weapon-specialization",
 ]);
+const repeatableFeats = new Set([...repeatableWeaponFeats, "skill-focus"]);
 const weaponSelectionFeats = new Set(repeatableWeaponFeats);
 const strength13ExoticWeapons = new Set(["Bastard Sword", "Dwarven Waraxe"]);
 
@@ -2188,11 +2233,13 @@ export function getAvailableFeats(
   return featCatalog.filter(
     (feat) =>
       (!chosenFeats.includes(feat.id) ||
-        repeatableWeaponFeats.has(feat.id) ||
+        repeatableFeats.has(feat.id) ||
         slot.rangerStyleLevel !== undefined) &&
       featQualifies(character, feat, slot, excludingSlot) &&
       (!weaponSelectionFeats.has(feat.id) ||
-        getAvailableFeatWeaponChoices(character, feat.id, excludingSlot).length > 0),
+        getAvailableFeatWeaponChoices(character, feat.id, excludingSlot).length > 0) &&
+      (feat.id !== "skill-focus" ||
+        getAvailableFeatSkillChoices(character, excludingSlot).length > 0),
   );
 }
 
@@ -2211,7 +2258,7 @@ export function normalizeFeatSelections(
     if (
       feat &&
       (!chosenFeats.includes(feat.id) ||
-        repeatableWeaponFeats.has(feat.id) ||
+        repeatableFeats.has(feat.id) ||
         slot.rangerStyleLevel !== undefined) &&
       featQualifies(
         { ...character, featSelections: normalized },
@@ -2223,6 +2270,11 @@ export function normalizeFeatSelections(
         getAvailableFeatWeaponChoices(
           { ...character, featSelections: normalized },
           feat.id,
+          slot.id,
+        ).length > 0) &&
+      (feat.id !== "skill-focus" ||
+        getAvailableFeatSkillChoices(
+          { ...character, featSelections: normalized },
           slot.id,
         ).length > 0)
     )
@@ -2259,6 +2311,51 @@ export function getFeatWeaponSelectionWarnings(
       getAvailableFeatWeaponChoices(character, featId, slot.id).includes(weapon)
       ? []
       : [`Choose a valid weapon for ${slot.label}.`];
+  });
+}
+
+export function getAvailableFeatSkillChoices(
+  character: Character,
+  excludingSlot?: string,
+) {
+  const selectedSkills = new Set(
+    Object.entries(character.featSelections ?? {})
+      .filter(
+        ([slotId, featId]) =>
+          slotId !== excludingSlot && featId === "skill-focus",
+      )
+      .map(([slotId]) => character.featSkillSelections?.[slotId])
+      .filter((skill): skill is string => Boolean(skill)),
+  );
+  return skills.filter((skill) => !selectedSkills.has(skill));
+}
+
+export function normalizeFeatSkillSelections(
+  character: Character,
+  selections: Record<string, string>,
+) {
+  const normalized: Record<string, string> = {};
+  getFeatSlots(character).forEach((slot) => {
+    if (character.featSelections?.[slot.id] !== "skill-focus") return;
+    const skill = selections[slot.id];
+    if (!skill) return;
+    const context = { ...character, featSkillSelections: normalized };
+    if (getAvailableFeatSkillChoices(context, slot.id).includes(skill))
+      normalized[slot.id] = skill;
+  });
+  return normalized;
+}
+
+export function getFeatSkillSelectionWarnings(
+  character: Character,
+  slots = getFeatSlots(character),
+) {
+  return slots.flatMap((slot) => {
+    if (character.featSelections?.[slot.id] !== "skill-focus") return [];
+    const skill = character.featSkillSelections?.[slot.id];
+    return skill && getAvailableFeatSkillChoices(character, slot.id).includes(skill)
+      ? []
+      : [`Choose a valid skill for ${slot.label}.`];
   });
 }
 
@@ -2548,9 +2645,20 @@ export function getSkillCheckModifier(
   const activeChecks = getCombatEffectModifier(character, "checks");
   const synergyBonus = getSkillSynergyBonus(character, skill, synergyContext);
   const sizeBonus = getSmallSizeHideBonus(character, skill);
+  const skillFocusBonus = getSkillFocusBonus(character, skill);
   if (!use.trained && use.untrainedUse === "limited")
-    return abilityBonus + penalty + activeChecks + synergyBonus;
-  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks;
+    return abilityBonus + penalty + activeChecks + synergyBonus + skillFocusBonus;
+  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks + skillFocusBonus;
+}
+
+export function getSkillFocusBonus(character: Character, skill: string) {
+  return Object.entries(character.featSelections ?? {}).some(
+    ([slotId, featId]) =>
+      featId === "skill-focus" &&
+      character.featSkillSelections?.[slotId] === skill,
+  )
+    ? 3
+    : 0;
 }
 
 export type RacialSkillContextOption = {
@@ -2617,6 +2725,7 @@ export function getSkillTotalTooltip(
     : 0;
   const racialBonus = getRacialSkillBonus(character, skill, condition);
   const sizeBonus = getSmallSizeHideBonus(character, skill);
+  const skillFocusBonus = getSkillFocusBonus(character, skill);
   const racialContext = getRacialSkillContextOptions(character, skill).find(
     (option) => option.condition === condition,
   );
@@ -2648,6 +2757,7 @@ export function getSkillTotalTooltip(
     racialBonus
       ? `${getCharacterRace(character)}${racialContext ? ` (${racialContext.label})` : ""}: ${formatModifier(racialBonus)}`
       : "",
+    skillFocusBonus ? `Skill Focus: ${formatModifier(skillFocusBonus)}` : "",
     sizeBonus ? `Small size (Hide): ${formatModifier(sizeBonus)}` : "",
     synergySources.length
       ? `Skill synergy ${formatModifier(2)}: ${[...new Set(synergySources.map((entry) => entry.sourceSkill))].join(", ")}`

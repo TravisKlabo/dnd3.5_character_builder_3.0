@@ -1,10 +1,10 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
-import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getRangerCombatStyleStatus } from "../rules";
+import { type Character, type ClassId, type ContentSourceId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
+import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getRangerCombatStyleStatus, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
 import { type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, ContentSourceLabel } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -12,7 +12,7 @@ import { type HitPointAction, getCurrentHitPoints, getMaximumHitPoints } from ".
 import { CastingSummary } from "./CastingSummary";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
 import { CombatEffectsTracker } from "./CombatEffectsTracker";
-import { getCombatEffectDetails, getCombatEffectModifier, type CombatEffect } from "../combatEffects";
+import { getCombatEffectDetails, type CombatEffect } from "../combatEffects";
 
 const SavingThrowContextSelector = lazy(() =>
   import("./SavingThrowContextSelector").then((module) => ({
@@ -34,6 +34,7 @@ export function CharacterSheet({
   onSkillRankChange,
   onFeatChange,
   onFeatWeaponChange,
+  onFeatSkillChange,
   onLanguagesChange,
   allowFeatSelection,
   finalized,
@@ -61,6 +62,7 @@ export function CharacterSheet({
   onSkillRankChange: (skill: string, change: number) => void;
   onFeatChange: (slotId: string, featId: string) => void;
   onFeatWeaponChange: (slotId: string, weaponName: string) => void;
+  onFeatSkillChange: (slotId: string, skill: string) => void;
   onLanguagesChange: (languages: string[]) => void;
   allowFeatSelection: boolean;
   finalized: boolean;
@@ -111,6 +113,15 @@ export function CharacterSheet({
         : [],
     )
     .join(" / ");
+  const classSourceIds = [...new Set(
+    character.classLevels
+      .map((level) =>
+        "prestigeClassId" in level
+          ? dragonlancePrestigeClasses[level.prestigeClassId]?.source
+          : classDefinitions[level.classId]?.source,
+      )
+      .filter((source): source is ContentSourceId => Boolean(source)),
+  )];
   const characterRace =
     raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ??
     raceDefinitions.human;
@@ -122,6 +133,10 @@ export function CharacterSheet({
     ...(characterRace.specialAbilities ?? []).map((ability) => ({
       source: characterRace.name,
       ability,
+    })),
+    ...getRacialSpellLikeAbilities(character).map((ability) => ({
+      source: characterRace.name,
+      ability: `${ability.name} (${ability.usesPerDay}/day; caster level ${ability.casterLevel}${ability.savingThrow ? `; ${ability.savingThrow} DC ${ability.saveDC}${ability.racialSaveDcBonus ? ` (+${ability.racialSaveDcBonus} racial ${ability.school} bonus)` : ""}` : ""}${ability.notes ? `; ${ability.notes}` : ""})`,
     })),
     ...character.classLevels
       .map((level) => {
@@ -157,6 +172,7 @@ export function CharacterSheet({
         }))
       : []),
   ];
+  const initiativeFeatBonus = getImprovedInitiativeBonus(character);
   return (
     <div className="sheet-grid">
       <Panel title={`${character.name || "Unnamed Character"}${character.player ? ` (${character.player})` : ""}`} headerLabel="Character Info" className={`identity-panel${finalized ? " finalized" : ""}`} showStatus statusText={`Level: ${character.classLevels.filter((entry) => !("prestigeClassId" in entry && entry.prestigeClassId === "wizard-of-high-sorcery")).reduce((total, entry) => total + entry.level, 0)}`}>
@@ -207,6 +223,7 @@ export function CharacterSheet({
             ) : (
               <input value={classSummary} readOnly />
             )}
+            {classSourceIds.map((source) => <ContentSourceLabel key={source} source={source} />)}
           </label>
           {character.prestigeClass && (
             <label className="finalized-prestige-field">
@@ -214,6 +231,9 @@ export function CharacterSheet({
               <span className="sheet-value">
                 {dragonlancePrestigeClasses[character.prestigeClass]?.name ?? "Prestige Class"}
               </span>
+              {dragonlancePrestigeClasses[character.prestigeClass] && (
+                <ContentSourceLabel source={dragonlancePrestigeClasses[character.prestigeClass].source} />
+              )}
             </label>
           )}
           {(character.highSorceryOrder ||
@@ -424,14 +444,14 @@ export function CharacterSheet({
           <ArmorClassStat character={character} targetTypes={combatTargetTypes} />
           <Stat
             label="Initiative"
-            value={formatModifier(abilityModifier(getEffectiveAbilityScore(character, "dex")) +
-              getCombatEffectModifier(character, "checks") +
-              getArmorNonproficiencyPenalties(character).reduce((total, entry) => total + entry.penalty, 0))}
+            value={formatModifier(getInitiativeModifier(character))}
             detail={[
+              ...(initiativeFeatBonus ? [`${formatModifier(initiativeFeatBonus)} Improved Initiative`] : []),
               ...getArmorNonproficiencyPenalties(character).map((entry) => `${formatModifier(entry.penalty)} ${entry.source}`),
               ...getCombatEffectDetails(character, "checks"),
             ]}
             title={[
+              ...(initiativeFeatBonus ? [`${formatModifier(initiativeFeatBonus)} Improved Initiative`] : []),
               ...getArmorNonproficiencyPenalties(character).map((entry) =>
                 `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency penalty to Dexterity checks`),
               ...getCombatEffectDetails(character, "checks"),
@@ -564,7 +584,7 @@ export function CharacterSheet({
                     {penalties.map((entry) => <span key={entry.source}>
                       {entry.name}: {formatModifier(entry.penalty)}{entry.multiplier === 2 ? " (doubled for Swim)" : ""}.<br />
                     </span>)}
-                    Modifiers include ability, whole ranks, racial bonuses, skill synergies, and applicable armor/shield, load, or nonproficiency check penalties.
+                    Modifiers include ability, whole ranks, racial bonuses, Skill Focus, skill synergies, and applicable armor/shield, load, or nonproficiency check penalties.
                   </span>
                 </span>
                 {skillContexts.length > 0 && (
@@ -688,25 +708,41 @@ export function CharacterSheet({
                 .map(([slotId, featId]) => {
                   const feat = featCatalog.find((entry) => entry.id === featId);
                   const weapon = character.featWeaponSelections?.[slotId];
+                  const skill = character.featSkillSelections?.[slotId];
                   const requiresWeapon = featId === "exotic-weapon-proficiency" ||
                     featId === "weapon-focus" ||
                     featId === "weapon-specialization";
+                  const requiresSkill = featId === "skill-focus";
                   const weaponChoices = requiresWeapon
                     ? getAvailableFeatWeaponChoices(character, featId, slotId)
                     : [];
+                  const skillChoices = requiresSkill
+                    ? getAvailableFeatSkillChoices(character, slotId)
+                    : [];
                   const validWeapon = weapon && weaponChoices.includes(weapon)
                     ? weapon
+                    : undefined;
+                  const validSkill = skill && skillChoices.includes(skill)
+                    ? skill
                     : undefined;
                   const showLegacyWeaponChoice =
                     requiresWeapon &&
                     !validWeapon &&
                     (!allowFeatSelection || Boolean(levelUpOriginal));
+                  const showLegacySkillChoice =
+                    requiresSkill &&
+                    !validSkill &&
+                    (!allowFeatSelection || Boolean(levelUpOriginal));
                   const featName = feat && requiresWeapon
                     ? `${feat.name} (${validWeapon || "choose weapon"})`
-                    : feat?.name;
+                    : feat && requiresSkill
+                      ? `${feat.name} (${validSkill || "choose skill"})`
+                      : feat?.name;
                   const featDescription = feat && requiresWeapon
                     ? `${feat.description} ${validWeapon ? `Selected weapon: ${validWeapon}.` : "Weapon choice required."}`
-                    : feat?.description;
+                    : feat && requiresSkill
+                      ? `${feat.description} ${validSkill ? `Selected skill: ${validSkill}.` : "Skill choice required."}`
+                      : feat?.description;
                   return feat ? (
                     <div className="chosen-feat" key={slotId}>
                       <span className="chosen-feat-name tooltip-anchor">
@@ -718,6 +754,7 @@ export function CharacterSheet({
                       <span className="chosen-feat-description">
                         {" "}
                         - {featDescription}
+                        <ContentSourceLabel source={feat.source} />
                       </span>
                       {showLegacyWeaponChoice && (
                         <label className="feat-weapon-choice">
@@ -736,6 +773,30 @@ export function CharacterSheet({
                                 : "No eligible weapon choices"}
                             </option>
                             {weaponChoices.map((choice) => (
+                              <option key={choice} value={choice}>
+                                {choice}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      {showLegacySkillChoice && (
+                        <label className="feat-weapon-choice">
+                          <span>Choose skill for {feat.name}</span>
+                          <select
+                            aria-label={`${slotId} skill`}
+                            value=""
+                            disabled={skillChoices.length === 0}
+                            onChange={(event) =>
+                              onFeatSkillChange(slotId, event.target.value)
+                            }
+                          >
+                            <option value="">
+                              {skillChoices.length
+                                ? "Choose a skill..."
+                                : "No eligible skill choices"}
+                            </option>
+                            {skillChoices.map((choice) => (
                               <option key={choice} value={choice}>
                                 {choice}
                               </option>
@@ -767,6 +828,11 @@ export function CharacterSheet({
                     selected === "weapon-specialization"
                       ? getAvailableFeatWeaponChoices(character, selected, slot.id)
                       : [];
+                  const skillChoices =
+                    selected === "skill-focus"
+                      ? getAvailableFeatSkillChoices(character, slot.id)
+                      : [];
+                  const selectedSkill = character.featSkillSelections?.[slot.id];
                   return (
                     <label key={slot.id}>
                       {slot.label}
@@ -798,6 +864,34 @@ export function CharacterSheet({
                             {weaponChoices.map((weapon) => (
                               <option key={weapon} value={weapon}>
                                 {weapon}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
+                      {selected === "skill-focus" ? (
+                        <div className="feat-weapon-choice">
+                          <span>Skill</span>
+                          <select
+                            aria-label={`${slot.label} skill`}
+                            value={
+                              selectedSkill && skillChoices.includes(selectedSkill)
+                                ? selectedSkill
+                                : ""
+                            }
+                            disabled={skillChoices.length === 0}
+                            onChange={(event) =>
+                              onFeatSkillChange(slot.id, event.target.value)
+                            }
+                          >
+                            <option value="">
+                              {skillChoices.length
+                                ? "Choose a skill..."
+                                : "No eligible skill choices"}
+                            </option>
+                            {skillChoices.map((skill) => (
+                              <option key={skill} value={skill}>
+                                {skill}
                               </option>
                             ))}
                           </select>

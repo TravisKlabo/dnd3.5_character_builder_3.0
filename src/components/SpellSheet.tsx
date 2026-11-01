@@ -1,13 +1,14 @@
 import { type Character, type ClassId, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
 import { hasSpellLevelAtClassLevel, getDailySpellSlots, getCasterLevel, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
-import { getClassSpells } from "../data/spellCatalog";
+import { getClassSpells, srdSpellContentSource } from "../data/spellCatalog";
 import { Stat } from "./shared";
 import { SpellPicker } from "./pickers";
 import { WizardSpellbook } from "./WizardSpellbook";
 import { ClericDomains, type ClericCastingUpdate } from "./ClericDomains";
 import { getClericDomainSlotCount } from "../clericDomains";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
+import { ContentSourceLabel } from "./shared";
 
 type SpellSheetProps = {
   character: Character;
@@ -447,6 +448,7 @@ export function SpellSheet({
                             <small>
                               ({spellcastingClass.name})
                             </small>
+                            <ContentSourceLabel source={srdSpellContentSource} />
                           </>
                         )}
                       </td>

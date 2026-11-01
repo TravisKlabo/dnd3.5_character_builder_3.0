@@ -409,6 +409,7 @@ textarea { width: 100%; border: 1px solid #b9bbb4; padding: 9px 10px; color: #24
 @media (max-width: 640px) { .custom-item-form { grid-template-columns: 1fr; } .custom-item-description { grid-column: auto; } }
 .item-modal-actions { justify-content: flex-end; border-top: 1px solid #b9bbb4; }
 .feat-choices small { color: #68736f; font-size: .68rem; font-weight: 400; }
+.content-source-label { display: block; margin-top: 2px; color: #68736f; font-size: .68rem; font-weight: 400; line-height: 1.35; text-transform: none; }
 .chosen-feats { display: grid; gap: 8px; padding: 15px 17px 17px; }
 .chosen-feat { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px; align-items: baseline; max-width: 100%; color: #243447; font-size: .75rem; text-align: left; }
 .tooltip-anchor { position: relative; }

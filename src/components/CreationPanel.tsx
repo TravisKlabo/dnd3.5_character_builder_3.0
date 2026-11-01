@@ -1,9 +1,9 @@
 import { type Character, type ClassId, type AbilityName, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
-import { isClassAlignmentAllowed, alignmentDistance, isPrestigeClassEligible, getClassAlignmentRestriction, isHighSorceryAlignmentAllowed, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, formatRaceDetails, formatClassDetails, formatPrestigeClassDetails, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
+import { isClassAlignmentAllowed, alignmentDistance, isPrestigeClassEligible, getClassAlignmentRestriction, isHighSorceryAlignmentAllowed, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, formatRaceDetails, formatClassDetails, formatPrestigeClassDetails, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
-import { Panel } from "./shared";
+import { ContentSourceLabel, Panel } from "./shared";
 import { LanguagePicker } from "./pickers";
 import { handleScrollableMenuKeyDown } from "../menuNavigation";
 
@@ -251,6 +251,7 @@ export function CreationPanel({
   if (getFeatSlots(draft).some((slot) => !draft.featSelections?.[slot.id]))
     creationErrors.push("Select every required starting feat.");
   creationErrors.push(...getFeatWeaponSelectionWarnings(draft));
+  creationErrors.push(...getFeatSkillSelectionWarnings(draft));
   if (!(draft.languages ?? []).length)
     creationErrors.push("Select at least one starting language.");
   const availableLanguageSet = new Set(getAvailableLanguages(ruleset));
@@ -528,6 +529,7 @@ export function CreationPanel({
                           }}
                         >
                           <span>{definition.name}</span>
+                          <ContentSourceLabel source={definition.source} />
                         </button>
                       ))}
                   </div>
@@ -650,6 +652,7 @@ export function CreationPanel({
                           }}
                         >
                           <span>{definition.name}</span>
+                          <ContentSourceLabel source={definition.source} />
                         </button>
                       ))}
                   </div>

@@ -115,6 +115,8 @@ describe("class-specific spell rules", () => {
       expect(screen.getByText("Magic Missile", { exact: true })).toBeDefined();
       fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
       fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Magic Missile" }), { target: { value: "2" } });
+      expect(screen.getByRole("spinbutton", { name: "Prepare Magic Missile" }).closest("tr")?.textContent)
+        .toContain("Source: D&D 3.5 Core SRD");
       openBook();
       expect(screen.queryByRole("spinbutton")).toBeNull();
       fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
@@ -256,7 +258,9 @@ describe("class-specific spell rules", () => {
       render(<App />);
       await screen.findByRole("button", { name: "Class" });
       fireEvent.click(screen.getByRole("button", { name: "Class" }));
-      fireEvent.click(screen.getByRole("option", { name: "Wizard" }));
+      const wizardOption = screen.getByRole("option", { name: /^Wizard/ });
+      expect(wizardOption.textContent).toContain("Source: D&D 3.5 Core SRD");
+      fireEvent.click(wizardOption);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Add starting cantrips" }));
       expect(screen.getByText("Detect Magic", { exact: true })).toBeDefined();
@@ -615,7 +619,7 @@ describe("caster class subtabs", () => {
   it("saves preparation and slot usage entered in a creation draft", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Class" }));
-    fireEvent.click(screen.getByRole("option", { name: "Cleric" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Cleric/ }));
     await openSpells();
     fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Detect Magic" }), { target: { value: "1" } });
     fireEvent.click(screen.getByRole("button", { name: "Complete Cleric daily preparation" }));

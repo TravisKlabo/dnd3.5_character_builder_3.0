@@ -4,9 +4,10 @@ import { cloneCharacter, initialCharacter, type ClassId, type PrestigeClassId } 
 import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem, type StoreItem } from "../src/data/equipmentCatalog";
 import { getArmorNonproficiencyPenalties, getAvailableFeats, getEquippedWeaponStats,
   getAvailableFeatWeaponChoices, getFeatWeaponSelectionWarnings,
+  getAvailableFeatSkillChoices, getFeatSkillSelectionWarnings,
   getItemProficiencyWarning, getSkillCheckModifier, getSkillCheckPenalties,
   isArmorShieldProficient, isWeaponProficient, normalizeFeatSelections,
-  normalizeFeatWeaponSelections } from "../src/rules";
+  normalizeFeatWeaponSelections, normalizeFeatSkillSelections } from "../src/rules";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
@@ -330,14 +331,75 @@ describe("armor and shield proficiency", () => {
     const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
     if (!featSlot) throw new Error("Missing first feat slot.");
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
-    fireEvent.click(within(featSlot).getByRole("option", { name: "Weapon Focus" }));
+    const weaponFocusOption = within(featSlot).getByRole("option", { name: /^Weapon Focus/ });
+    expect(weaponFocusOption.textContent).toContain("Source: D&D 3.5 Core SRD");
+    fireEvent.click(weaponFocusOption);
     fireEvent.change(
       within(featSlot).getByRole("combobox", {
         name: "General feat (level 1) weapon",
       }),
       { target: { value: "Longsword" } },
     );
-    expect(screen.getByText("Weapon Focus (Longsword)")).toBeDefined();
+    const chosenFeat = screen.getByText("Weapon Focus (Longsword)");
+    expect(chosenFeat.closest(".chosen-feat")?.textContent)
+      .toContain("Source: D&D 3.5 Core SRD");
+  });
+
+  it("allows repeat Skill Focus choices only for different skills", () => {
+    const character = hero();
+    character.featSelections = { "general-1": "skill-focus" };
+    character.featSkillSelections = { "general-1": "Listen" };
+
+    expect(getAvailableFeatSkillChoices(character, "human-1")).not.toContain("Listen");
+    expect(getAvailableFeatSkillChoices(character, "human-1")).toContain("Diplomacy");
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }, "human-1")
+        .map((feat) => feat.id),
+    ).toContain("skill-focus");
+    expect(
+      normalizeFeatSelections(character, {
+        ...character.featSelections,
+        "human-1": "skill-focus",
+      }),
+    ).toEqual({ "general-1": "skill-focus", "human-1": "skill-focus" });
+
+    const duplicateTargetCharacter = {
+      ...character,
+      featSelections: {
+        ...character.featSelections,
+        "human-1": "skill-focus",
+      },
+      featSkillSelections: {
+        ...character.featSkillSelections,
+        "human-1": "Listen",
+      },
+    };
+    expect(
+      normalizeFeatSkillSelections(
+        duplicateTargetCharacter,
+        duplicateTargetCharacter.featSkillSelections ?? {},
+      ),
+    ).toEqual({ "general-1": "Listen" });
+    expect(getFeatSkillSelectionWarnings(duplicateTargetCharacter)).toHaveLength(2);
+  });
+
+  it("lets a character choose and display a skill for Skill Focus", () => {
+    render(<App />);
+    const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
+    if (!featSlot) throw new Error("Missing first feat slot.");
+    fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
+    fireEvent.click(within(featSlot).getByRole("option", { name: /^Skill Focus/ }));
+    fireEvent.change(
+      within(featSlot).getByRole("combobox", {
+        name: "General feat (level 1) skill",
+      }),
+      { target: { value: "Listen" } },
+    );
+    expect(screen.getByText("Skill Focus (Listen)")).toBeDefined();
+    expect(
+      screen.getByRole("group", { name: "Listen skill" })
+        .querySelector(":scope > strong")?.textContent,
+    ).toBe("+3");
   });
 
   it("lets a character choose a specific exotic weapon for Exotic Weapon Proficiency", () => {
@@ -346,7 +408,7 @@ describe("armor and shield proficiency", () => {
     if (!featSlot) throw new Error("Missing first feat slot.");
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
     fireEvent.click(
-      within(featSlot).getByRole("option", { name: "Exotic Weapon Proficiency" }),
+      within(featSlot).getByRole("option", { name: /^Exotic Weapon Proficiency/ }),
     );
     fireEvent.change(
       within(featSlot).getByRole("combobox", {

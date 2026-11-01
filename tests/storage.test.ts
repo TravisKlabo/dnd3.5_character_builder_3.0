@@ -47,6 +47,7 @@ describe("character persistence", () => {
     { ...initialCharacter, classLevels: [{ classId: "fighter", level: 0 }] },
     { ...initialCharacter, skills: { Climb: "4" } },
     { ...initialCharacter, featWeaponSelections: { "general-1": 3 } },
+    { ...initialCharacter, featSkillSelections: { "general-1": 3 } },
     { ...initialCharacter, inventory: { Longsword: -2 } },
     { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": -1 } },
     { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": 1.5 } },
@@ -67,8 +68,10 @@ describe("character persistence", () => {
     const legacyCharacter = { ...initialCharacter };
     delete legacyCharacter.mainWeaponGrip;
     delete legacyCharacter.featWeaponSelections;
+    delete legacyCharacter.featSkillSelections;
     expect(parseCharacter(legacyCharacter).mainWeaponGrip).toBeUndefined();
     expect(parseCharacter(legacyCharacter).featWeaponSelections).toBeUndefined();
+    expect(parseCharacter(legacyCharacter).featSkillSelections).toBeUndefined();
   });
 
   it("loads older saves missing optional fields added later without changing stored data", () => {

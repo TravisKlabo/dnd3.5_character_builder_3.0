@@ -1,5 +1,9 @@
-import { type Character, type CombatTargetType, type SavingThrowCondition } from "../domain";
+import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
 import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow } from "../rules";
+
+export function ContentSourceLabel({ source }: { source: ContentSourceId }) {
+  return <small className="content-source-label">Source: {contentSources[source].name}</small>;
+}
 
 export function Panel({
   title,

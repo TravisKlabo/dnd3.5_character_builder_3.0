@@ -224,6 +224,10 @@ when the feat and effective Dexterity 13 prerequisite are met. The bonus is
 lost whenever Dexterity to AC is denied; the flat-footed AC omits it unless
 Uncanny Dodge applies. The app does not track opponent identity or other
 Dexterity-denial conditions.
+The combat summary reports one attack of opportunity per round normally, or
+one plus the nonnegative Dexterity modifier with Combat Reflexes. It also notes
+that Combat Reflexes permits these attacks while flat-footed. Spent attacks,
+triggers, and threatened movement are not tracked.
 The shared target DR context evaluates cold iron, silver, adamantine, and magic
 qualifiers, including `and`/`or` combinations of those types. It uses weapon
 material for melee/thrown weapons and selected ammunition for bows, crossbows,

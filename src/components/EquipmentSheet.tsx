@@ -1,5 +1,5 @@
 import { type Character } from "../domain";
-import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl } from "./shared";
+import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "./shared";
 import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
 import { getEncumbrance, getMovement } from "../rules";
 
@@ -135,6 +135,7 @@ export function EquipmentSheet({
           dodgeTargetSelected={dodgeTargetSelected}
         />
         <Stat label="Speed" value={`${movement.speed} ft.`} detail={movement.causes} />
+        <AttacksOfOpportunityStat character={character} />
       </div>
       {encumbrance.unknownWeights.length > 0 && <p className="combat-note" role="status">
         Load uses known weights only. Missing weight: {encumbrance.unknownWeights.join(", ")}.

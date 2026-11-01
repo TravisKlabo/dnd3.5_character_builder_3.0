@@ -1317,6 +1317,19 @@ export function getDodgeFeatBonus(character: Character, againstSelectedOpponent 
     : 0;
 }
 
+export function getAttackOfOpportunityCapacity(character: Character) {
+  const hasCombatReflexes = getChosenFeats(character).includes("combat-reflexes");
+  const dexterityBonus = abilityModifier(getEffectiveAbilityScore(character, "dex"));
+  const additionalAttacks = hasCombatReflexes ? Math.max(0, dexterityBonus) : 0;
+  return {
+    maximumPerRound: 1 + additionalAttacks,
+    additionalAttacks,
+    hasCombatReflexes,
+    canAttackWhileFlatFooted: hasCombatReflexes,
+    dexterityBonus,
+  };
+}
+
 export function getInitiativeModifier(character: Character) {
   return abilityModifier(getEffectiveAbilityScore(character, "dex")) +
     getImprovedInitiativeBonus(character) +

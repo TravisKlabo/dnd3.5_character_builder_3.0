@@ -2,11 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit } from "../src/rules";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit, getAttackOfOpportunityCapacity } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
-import { CombatExpertiseControl, PowerAttackControl, DodgeTargetControl } from "../src/components/shared";
+import { CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "../src/components/shared";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
@@ -968,6 +968,39 @@ it("shows attack, damage, and critical values for all three equipped weapon slot
     expect(row.textContent).toContain("Damage ");
     expect(row.textContent).toContain("Crit ");
   }
+});
+
+describe("Combat Reflexes", () => {
+  it("reports the per-round limit and flat-footed permission", () => {
+    const character = fighter();
+    expect(getAttackOfOpportunityCapacity(character)).toMatchObject({
+      maximumPerRound: 1,
+      additionalAttacks: 0,
+      hasCombatReflexes: false,
+      canAttackWhileFlatFooted: false,
+    });
+
+    character.featSelections = { "general-1": "combat-reflexes" };
+    expect(getAttackOfOpportunityCapacity(character)).toMatchObject({
+      maximumPerRound: 5,
+      additionalAttacks: 4,
+      hasCombatReflexes: true,
+      canAttackWhileFlatFooted: true,
+    });
+    render(<AttacksOfOpportunityStat character={character} />);
+    const stat = screen.getByText("Attacks of Opportunity").parentElement!;
+    expect(stat.querySelector("strong")?.textContent).toBe("5");
+    expect(stat.textContent).toContain("4 additional from DEX +4");
+    expect(stat.textContent).toContain("can attack while flat-footed");
+
+    character.abilities.dex = 8;
+    expect(getAttackOfOpportunityCapacity(character)).toMatchObject({
+      maximumPerRound: 1,
+      additionalAttacks: 0,
+      hasCombatReflexes: true,
+      canAttackWhileFlatFooted: true,
+    });
+  });
 });
 
 describe("touch, flat-footed, and grapple statistics", () => {

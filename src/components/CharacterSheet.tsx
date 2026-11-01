@@ -4,7 +4,7 @@ import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAtta
 import { type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, ContentSourceLabel } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat, ContentSourceLabel } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -506,6 +506,7 @@ export function CharacterSheet({
               ...getCombatEffectDetails(character, "checks"),
             ].join("\n") || undefined}
           />
+          <AttacksOfOpportunityStat character={character} />
           <Stat
             label="Speed"
             value={`${getMovement(character).speed} ft.`}

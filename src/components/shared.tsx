@@ -1,5 +1,5 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
-import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit, getDodgeFeatBonus } from "../rules";
+import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit, getDodgeFeatBonus, getAttackOfOpportunityCapacity } from "../rules";
 
 export function ContentSourceLabel({ source, book }: { source: ContentSourceId; book?: string }) {
   return (
@@ -239,6 +239,20 @@ export function ArmorClassStat({
       ...getArmorClassRestrictions(character),
     ]}
     title={`${defenses.detail.join("\n")}\nTouch ignores armor, shield, and natural armor bonuses, retains deflection and armor/load Dexterity limits. Flat-footed ${defenses.retainsDexterity ? "retains Dexterity with Uncanny Dodge" : "loses positive Dexterity, but retains penalties"}. Apply other unmodeled effects manually.`} />;
+}
+
+export function AttacksOfOpportunityStat({ character }: { character: Character }) {
+  const capacity = getAttackOfOpportunityCapacity(character);
+  return <Stat
+    label="Attacks of Opportunity"
+    value={String(capacity.maximumPerRound)}
+    detail={[
+      "Maximum per round; track spent attacks and movement triggers manually.",
+      capacity.hasCombatReflexes
+        ? `Combat Reflexes: ${capacity.additionalAttacks} additional from DEX ${formatModifier(capacity.dexterityBonus)}; can attack while flat-footed.`
+        : "One per round; cannot attack while flat-footed.",
+    ]}
+  />;
 }
 
 export function SavingThrowStat({ character, save, label, conditions = [] }: {

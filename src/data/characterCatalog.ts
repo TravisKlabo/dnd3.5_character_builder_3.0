@@ -522,7 +522,7 @@ export const featCatalog: FeatDefinition[] = ([
     id: "combat-reflexes",
     name: "Combat Reflexes",
     source: "core-35-srd",
-    description: "Make additional attacks of opportunity based on Dexterity.",
+    description: "Make additional attacks of opportunity equal to your Dexterity bonus and while flat-footed.",
     fighterBonus: true,
   },
   {

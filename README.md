@@ -207,6 +207,12 @@ when a target distance of 30 feet or less is entered. Thrown weapons are limited
 to five increments and projectile weapons to ten. Target distance is
 session-only. Bows, crossbows, slings, and darts check inventory for compatible ammunition; the sheets show missing ammo
 and draw/reload action notes, but do not consume ammo or track loaded state.
+The session-only Combat Expertise selector applies a chosen attack penalty to
+melee attack totals and an equal dodge bonus to normal and touch AC, up to 5 or
+the character's BAB, whichever is lower. It requires the feat and effective
+Intelligence 13; the dodge bonus also applies to flat-footed AC when Uncanny
+Dodge is retained. The change lasts until the character's next action, which
+must be cleared manually because turn timing is not tracked.
 The shared target DR context evaluates cold iron, silver, adamantine, and magic
 qualifiers, including `and`/`or` combinations of those types. It uses weapon
 material for melee/thrown weapons and selected ammunition for bows, crossbows,

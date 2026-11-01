@@ -2,10 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus } from "../src/rules";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus, getCombatExpertiseLimit } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
+import { CombatExpertiseControl } from "../src/components/shared";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
@@ -78,6 +79,49 @@ describe("SRD weapon attack and damage", () => {
     expect(at31Feet).toMatchObject({ pointBlankShotBonus: 0, damage: "1d8+0" });
     expect(unknownDistance).toMatchObject({ pointBlankShotBonus: 0, damage: "1d8+0" });
     expect(melee?.pointBlankShotBonus).toBe(0);
+  });
+
+  it("applies Combat Expertise to melee attacks only and caps the selector at BAB or +5", () => {
+    const character = fighter();
+    character.abilities.int = 13;
+    character.featSelections = { "general-1": "combat-expertise" };
+    const melee = getEquippedWeaponStats(character, "Longsword (Medium)")!;
+    const expertise = getEquippedWeaponStats(
+      character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 1,
+    )!;
+    const ranged = getEquippedWeaponStats(
+      character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, undefined, undefined, 1,
+    )!;
+
+    expect(getCombatExpertiseLimit(character)).toBe(1);
+    expect(expertise).toMatchObject({
+      attack: melee.attack - 1,
+      combatExpertisePenalty: -1,
+      damage: melee.damage,
+    });
+    expect(ranged.combatExpertisePenalty).toBe(0);
+    expect(getEquippedWeaponStats(
+      character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 2,
+    )?.attack).toBe(melee.attack);
+
+    character.classLevels = [{ classId: "fighter", level: 8 }];
+    expect(getCombatExpertiseLimit(character)).toBe(5);
+    character.abilities.int = 12;
+    expect(getCombatExpertiseLimit(character)).toBe(0);
+  });
+
+  it("offers a session-only selector limited by Combat Expertise eligibility", async () => {
+    const character = fighter();
+    character.abilities.int = 13;
+    character.featSelections = { "general-1": "combat-expertise" };
+    const onChange = vi.fn();
+    render(<CombatExpertiseControl character={character} amount={0} onChange={onChange} />);
+    const selector = screen.getByRole("combobox", { name: "Combat Expertise attack penalty" });
+
+    expect(within(selector).getAllByRole("option")).toHaveLength(2);
+    expect(screen.getByText(/Session-only/)).toBeDefined();
+    await userEvent.selectOptions(selector, "1");
+    expect(onChange).toHaveBeenCalledWith(1);
   });
 
   it("applies weapon feats to light, heavy, spiked, and unspiked shield bashes as one type", () => {
@@ -709,6 +753,8 @@ describe("consistent equipment handling", () => {
       onEquipmentChange={vi.fn()}
       rangedTargetDistanceFeet={undefined}
       onRangedTargetDistanceFeetChange={vi.fn()}
+      combatExpertiseAmount={0}
+      onCombatExpertiseAmountChange={vi.fn()}
       targetDamageReduction=""
       onTargetDamageReductionChange={vi.fn()}
       selectedRangedAmmunitionKey={undefined}
@@ -843,6 +889,27 @@ it("shows attack, damage, and critical values for all three equipped weapon slot
 });
 
 describe("touch, flat-footed, and grapple statistics", () => {
+  it("applies Combat Expertise as dodge AC and retains it flat-footed only with Uncanny Dodge", () => {
+    const character = fighter();
+    character.abilities.int = 13;
+    character.featSelections = { "general-1": "combat-expertise" };
+
+    expect(getArmorClassValues(character, [], 1)).toMatchObject({
+      normal: 15,
+      touch: 15,
+      flatFooted: 10,
+      combatExpertiseBonus: 1,
+    });
+
+    character.classLevels = [{ classId: "rogue", level: 4 }];
+    expect(getArmorClassValues(character, [], 1)).toMatchObject({
+      normal: 15,
+      touch: 15,
+      flatFooted: 15,
+      retainsDexterity: true,
+    });
+  });
+
   it("removes enhanced armor and shields only from touch AC, retaining the armor Dexterity cap", () => {
     const character = fighter(16, 18);
     character.equipment = { Armor: "+2 Full Plate (Medium)", Shield: "+1 Heavy Steel Shield (Medium)" };

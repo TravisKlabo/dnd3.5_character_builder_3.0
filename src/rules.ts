@@ -284,7 +284,11 @@ export function getTowerShieldState(character: Character) {
   };
 }
 
-export function getArmorClassValues(character: Character, targetTypes: CombatTargetType[] = []) {
+export function getArmorClassValues(
+  character: Character,
+  targetTypes: CombatTargetType[] = [],
+  selectedCombatExpertiseAmount = 0,
+) {
   const equipment = character.equipment ?? {};
   const armorName = equipment.Armor ?? "";
   const shieldName = equipment.Shield ?? "";
@@ -330,12 +334,14 @@ export function getArmorClassValues(character: Character, targetTypes: CombatTar
   const retainsDexterity = character.classLevels.some(({ classId, level }) =>
     (classId === "barbarian" && level >= 2) || (classId === "rogue" && level >= 4)) ||
     (character.classFeatures ?? []).some((feature) => /\buncanny dodge\b/i.test(feature));
+  const combatExpertiseBonus = getCombatExpertiseAmount(character, selectedCombatExpertiseAmount);
   return {
-    normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialDodgeACBonus + activeArmorClass,
-    touch: base + dexterity + deflection + racialDodgeACBonus + activeArmorClass,
-    flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
+    normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialDodgeACBonus + combatExpertiseBonus + activeArmorClass,
+    touch: base + dexterity + deflection + racialDodgeACBonus + combatExpertiseBonus + activeArmorClass,
+    flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus + combatExpertiseBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
     retainsDexterity,
     racialDodgeACBonus,
+    combatExpertiseBonus,
     towerShieldCoverActive: towerShieldState.coverActive,
     shieldBashACBonusLost: shieldBashState.enabled,
     detail: [
@@ -348,6 +354,7 @@ export function getArmorClassValues(character: Character, targetTypes: CombatTar
         ? ["Shield AC bonus lost after a shield bash until your next action; clear the bash setting manually."]
         : []),
       ...(dodgeTarget && race ? [`${race.name} dodge vs. ${combatTargetLabels[dodgeTarget]} ${formatModifier(racialDodgeACBonus)}`] : []),
+      ...(combatExpertiseBonus ? [`Combat Expertise ${formatModifier(combatExpertiseBonus)} dodge bonus`] : []),
       ...getAbilityEquipmentBonus(character, "dex").detail,
       ...bonuses.deflection.detail,
       ...bonuses.naturalArmorEnhancement.detail,
@@ -1268,6 +1275,21 @@ export function getImprovedInitiativeBonus(character: Character) {
   return getChosenFeats(character).includes("improved-initiative") ? 4 : 0;
 }
 
+export function getCombatExpertiseLimit(character: Character) {
+  if (
+    !getChosenFeats(character).includes("combat-expertise") ||
+    getEffectiveAbilityScore(character, "int") < 13
+  ) return 0;
+  return Math.min(5, getBaseAttackBonus(character));
+}
+
+export function getCombatExpertiseAmount(character: Character, selectedAmount = 0) {
+  const limit = getCombatExpertiseLimit(character);
+  return Number.isInteger(selectedAmount) && selectedAmount > 0 && selectedAmount <= limit
+    ? selectedAmount
+    : 0;
+}
+
 export function getInitiativeModifier(character: Character) {
   return abilityModifier(getEffectiveAbilityScore(character, "dex")) +
     getImprovedInitiativeBonus(character) +
@@ -1285,6 +1307,7 @@ export function getEquippedWeaponStats(
   targetDistanceFeet?: number,
   targetDamageReduction?: string,
   selectedAmmunitionKey?: string,
+  selectedCombatExpertiseAmount = 0,
 ) {
   const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
   const size = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
@@ -1322,6 +1345,9 @@ export function getEquippedWeaponStats(
   const masterwork = item.name.startsWith("Masterwork ") ? 1 : 0;
   const attackEnhancement = Math.max(enhancement, masterwork);
   const baseAttackBonus = getBaseAttackBonus(character);
+  const combatExpertisePenalty = isRanged
+    ? 0
+    : -getCombatExpertiseAmount(character, selectedCombatExpertiseAmount);
   const abilityAttackBonus = isRanged || usesFinesse ? dexterity : strength;
   const sizeAttackBonus = sizeModifier(character);
   const finessePenalty = usesFinesse ? shieldPenalty : 0;
@@ -1378,7 +1404,7 @@ export function getEquippedWeaponStats(
       : []),
     ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
   ];
-  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + activeAttack;
+  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + combatExpertisePenalty + activeAttack;
   const rangeIncrement = getWeaponRangeForSize(item, size);
   const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
   const ammunition = getWeaponAmmunitionProfile(item, isRanged);
@@ -1441,6 +1467,7 @@ export function getEquippedWeaponStats(
   return {
     name: displayName,
     attack: finalAttack,
+    combatExpertisePenalty,
     attackSequence: rangeDetails.outOfRange ? [] : Array.from(
       { length: slot === "Off Hand Weapon" ? 1 : Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5))) },
       (_, index) => finalAttack - index * 5,

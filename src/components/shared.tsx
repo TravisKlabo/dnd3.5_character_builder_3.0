@@ -1,5 +1,5 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
-import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow } from "../rules";
+import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit } from "../rules";
 
 export function ContentSourceLabel({ source, book }: { source: ContentSourceId; book?: string }) {
   return (
@@ -130,11 +130,42 @@ export function RangedAmmunitionControl({ options, selectedKey, onChange }: {
   );
 }
 
-export function ArmorClassStat({ character, targetTypes = [] }: {
+export function CombatExpertiseControl({ character, amount, onChange }: {
+  character: Character;
+  amount: number;
+  onChange: (amount: number) => void;
+}) {
+  const limit = getCombatExpertiseLimit(character);
+  if (limit === 0) return null;
+  const selectedAmount = getCombatExpertiseAmount(character, amount);
+  return (
+    <div className="combat-expertise-control">
+      <label className="weapon-grip-control">
+        Combat Expertise attack penalty
+        <select
+          aria-label="Combat Expertise attack penalty"
+          value={String(selectedAmount)}
+          onChange={(event) => onChange(Number(event.currentTarget.value))}
+        >
+          <option value="0">Off</option>
+          {Array.from({ length: limit }, (_, index) => index + 1).map((value) => (
+            <option value={value} key={value}>
+              -{value} attack / +{value} dodge AC
+            </option>
+          ))}
+        </select>
+      </label>
+      <small>Session-only. Applies to melee attack/full attack actions until your next action; clear it manually then.</small>
+    </div>
+  );
+}
+
+export function ArmorClassStat({ character, targetTypes = [], combatExpertiseAmount = 0 }: {
   character: Character;
   targetTypes?: CombatTargetType[];
+  combatExpertiseAmount?: number;
 }) {
-  const defenses = getArmorClassValues(character, targetTypes);
+  const defenses = getArmorClassValues(character, targetTypes, combatExpertiseAmount);
   return <Stat label="Armor Class" value={String(defenses.normal)}
     detail={[
       `Touch ${defenses.touch}`,

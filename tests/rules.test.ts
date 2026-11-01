@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { abilityModifier, armorClass, beginLevelUp, changeRace, cloneCharacter,
+import { abilityModifier, armorClass, beginLevelUp, changeRace, cloneCharacter, raceDefinitions,
   hitPointGain, initialCharacter, levelUpHitPointGain, nextClassLevel, validateLevelUp } from "../src/domain";
 import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getEquipmentArmorClass, getEquippedWeaponStats, getLevelUpAlignmentWarnings,
@@ -239,6 +239,17 @@ describe("character rules preserved from 2.0", () => {
       speed: 30,
       abilityModifiers: {},
     })).toContain("Size Medium; Speed 30 ft.");
+  });
+
+  it("records sleep immunity and low-light vision details for Elves and Half-Elves", () => {
+    const elfDetails = formatRaceDetails(raceDefinitions.elf);
+    const halfElfDetails = formatRaceDetails(raceDefinitions["half-elf"]);
+    expect(elfDetails).toContain("Immune to magical sleep effects");
+    expect(halfElfDetails).toContain("Immune to sleep spells and similar magical effects");
+    for (const details of [elfDetails, halfElfDetails]) {
+      expect(details).toContain("see twice as far as humans in starlight, moonlight, torchlight");
+      expect(details).toContain("retain color and detail");
+    }
   });
 
   it("sums multiclass attack and save progressions", () => {

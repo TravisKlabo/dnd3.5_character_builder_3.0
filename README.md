@@ -670,10 +670,13 @@ Search check when passing within 5 feet of a secret or concealed door is shown
 as a reminder; rolling and adjudicating the check remain manual. The Dwarf
 Stability control previews its +4 bonus only for a bull rush or trip check when
 the character is confirmed firmly grounded; the check itself remains manual.
-Other features that need encounter or effect resolution—such as sleep immunity—
-remain manual. Optional Dragonlance race data is not verified. See the SRD
+Elf and Half-Elf sleep immunity and low-light vision are described on the sheet,
+but incoming sleep effects and lighting/vision ranges are not automatically
+resolved. Optional Dragonlance race data is not verified. See the SRD
 [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves),
-[Elf](https://www.d20srd.org/srd/skills/search.htm#special),
+[Elf and Half-Elf](https://www.d20srd.org/srd/races.htm#elves),
+[low-light vision](https://www.d20srd.org/srd/specialAbilities.htm#lowLightVision),
+[Elf Search](https://www.d20srd.org/srd/skills/search.htm#special),
 [Gnome](https://www.d20srd.org/srd/races.htm#gnomes), and
 [Halfling](https://www.d20srd.org/srd/races.htm#halflings) rules.
 

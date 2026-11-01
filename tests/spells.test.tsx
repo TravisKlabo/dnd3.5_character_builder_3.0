@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { cloneCharacter, initialCharacter, type Character, type ClassId } from "../src/domain";
-import { loadSpellCatalog } from "../src/data/spellCatalog";
+import { defaultSrdSpellSourceBook, getSrdSpellSourceBook, loadSpellCatalog } from "../src/data/spellCatalog";
+import { srdSpells } from "../src/srdSpells";
 import { baseSpellSlots, getCasterLevel, getClassSpellSelections, getDailySpellSlots,
   getKnownSpellLimit, getLevelUpSpellWarnings, getSpellcastingAbility, hasSpellLevelAtClassLevel,
   getWizardCopyRequirements, getWizardFreeSpellAllowance, getWizardSpellbookSpells } from "../src/rules";
@@ -13,6 +14,17 @@ import { SpellSheets } from "../src/components/SpellSheet";
 import { readStoredCharacter } from "./storageTestHelpers";
 
 beforeAll(loadSpellCatalog);
+describe("spell catalog source attribution", () => {
+  it("uses the PHB for cross-checked catalog spells and leaves Phantom Trap at SRD level", () => {
+    expect(defaultSrdSpellSourceBook).toBe("Player's Handbook (3.5)");
+    const phantomTrap = srdSpells.find((spell) => spell.name === "Phantom Trap");
+    const magicMissile = srdSpells.find((spell) => spell.name === "Magic Missile");
+    if (!phantomTrap || !magicMissile) throw new Error("Expected core spell entries are missing.");
+    expect(getSrdSpellSourceBook(phantomTrap)).toBeUndefined();
+    expect(getSrdSpellSourceBook(magicMissile)).toBe("Player's Handbook (3.5)");
+  });
+});
+
 beforeEach(() => {
   vi.spyOn(window, "alert").mockImplementation(() => {});
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -117,6 +129,8 @@ describe("class-specific spell rules", () => {
       fireEvent.change(screen.getByRole("spinbutton", { name: "Prepare Magic Missile" }), { target: { value: "2" } });
       expect(screen.getByRole("spinbutton", { name: "Prepare Magic Missile" }).closest("tr")?.textContent)
         .toContain("Source: D&D 3.5 Core SRD");
+      expect(screen.getByRole("spinbutton", { name: "Prepare Magic Missile" }).closest("tr")?.textContent)
+        .toContain("Book: Player's Handbook (3.5)");
       openBook();
       expect(screen.queryByRole("spinbutton")).toBeNull();
       fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
@@ -260,6 +274,7 @@ describe("class-specific spell rules", () => {
       fireEvent.click(screen.getByRole("button", { name: "Class" }));
       const wizardOption = screen.getByRole("option", { name: /^Wizard/ });
       expect(wizardOption.textContent).toContain("Source: D&D 3.5 Core SRD");
+      expect(wizardOption.textContent).toContain("Book: Player's Handbook (3.5)");
       fireEvent.click(wizardOption);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Add starting cantrips" }));

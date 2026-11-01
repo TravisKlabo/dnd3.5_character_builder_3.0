@@ -129,8 +129,10 @@ also show book-level cross-checks: core classes and feats to the *Player's
 Handbook* (3.5), core prestige classes to the *Dungeon Master's Guide* (3.5),
 and Dragonlance classes to their respective sourcebooks. The *Master of the
 Way* entry remains broad-source-only because its book source is unverified.
-Page-level citations and primary-source verification remain outstanding;
-spells still show only their broad source group.
+The SRD spell catalog is cross-checked to the *Player's Handbook* (3.5);
+*Phantom Trap* remains labeled only as Core SRD because its specific 3.5 book
+source is unverified. These are book-level attributions; page-level citations
+and primary-source verification remain outstanding.
 
 On wide screens, Ability Scores, Attacks & Weapons, and Languages stack
 independently beside Combat Summary and Saving Throws, avoiding gaps caused by

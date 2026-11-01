@@ -29,8 +29,10 @@ user content pack). Feats and verified classes additionally show book-level
 cross-checks to the *Player's Handbook* (3.5), *Dungeon Master's Guide* (3.5),
 *Dragonlance Campaign Setting* (3.5), and *Towers of High Sorcery* (3.5).
 *Master of the Way* remains broad-source-only because its book source is
-unverified. Page-level citations and primary-source verification remain
-outstanding; spells do not yet have book-level provenance.
+unverified. The SRD spell catalog is cross-checked to the *Player's Handbook*
+(3.5); *Phantom Trap* remains broad-source-only because its specific 3.5 book
+source is unverified. These are book-level attributions; page-level citations
+and primary-source verification remain outstanding.
 | Printable/player-sheet generation | Deferred / out of scope | The app has an interactive character sheet | Printing and PDF generation are intentionally excluded from the current character-creation goal | [3.0 design](3.0-design.md) |
 
 ## What this says about completeness

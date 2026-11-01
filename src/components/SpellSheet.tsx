@@ -1,7 +1,7 @@
 import { type Character, type ClassId, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
 import { hasSpellLevelAtClassLevel, getDailySpellSlots, getCasterLevel, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
-import { getClassSpells, srdSpellContentSource } from "../data/spellCatalog";
+import { getClassSpells, getSrdSpellSourceBook, srdSpellContentSource } from "../data/spellCatalog";
 import { Stat } from "./shared";
 import { SpellPicker } from "./pickers";
 import { WizardSpellbook } from "./WizardSpellbook";
@@ -448,7 +448,10 @@ export function SpellSheet({
                             <small>
                               ({spellcastingClass.name})
                             </small>
-                            <ContentSourceLabel source={srdSpellContentSource} />
+                            <ContentSourceLabel
+                              source={srdSpellContentSource}
+                              book={getSrdSpellSourceBook(spell)}
+                            />
                           </>
                         )}
                       </td>

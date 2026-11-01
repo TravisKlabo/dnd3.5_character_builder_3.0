@@ -3,6 +3,11 @@ import type { ClassId, ContentSourceId } from "../domain";
 import type { SrdSpell } from "../srdSpells";
 
 export const srdSpellContentSource: ContentSourceId = "core-35-srd";
+export const defaultSrdSpellSourceBook = "Player's Handbook (3.5)";
+
+export function getSrdSpellSourceBook(spell: Pick<SrdSpell, "sourceBook">) {
+  return spell.sourceBook === null ? undefined : spell.sourceBook ?? defaultSrdSpellSourceBook;
+}
 
 export const spells: SrdSpell[] = [];
 const spellsByClass = new Map<ClassId, SrdSpell[]>();

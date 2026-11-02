@@ -425,6 +425,7 @@ export function App() {
       let enlargeByClass = current.enlargeByClass;
       let quickenByClass = current.quickenByClass;
       let silentByClass = current.silentByClass;
+      let stillByClass = current.stillByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -469,6 +470,11 @@ export function App() {
           classId,
           preparedNames,
         );
+        stillByClass = prunePreparedSpellMetadata(
+          stillByClass,
+          classId,
+          preparedNames,
+        );
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
         spellAcquisitionByClass[classId] = Object.fromEntries(
@@ -492,6 +498,7 @@ export function App() {
         ...(enlargeByClass ? { enlargeByClass } : {}),
         ...(quickenByClass ? { quickenByClass } : {}),
         ...(silentByClass ? { silentByClass } : {}),
+        ...(stillByClass ? { stillByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -556,6 +563,7 @@ export function App() {
     spellEnlargedCopies?: Record<string, boolean[]>,
     spellQuickenedCopies?: Record<string, boolean[]>,
     spellSilencedCopies?: Record<string, boolean[]>,
+    spellStilledCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -584,6 +592,9 @@ export function App() {
       const silentByClass = classId && spellSilencedCopies
         ? { ...current.silentByClass, [classId]: spellSilencedCopies }
         : current.silentByClass;
+      const stillByClass = classId && spellStilledCopies
+        ? { ...current.stillByClass, [classId]: spellStilledCopies }
+        : current.stillByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
@@ -595,6 +606,7 @@ export function App() {
         ...(enlargeByClass ? { enlargeByClass } : {}),
         ...(quickenByClass ? { quickenByClass } : {}),
         ...(silentByClass ? { silentByClass } : {}),
+        ...(stillByClass ? { stillByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

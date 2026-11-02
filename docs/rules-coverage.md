@@ -60,6 +60,10 @@ Silent Spell is tracked per prepared copy for its +1 slot cost. Component
 eligibility and removing the verbal component remain manual because component
 lists are free-form; bard spells cannot use this feat
 ([SRD Silent Spell](https://www.d20srd.org/srd/feats.htm#silentSpell)).
+Still Spell is tracked per prepared copy for its +1 slot cost. Component
+eligibility and removing the somatic component remain manual because component
+lists are free-form; bard spells with somatic components can benefit
+([SRD Still Spell](https://www.d20srd.org/srd/feats.htm#stillSpell)).
 
 ## Recommended audit order
 

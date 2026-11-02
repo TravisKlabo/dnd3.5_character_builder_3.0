@@ -527,6 +527,9 @@ save DC at each spell level:
 - Silent Spell lets you mark prepared copies for a slot one level higher.
   Verify a verbal component is present and omit it manually; bard spells cannot
   use this feat, and spontaneous casts and domain spells remain manual.
+- Still Spell lets you mark prepared copies for a slot one level higher.
+  Verify a somatic component is present and omit it manually; bard spells with
+  somatic components can benefit, but spontaneous casts remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

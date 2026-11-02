@@ -825,6 +825,11 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Cast a spell without verbal components; slot +1.",
   },
   {
+    id: "still-spell",
+    name: "Still Spell",
+    description: "Cast a spell without somatic components; slot +1.",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

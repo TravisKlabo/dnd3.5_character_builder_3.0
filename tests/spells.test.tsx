@@ -457,6 +457,17 @@ describe("class-specific spell rules", () => {
       silentByClass: value,
     })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: { Daze: [1] } },
+    { wizard: { Daze: ["true"] } },
+    { notAClass: { Daze: [true] } },
+  ])("rejects malformed prepared Still metadata %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      stillByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
@@ -765,6 +776,52 @@ describe("caster class subtabs", () => {
     expect(spellLevel(panel, "LEVEL 5 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().silentByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+    expect(stored().quickenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+  });
+
+  it("tracks Still per prepared copy and stacks its slot cost", async () => {
+    const character = caster();
+    character.classLevels = [{ classId: "wizard", level: 11 }, { classId: "cleric", level: 1 }];
+    character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
+    character.knownSpells = ["Ghost Sound"];
+    character.featSelections = {
+      "general-1": "still-spell",
+      "general-2": "silent-spell",
+      "general-3": "quicken-spell",
+    };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const cantrips = spellLevel(panel, "CANTRIPS");
+    const spellRow = cantrips.getByRole("row", { name: /Ghost Sound/ });
+    fireEvent.change(within(spellRow).getByRole("spinbutton", { name: "Prepare Ghost Sound" }), {
+      target: { value: "1" },
+    });
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Still Ghost Sound copy 1",
+    }));
+
+    expect(within(spellRow).getByText("Copy 1: DC 13 (Stilled in level 1 slot)")).toBeDefined();
+    expect(within(spellRow).getByText("Copy 1: Stilled")).toBeDefined();
+    expect(screen.getByText(/Verify a somatic component is present and omit it manually; bard spells with somatic components can benefit/)).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 1 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Silence Ghost Sound copy 1",
+    }));
+    expect(within(spellRow).getByText("Copy 1: DC 13 (Silenced and Stilled in level 2 slot)")).toBeDefined();
+
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Quicken Ghost Sound copy 1",
+    }));
+    expect(within(spellRow).getByText(
+      "Copy 1: DC 13 (Quickened and Silenced and Stilled in level 6 slot)",
+    )).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 6 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().stillByClass?.wizard).toEqual({ "Ghost Sound": [true] });
     expect(stored().silentByClass?.wizard).toEqual({ "Ghost Sound": [true] });
     expect(stored().quickenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });

@@ -449,86 +449,77 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
 };
 
 const featCatalogSourceBook = "Player's Handbook (3.5)";
+type CatalogFeat = Omit<FeatDefinition, "source"> & {
+  source?: FeatDefinition["source"];
+};
 
 export const featCatalog: FeatDefinition[] = ([
   {
     id: "armor-proficiency-light",
     name: "Armor Proficiency (Light)",
-    source: "core-35-srd",
     description: "Wear light armor without applying its check penalty to attacks or normally unaffected Strength/Dexterity checks.",
   },
   {
     id: "armor-proficiency-medium",
     name: "Armor Proficiency (Medium)",
-    source: "core-35-srd",
     description: "Wear medium armor without nonproficiency penalties.",
     prerequisites: { feats: ["armor-proficiency-light"] },
   },
   {
     id: "armor-proficiency-heavy",
     name: "Armor Proficiency (Heavy)",
-    source: "core-35-srd",
     description: "Wear heavy armor without nonproficiency penalties.",
     prerequisites: { feats: ["armor-proficiency-light", "armor-proficiency-medium"] },
   },
   {
     id: "shield-proficiency",
     name: "Shield Proficiency",
-    source: "core-35-srd",
     description: "Use shields other than tower shields without nonproficiency penalties.",
   },
   {
     id: "tower-shield-proficiency",
     name: "Tower Shield Proficiency",
-    source: "core-35-srd",
     description: "Use tower shields without nonproficiency penalties. Other tower shield restrictions still apply.",
     prerequisites: { feats: ["shield-proficiency"] },
   },
   {
     id: "scribe-scroll",
     name: "Scribe Scroll",
-    source: "core-35-srd",
     description: "Create magic scrolls containing spells you can cast.",
     prerequisites: { casterLevel: 1 },
   },
   {
     id: "craft-wand",
     name: "Craft Wand",
-    source: "core-35-srd",
     description: "Create wands containing spells of 4th level or lower.",
     prerequisites: { casterLevel: 5 },
   },
   {
     id: "alertness",
     name: "Alertness",
-    source: "core-35-srd",
     description: "+2 bonus on Listen and Spot checks.",
   },
   {
     id: "blind-fight",
     name: "Blind-Fight",
-    source: "core-35-srd",
     description: "Reroll miss chances from concealment in melee.",
     fighterBonus: true,
   },
   {
     id: "combat-casting",
     name: "Combat Casting",
-    source: "core-35-srd",
     description:
       "+4 bonus on Concentration checks for defensive casting or casting while grappled or pinned.",
   },
   {
     id: "combat-reflexes",
     name: "Combat Reflexes",
-    source: "core-35-srd",
     description: "Make additional attacks of opportunity equal to your Dexterity bonus and while flat-footed.",
     fighterBonus: true,
   },
   {
     id: "combat-expertise",
     name: "Combat Expertise",
-    source: "core-35-srd",
     description: "Trade attack bonus for dodge bonus to Armor Class.",
     prerequisites: { abilities: { int: 13 } },
     fighterBonus: true,
@@ -536,7 +527,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "cleave",
     name: "Cleave",
-    source: "core-35-srd",
     description: "Make one extra melee attack after dropping an opponent.",
     prerequisites: { abilities: { str: 13 }, feats: ["power-attack"] },
     fighterBonus: true,
@@ -544,13 +534,11 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "deceitful",
     name: "Deceitful",
-    source: "core-35-srd",
     description: "+2 bonus on Disguise and Forgery checks.",
   },
   {
     id: "dodge",
     name: "Dodge",
-    source: "core-35-srd",
     description:
       "+1 dodge bonus to Armor Class against one designated opponent.",
     prerequisites: { abilities: { dex: 13 } },
@@ -559,21 +547,18 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "endurance",
     name: "Endurance",
-    source: "core-35-srd",
     description:
       "+4 bonus on checks to resist exhausting environmental conditions.",
   },
   {
     id: "diehard",
     name: "Diehard",
-    source: "core-35-srd",
     description: "Remain conscious and act while below 0 hit points.",
     prerequisites: { feats: ["endurance"] },
   },
   {
     id: "deflect-arrows",
     name: "Deflect Arrows",
-    source: "core-35-srd",
     description: "Deflect one ranged weapon attack each round.",
     prerequisites: {
       abilities: { dex: 13 },
@@ -584,7 +569,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "great-cleave",
     name: "Great Cleave",
-    source: "core-35-srd",
     description: "Make multiple Cleave attacks in one round.",
     prerequisites: {
       abilities: { str: 13 },
@@ -596,7 +580,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-two-weapon-fighting",
     name: "Improved Two-Weapon Fighting",
-    source: "core-35-srd",
     description: "Gain a second off-hand attack when using two weapons.",
     prerequisites: {
       abilities: { dex: 17 },
@@ -608,13 +591,11 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "great-fortitude",
     name: "Great Fortitude",
-    source: "core-35-srd",
     description: "+2 bonus on Fortitude saves.",
   },
   {
     id: "greater-two-weapon-fighting",
     name: "Greater Two-Weapon Fighting",
-    source: "core-35-srd",
     description: "Gain a third off-hand attack when using two weapons.",
     prerequisites: {
       abilities: { dex: 19 },
@@ -626,7 +607,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-bull-rush",
     name: "Improved Bull Rush",
-    source: "core-35-srd",
     description: "Avoid attacks of opportunity when bull rushing.",
     prerequisites: { abilities: { str: 13 }, feats: ["power-attack"] },
     fighterBonus: true,
@@ -634,7 +614,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-disarm",
     name: "Improved Disarm",
-    source: "core-35-srd",
     description: "Avoid attacks of opportunity when attempting to disarm.",
     prerequisites: { abilities: { int: 13 }, feats: ["combat-expertise"] },
     fighterBonus: true,
@@ -642,7 +621,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-grapple",
     name: "Improved Grapple",
-    source: "core-35-srd",
     description: "Avoid attacks of opportunity when grappling.",
     prerequisites: {
       abilities: { dex: 13 },
@@ -653,14 +631,12 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-initiative",
     name: "Improved Initiative",
-    source: "core-35-srd",
     description: "+4 bonus on initiative checks.",
     fighterBonus: true,
   },
   {
     id: "improved-overrun",
     name: "Improved Overrun",
-    source: "core-35-srd",
     description: "Avoid attacks of opportunity when overrunning an opponent.",
     prerequisites: { abilities: { str: 13 }, feats: ["power-attack"] },
     fighterBonus: true,
@@ -668,7 +644,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-precise-shot",
     name: "Improved Precise Shot",
-    source: "core-35-srd",
     description: "Ignore less than total concealment and cover when making ranged attacks.",
     prerequisites: {
       abilities: { dex: 19 },
@@ -680,7 +655,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-sunder",
     name: "Improved Sunder",
-    source: "core-35-srd",
     description: "Avoid attacks of opportunity when attempting to sunder.",
     prerequisites: { abilities: { str: 13 }, feats: ["power-attack"] },
     fighterBonus: true,
@@ -688,7 +662,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-trip",
     name: "Improved Trip",
-    source: "core-35-srd",
     description:
       "Avoid attacks of opportunity when tripping and gain a follow-up attack.",
     prerequisites: { abilities: { int: 13 }, feats: ["combat-expertise"] },
@@ -697,32 +670,27 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "improved-unarmed-strike",
     name: "Improved Unarmed Strike",
-    source: "core-35-srd",
     description: "Attack unarmed without provoking attacks of opportunity.",
     fighterBonus: true,
   },
   {
     id: "investigator",
     name: "Investigator",
-    source: "core-35-srd",
     description: "+2 bonus on Search and Gather Information checks.",
   },
   {
     id: "iron-will",
     name: "Iron Will",
-    source: "core-35-srd",
     description: "+2 bonus on Will saves.",
   },
   {
     id: "lightning-reflexes",
     name: "Lightning Reflexes",
-    source: "core-35-srd",
     description: "+2 bonus on Reflex saves.",
   },
   {
     id: "manyshot",
     name: "Manyshot",
-    source: "core-35-srd",
     description: "Fire multiple arrows as a single attack against one target.",
     prerequisites: {
       abilities: { dex: 17 },
@@ -734,13 +702,11 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "magical-aptitude",
     name: "Magical Aptitude",
-    source: "core-35-srd",
     description: "+2 bonus on Spellcraft and Use Magic Device checks.",
   },
   {
     id: "mobility",
     name: "Mobility",
-    source: "core-35-srd",
     description:
       "+4 dodge bonus to Armor Class against attacks of opportunity caused by movement.",
     prerequisites: { abilities: { dex: 13 }, feats: ["dodge"] },
@@ -749,26 +715,22 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "negotiator",
     name: "Negotiator",
-    source: "core-35-srd",
     description: "+2 bonus on Diplomacy and Sense Motive checks.",
   },
   {
     id: "nimble-fingers",
     name: "Nimble Fingers",
-    source: "core-35-srd",
     description: "+2 bonus on Disable Device and Open Lock checks.",
   },
   {
     id: "point-blank-shot",
     name: "Point Blank Shot",
-    source: "core-35-srd",
     description: "+1 attack and damage within 30 feet.",
     fighterBonus: true,
   },
   {
     id: "power-attack",
     name: "Power Attack",
-    source: "core-35-srd",
     description: "Trade melee attack bonus for melee damage.",
     prerequisites: { abilities: { str: 13 } },
     fighterBonus: true,
@@ -776,7 +738,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "precise-shot",
     name: "Precise Shot",
-    source: "core-35-srd",
     description: "Ignore the normal -4 penalty for shooting into melee.",
     prerequisites: { feats: ["point-blank-shot"] },
     fighterBonus: true,
@@ -784,13 +745,11 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "persuasive",
     name: "Persuasive",
-    source: "core-35-srd",
     description: "+2 bonus on Bluff and Intimidate checks.",
   },
   {
     id: "quick-draw",
     name: "Quick Draw",
-    source: "core-35-srd",
     description: "Draw a weapon as a free action.",
     prerequisites: { baseAttackBonus: 1 },
     fighterBonus: true,
@@ -798,7 +757,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "rapid-shot",
     name: "Rapid Shot",
-    source: "core-35-srd",
     description: "Make one extra ranged attack during a full attack.",
     prerequisites: { abilities: { dex: 13 }, feats: ["point-blank-shot"] },
     fighterBonus: true,
@@ -806,44 +764,43 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "run",
     name: "Run",
-    source: "core-35-srd",
     description: "Move five times your normal speed when running.",
   },
   {
     id: "self-sufficient",
     name: "Self-Sufficient",
-    source: "core-35-srd",
     description: "+2 bonus on Heal and Survival checks.",
   },
   {
     id: "skill-focus",
     name: "Skill Focus",
-    source: "core-35-srd",
     description: "+3 bonus on one selected skill.",
   },
   {
     id: "spell-focus",
     name: "Spell Focus",
-    source: "core-35-srd",
     description: "+1 save DC for one school.",
   },
   {
     id: "greater-spell-focus",
     name: "Greater Spell Focus",
-    source: "core-35-srd",
     description: "+1 more save DC for a Spell Focus school.",
     prerequisites: { feats: ["spell-focus"] },
   },
   {
     id: "spell-penetration",
     name: "Spell Penetration",
-    source: "core-35-srd",
     description: "+2 on checks vs. spell resistance.",
+  },
+  {
+    id: "greater-spell-penetration",
+    name: "Greater Spell Penetration",
+    description: "+2 more on checks vs. spell resistance.",
+    prerequisites: { feats: ["spell-penetration"] },
   },
   {
     id: "spring-attack",
     name: "Spring Attack",
-    source: "core-35-srd",
     description:
       "Move before and after a melee attack without provoking from the target.",
     prerequisites: {
@@ -856,7 +813,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "stunning-fist",
     name: "Stunning Fist",
-    source: "core-35-srd",
     description: "Stun a target with an unarmed strike.",
     prerequisites: {
       abilities: { dex: 13, wis: 13 },
@@ -868,13 +824,11 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "toughness",
     name: "Toughness",
-    source: "core-35-srd",
     description: "Gain 3 additional hit points.",
   },
   {
     id: "two-weapon-fighting",
     name: "Two-Weapon Fighting",
-    source: "core-35-srd",
     description: "Reduce penalties when fighting with two weapons.",
     prerequisites: { abilities: { dex: 15 } },
     fighterBonus: true,
@@ -882,7 +836,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "weapon-finesse",
     name: "Weapon Finesse",
-    source: "core-35-srd",
     description:
       "Use Dexterity instead of Strength for attacks with a light weapon.",
     prerequisites: { baseAttackBonus: 1 },
@@ -891,7 +844,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "exotic-weapon-proficiency",
     name: "Exotic Weapon Proficiency",
-    source: "core-35-srd",
     description: "Gain proficiency with one selected exotic weapon type.",
     prerequisites: { baseAttackBonus: 1 },
     fighterBonus: true,
@@ -899,7 +851,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "weapon-specialization",
     name: "Weapon Specialization",
-    source: "core-35-srd",
     description: "+2 damage with one selected weapon type.",
     prerequisites: { classLevels: { fighter: 4 }, feats: ["weapon-focus"] },
     fighterBonus: true,
@@ -907,7 +858,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "weapon-focus",
     name: "Weapon Focus",
-    source: "core-35-srd",
     description: "+1 attack with one selected weapon type.",
     prerequisites: { baseAttackBonus: 1 },
     fighterBonus: true,
@@ -915,7 +865,6 @@ export const featCatalog: FeatDefinition[] = ([
   {
     id: "whirlwind-attack",
     name: "Whirlwind Attack",
-    source: "core-35-srd",
     description: "Make one melee attack against every nearby opponent.",
     prerequisites: {
       abilities: { dex: 13, int: 13 },
@@ -924,7 +873,11 @@ export const featCatalog: FeatDefinition[] = ([
     },
     fighterBonus: true,
   },
-] satisfies FeatDefinition[]).map((feat) => ({ ...feat, sourceBook: featCatalogSourceBook }));
+] satisfies CatalogFeat[]).map((feat: CatalogFeat) => ({
+  ...feat,
+  source: feat.source ?? "core-35-srd",
+  sourceBook: featCatalogSourceBook,
+}));
 
 export const abilityNames: AbilityName[] = ["str", "dex", "con", "int", "wis", "cha"];
 

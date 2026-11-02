@@ -494,6 +494,24 @@ describe("armor and shield proficiency", () => {
     ).not.toContain("greater-spell-focus");
   });
 
+  it("requires Spell Penetration before Greater Spell Penetration is available", () => {
+    const character = hero();
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }, "general-1")
+        .map((feat) => feat.id),
+    ).not.toContain("greater-spell-penetration");
+
+    character.classLevels = [{ classId: "wizard", level: 3 }];
+    character.featSelections = { "general-1": "spell-penetration" };
+    const greaterSpellPenetration = getAvailableFeats(
+      character,
+      { fighterOnly: false },
+      "general-3",
+    ).find((feat) => feat.id === "greater-spell-penetration");
+    expect(greaterSpellPenetration?.source).toBe("core-35-srd");
+    expect(greaterSpellPenetration?.sourceBook).toBe("Player's Handbook (3.5)");
+  });
+
   it("lets a character choose Greater Spell Focus for a school already selected", () => {
     render(<App />);
     const generalSlot = screen.getByRole("button", {

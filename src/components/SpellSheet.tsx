@@ -102,7 +102,10 @@ export function SpellSheet({
         : "Prepared Spells";
   const classLevel = spellcastingLevel.level;
   const casterLevel = getCasterLevel(spellcastingClass.id, classLevel);
-  const spellPenetrationBonus = getChosenFeats(character).includes("spell-penetration") ? 2 : 0;
+  const selectedFeats = getChosenFeats(character);
+  const spellPenetrationBonus =
+    (selectedFeats.includes("spell-penetration") ? 2 : 0) +
+    (selectedFeats.includes("greater-spell-penetration") ? 2 : 0);
   const availableLevels = Array.from({ length: 10 }, (_, index) => index).filter((level) =>
     hasSpellLevelAtClassLevel(spellcastingClass.id, classLevel, level),
   );
@@ -199,7 +202,7 @@ export function SpellSheet({
           value={casterLevel > 0
             ? formatModifier(casterLevel + spellPenetrationBonus)
             : "Unavailable"}
-          title={`Roll 1d20 plus this modifier to overcome spell resistance${spellPenetrationBonus ? "; Spell Penetration adds +2" : ""}. Compare manually against the spell's SR.`}
+          title={`Roll 1d20 plus this modifier to overcome spell resistance${spellPenetrationBonus ? "; Spell Penetration feats add +2 each" : ""}. Compare manually against the spell's SR.`}
         />
         <Stat
           label="Spells per Day"

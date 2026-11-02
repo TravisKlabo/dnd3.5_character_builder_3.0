@@ -425,13 +425,32 @@ describe("caster class subtabs", () => {
     let panel = await openSpells();
     let modifierLabel = within(panel).getByText("SR check modifier", { selector: "small" });
     expect(modifierLabel.parentElement?.textContent).toContain("+5");
-    expect(modifierLabel.parentElement?.getAttribute("title")).toContain("Spell Penetration adds +2");
+    expect(modifierLabel.parentElement?.getAttribute("title")).toContain("Spell Penetration feats add +2 each");
     expect(modifierLabel.parentElement?.getAttribute("title")).toContain("Compare manually");
 
     fireEvent.click(screen.getByRole("tab", { name: "Cleric · 1" }));
     panel = screen.getByRole("tabpanel");
     modifierLabel = within(panel).getByText("SR check modifier", { selector: "small" });
     expect(modifierLabel.parentElement?.textContent).toContain("+3");
+  });
+
+  it("stacks Greater Spell Penetration on each class's spell resistance check", async () => {
+    const character = caster();
+    character.featSelections = {
+      "general-1": "spell-penetration",
+      "general-3": "greater-spell-penetration",
+    };
+    save(character);
+    render(<App />);
+    let panel = await openSpells();
+    let modifierLabel = within(panel).getByText("SR check modifier", { selector: "small" });
+    expect(modifierLabel.parentElement?.textContent).toContain("+7");
+    expect(modifierLabel.parentElement?.getAttribute("title")).toContain("feats add +2 each");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cleric · 1" }));
+    panel = screen.getByRole("tabpanel");
+    modifierLabel = within(panel).getByText("SR check modifier", { selector: "small" });
+    expect(modifierLabel.parentElement?.textContent).toContain("+5");
   });
 
   it("shows Wizard 3 and Cleric 1 with separate abilities, levels, slots, DCs and lists", async () => {

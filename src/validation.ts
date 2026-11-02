@@ -10,6 +10,8 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const isString = (value: unknown): value is string => typeof value === "string";
 const isStringList = (value: unknown) => Array.isArray(value) && value.every(isString);
+const isSpellLevelList = (value: unknown) => Array.isArray(value) &&
+  value.every((level) => isNumber(level) && Number.isInteger(level) && level >= 0 && level <= 9);
 const isMap = (value: unknown, check: (entry: unknown) => boolean) =>
   isRecord(value) && Object.values(value).every(check);
 const isClassMap = (value: unknown, check: (entry: unknown) => boolean) =>
@@ -136,6 +138,9 @@ export function assertCharacter(value: unknown): asserts value is Character {
         !isMap(value.knownSpellClasses, (entry) => isString(entry) && Object.hasOwn(classDefinitions, entry))) ||
       !["knownSpellsByClass", "preparedSpellsByClass"].every((key) =>
         value[key] === undefined || isClassMap(value[key], isStringList)) ||
+      (value.preparedSpellSlotLevelsByClass !== undefined &&
+        !isClassMap(value.preparedSpellSlotLevelsByClass, (spells) =>
+          isMap(spells, isSpellLevelList))) ||
       (value.spellPreparationCompletedByClass !== undefined &&
         !isClassMap(value.spellPreparationCompletedByClass, (entry) => typeof entry === "boolean")) ||
       (value.expendedSpellSlotsByClass !== undefined &&

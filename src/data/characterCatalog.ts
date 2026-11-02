@@ -788,6 +788,11 @@ export const featCatalog: FeatDefinition[] = ([
     prerequisites: { feats: ["spell-focus"] },
   },
   {
+    id: "heighten-spell",
+    name: "Heighten Spell",
+    description: "Raises a prepared spell's effective level, save DC, and slot (maximum 9).",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

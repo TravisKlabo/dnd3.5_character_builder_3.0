@@ -408,6 +408,7 @@ export function App() {
     const update = (current: Character) => {
       const knownSpellsByClass = getClassSpellSelections(current, "knownSpells");
       const preparedSpellsByClass = getClassSpellSelections(current, "preparedSpells");
+      let preparedSpellSlotLevelsByClass = current.preparedSpellSlotLevelsByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -415,6 +416,16 @@ export function App() {
         const removed = new Set((knownSpellsByClass[classId] ?? []).filter((name) => !knownSpells.includes(name)));
         if (classId === "wizard" && preparedSpellsByClass[classId]) {
           preparedSpellsByClass[classId] = preparedSpellsByClass[classId].filter((name) => !removed.has(name));
+        }
+        if (preparedSpellSlotLevelsByClass?.[classId]) {
+          const preparedNames = new Set(preparedSpellsByClass[classId] ?? []);
+          preparedSpellSlotLevelsByClass = {
+            ...preparedSpellSlotLevelsByClass,
+            [classId]: Object.fromEntries(
+              Object.entries(preparedSpellSlotLevelsByClass[classId] ?? {})
+                .filter(([name]) => preparedNames.has(name)),
+            ),
+          };
         }
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
@@ -432,6 +443,7 @@ export function App() {
         spellAcquisitionByClass,
         preparedSpellsByClass,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
+        ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -486,17 +498,30 @@ export function App() {
     };
     updateSpellcastingCharacter(update);
   };
-  const updatePreparedSpells = (preparedSpells: string[], classId?: ClassId) => {
+  const updatePreparedSpells = (
+    preparedSpells: string[],
+    classId?: ClassId,
+    spellSlotLevels?: Record<string, number[]>,
+  ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
         return current;
       }
       const preparedSpellsByClass = getClassSpellSelections(current, "preparedSpells");
       if (classId) preparedSpellsByClass[classId] = preparedSpells;
+      const preparedSpellSlotLevelsByClass = {
+        ...(current.preparedSpellSlotLevelsByClass ?? {}),
+      };
+      if (classId && spellSlotLevels) {
+        preparedSpellSlotLevelsByClass[classId] = spellSlotLevels;
+      }
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
         preparedSpellsByClass,
+        ...(current.preparedSpellSlotLevelsByClass || spellSlotLevels
+          ? { preparedSpellSlotLevelsByClass }
+          : {}),
       };
     };
     updateSpellcastingCharacter(update);

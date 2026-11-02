@@ -504,6 +504,9 @@ save DC at each spell level:
 - Spell Penetration adds +2 to the spell-resistance check modifier shown on
   each class sheet; the d20 roll and comparison against a spell's SR are manual.
 - Greater Spell Penetration requires Spell Penetration and adds a further +2.
+- Heighten Spell lets you choose a higher level for each prepared copy, using
+  that level for its save DC and slot. Spontaneous casts, domain spells, and
+  other spell-level-dependent effects remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

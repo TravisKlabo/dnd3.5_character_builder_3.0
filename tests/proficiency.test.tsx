@@ -494,6 +494,12 @@ describe("armor and shield proficiency", () => {
     ).not.toContain("greater-spell-focus");
   });
 
+  it("offers Heighten Spell without prerequisites", () => {
+    expect(
+      getAvailableFeats(hero(), { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("heighten-spell");
+  });
+
   it("requires Spell Penetration before Greater Spell Penetration is available", () => {
     const character = hero();
     expect(

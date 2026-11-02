@@ -380,6 +380,17 @@ describe("class-specific spell rules", () => {
       spellPreparationCompletedByClass: value,
     })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: { Daze: [1.5] } },
+    { wizard: { Daze: [10] } },
+    { notAClass: { Daze: [1] } },
+  ])("rejects malformed prepared spell slot levels %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      preparedSpellSlotLevelsByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
@@ -415,6 +426,32 @@ describe("caster class subtabs", () => {
     const enchantmentRow = within(panel).getByRole("row", { name: /Daze/ });
     expect(within(illusionRow).getByText("DC 15")).toBeDefined();
     expect(within(enchantmentRow).getByText("DC 13")).toBeDefined();
+  });
+
+  it("tracks Heighten Spell per prepared copy, including the heightened DC and slot", async () => {
+    const character = caster();
+    character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
+    character.knownSpells = ["Ghost Sound"];
+    character.featSelections = { "general-1": "heighten-spell" };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const cantrips = spellLevel(panel, "CANTRIPS");
+    const spellRow = cantrips.getByRole("row", { name: /Ghost Sound/ });
+    fireEvent.change(within(spellRow).getByRole("spinbutton", { name: "Prepare Ghost Sound" }), {
+      target: { value: "2" },
+    });
+
+    fireEvent.change(within(spellRow).getByRole("combobox", {
+      name: "Prepared Ghost Sound copy 1 slot level",
+    }), { target: { value: "2" } });
+
+    expect(within(spellRow).getByText("Copy 1: DC 15 (Heightened to level 2)")).toBeDefined();
+    expect(within(spellRow).getByText("Copy 2: DC 13")).toBeDefined();
+    expect(cantrips.getByText(/Prepared 1\//)).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 2 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().preparedSpellSlotLevelsByClass?.wizard).toEqual({ "Ghost Sound": [2, 0] });
   });
 
   it("shows the Spell Penetration check modifier for each spellcasting class", async () => {

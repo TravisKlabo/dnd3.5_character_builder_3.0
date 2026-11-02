@@ -825,14 +825,20 @@ export const featCatalog: FeatDefinition[] = ([
     id: "spell-focus",
     name: "Spell Focus",
     source: "core-35-srd",
-    description: "+1 save DC for one selected school; repeatable for different schools.",
+    description: "+1 save DC for one school.",
   },
   {
     id: "greater-spell-focus",
     name: "Greater Spell Focus",
     source: "core-35-srd",
-    description: "Additional +1 save DC for a school with Spell Focus; repeatable for different schools.",
+    description: "+1 more save DC for a Spell Focus school.",
     prerequisites: { feats: ["spell-focus"] },
+  },
+  {
+    id: "spell-penetration",
+    name: "Spell Penetration",
+    source: "core-35-srd",
+    description: "+2 on checks vs. spell resistance.",
   },
   {
     id: "spring-attack",

@@ -501,6 +501,8 @@ save DC at each spell level:
 - Spell Focus lets you select a different school each time you take the feat;
   its +1 save DC bonus applies to matching school-specific spell DCs. Greater
   Spell Focus requires Spell Focus for that school and adds a stacking +1.
+- Spell Penetration adds +2 to the spell-resistance check modifier shown on
+  each class sheet; the d20 roll and comparison against a spell's SR are manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

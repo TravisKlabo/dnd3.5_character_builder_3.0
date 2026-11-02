@@ -1,6 +1,6 @@
 import { type Character, type ClassId, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
-import { hasSpellLevelAtClassLevel, getDailySpellSlots, getCasterLevel, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
+import { hasSpellLevelAtClassLevel, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
 import { getClassSpells, getSrdSpellSourceBook, srdSpellContentSource } from "../data/spellCatalog";
 import { Stat } from "./shared";
 import { SpellPicker } from "./pickers";
@@ -101,6 +101,8 @@ export function SpellSheet({
         ? "Spells Known"
         : "Prepared Spells";
   const classLevel = spellcastingLevel.level;
+  const casterLevel = getCasterLevel(spellcastingClass.id, classLevel);
+  const spellPenetrationBonus = getChosenFeats(character).includes("spell-penetration") ? 2 : 0;
   const availableLevels = Array.from({ length: 10 }, (_, index) => index).filter((level) =>
     hasSpellLevelAtClassLevel(spellcastingClass.id, classLevel, level),
   );
@@ -190,7 +192,14 @@ export function SpellSheet({
         <Stat label="Spell Save DC" value={`10 + spell level + ${castingModifier}`} />
         <Stat
           label="Caster Level"
-          value={String(getCasterLevel(spellcastingClass.id, classLevel))}
+          value={String(casterLevel)}
+        />
+        <Stat
+          label="SR check modifier"
+          value={casterLevel > 0
+            ? formatModifier(casterLevel + spellPenetrationBonus)
+            : "Unavailable"}
+          title={`Roll 1d20 plus this modifier to overcome spell resistance${spellPenetrationBonus ? "; Spell Penetration adds +2" : ""}. Compare manually against the spell's SR.`}
         />
         <Stat
           label="Spells per Day"

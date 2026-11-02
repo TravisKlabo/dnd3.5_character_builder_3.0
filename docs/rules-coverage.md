@@ -56,6 +56,10 @@ range increases remain manual because range values are stored as prose
 Quicken Spell is tracked per prepared copy for its +4 slot cost. Casting-time
 eligibility, free-action casting, the one-per-round limit, and its no-attack-of-
 opportunity effect remain manual ([SRD Quicken Spell](https://www.d20srd.org/srd/feats.htm#quickenSpell)).
+Silent Spell is tracked per prepared copy for its +1 slot cost. Component
+eligibility and removing the verbal component remain manual because component
+lists are free-form; bard spells cannot use this feat
+([SRD Silent Spell](https://www.d20srd.org/srd/feats.htm#silentSpell)).
 
 ## Recommended audit order
 

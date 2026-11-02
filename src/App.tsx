@@ -424,6 +424,7 @@ export function App() {
       let extendByClass = current.extendByClass;
       let enlargeByClass = current.enlargeByClass;
       let quickenByClass = current.quickenByClass;
+      let silentByClass = current.silentByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -463,6 +464,11 @@ export function App() {
           classId,
           preparedNames,
         );
+        silentByClass = prunePreparedSpellMetadata(
+          silentByClass,
+          classId,
+          preparedNames,
+        );
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
         spellAcquisitionByClass[classId] = Object.fromEntries(
@@ -485,6 +491,7 @@ export function App() {
         ...(extendByClass ? { extendByClass } : {}),
         ...(enlargeByClass ? { enlargeByClass } : {}),
         ...(quickenByClass ? { quickenByClass } : {}),
+        ...(silentByClass ? { silentByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -548,6 +555,7 @@ export function App() {
     spellExtendedCopies?: Record<string, boolean[]>,
     spellEnlargedCopies?: Record<string, boolean[]>,
     spellQuickenedCopies?: Record<string, boolean[]>,
+    spellSilencedCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -573,6 +581,9 @@ export function App() {
       const quickenByClass = classId && spellQuickenedCopies
         ? { ...current.quickenByClass, [classId]: spellQuickenedCopies }
         : current.quickenByClass;
+      const silentByClass = classId && spellSilencedCopies
+        ? { ...current.silentByClass, [classId]: spellSilencedCopies }
+        : current.silentByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
@@ -583,6 +594,7 @@ export function App() {
         ...(extendByClass ? { extendByClass } : {}),
         ...(enlargeByClass ? { enlargeByClass } : {}),
         ...(quickenByClass ? { quickenByClass } : {}),
+        ...(silentByClass ? { silentByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

@@ -518,6 +518,12 @@ describe("armor and shield proficiency", () => {
     ).toContain("quicken-spell");
   });
 
+  it("offers Silent Spell without prerequisites", () => {
+    expect(
+      getAvailableFeats(hero(), { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("silent-spell");
+  });
+
   it("requires another metamagic feat before Maximize Spell", () => {
     const character = hero();
     expect(

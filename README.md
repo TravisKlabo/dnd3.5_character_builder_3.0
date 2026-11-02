@@ -524,6 +524,9 @@ save DC at each spell level:
   Casting-time eligibility, free-action casting, the one-per-round limit, and
   the no-attack-of-opportunity effect remain manual; spontaneous casts and
   domain spells remain manual.
+- Silent Spell lets you mark prepared copies for a slot one level higher.
+  Verify a verbal component is present and omit it manually; bard spells cannot
+  use this feat, and spontaneous casts and domain spells remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

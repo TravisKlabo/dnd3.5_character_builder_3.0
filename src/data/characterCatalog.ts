@@ -820,6 +820,11 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Cast an eligible prepared spell as a free action; slot +4.",
   },
   {
+    id: "silent-spell",
+    name: "Silent Spell",
+    description: "Cast a spell without verbal components; slot +1.",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

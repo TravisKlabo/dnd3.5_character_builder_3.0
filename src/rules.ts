@@ -94,11 +94,16 @@ export function getSpellSaveDC(
     schoolName === "illusion"
       ? 1
       : 0;
-  const spellFocusBonus = schoolName && Object.entries(character.featSelections ?? {}).some(
-    ([slotId, featId]) =>
-      featId === "spell-focus" &&
-      character.featSpellSchoolSelections?.[slotId]?.toLowerCase() === schoolName,
-  ) ? 1 : 0;
+  const selectedForSchool = (featId: string) =>
+    Boolean(schoolName && Object.entries(character.featSelections ?? {}).some(
+      ([slotId, selectedFeatId]) =>
+        selectedFeatId === featId &&
+        character.featSpellSchoolSelections?.[slotId]?.toLowerCase() === schoolName,
+    ));
+  const hasSpellFocus = selectedForSchool("spell-focus");
+  const spellFocusBonus = hasSpellFocus
+    ? selectedForSchool("greater-spell-focus") ? 2 : 1
+    : 0;
   return 10 + spellLevel +
     abilityModifier(getEffectiveAbilityScore(character, getSpellcastingAbility(classId))) +
     racialBonus + spellFocusBonus;
@@ -2168,7 +2173,12 @@ const repeatableWeaponFeats = new Set([
   "weapon-focus",
   "weapon-specialization",
 ]);
-const repeatableFeats = new Set([...repeatableWeaponFeats, "skill-focus", "spell-focus"]);
+const repeatableFeats = new Set([
+  ...repeatableWeaponFeats,
+  "skill-focus",
+  "spell-focus",
+  "greater-spell-focus",
+]);
 const weaponSelectionFeats = new Set(repeatableWeaponFeats);
 const strength13ExoticWeapons = new Set(["Bastard Sword", "Dwarven Waraxe"]);
 
@@ -2334,7 +2344,9 @@ export function getAvailableFeats(
       (feat.id !== "skill-focus" ||
         getAvailableFeatSkillChoices(character, excludingSlot).length > 0) &&
       (feat.id !== "spell-focus" ||
-        getAvailableFeatSpellSchoolChoices(character, excludingSlot).length > 0),
+        getAvailableFeatSpellSchoolChoices(character, excludingSlot, "spell-focus").length > 0) &&
+      (feat.id !== "greater-spell-focus" ||
+        getAvailableFeatSpellSchoolChoices(character, excludingSlot, "greater-spell-focus").length > 0),
   );
 }
 
@@ -2346,6 +2358,10 @@ export function normalizeFeatSelections(
   getFeatSlots(character).forEach((slot) => {
     const featId = selections[slot.id];
     const feat = featCatalog.find((entry) => entry.id === featId);
+    const featSelectionContext = {
+      ...character,
+      featSelections: feat?.id === "greater-spell-focus" ? selections : normalized,
+    };
     const chosenFeats = getChosenFeats(
       { ...character, featSelections: normalized },
       slot.id,
@@ -2355,12 +2371,7 @@ export function normalizeFeatSelections(
       (!chosenFeats.includes(feat.id) ||
         repeatableFeats.has(feat.id) ||
         slot.rangerStyleLevel !== undefined) &&
-      featQualifies(
-        { ...character, featSelections: normalized },
-        feat,
-        slot,
-        slot.id,
-      ) &&
+      featQualifies(featSelectionContext, feat, slot, slot.id) &&
       (feat.id !== "weapon-specialization" ||
         getAvailableFeatWeaponChoices(
           { ...character, featSelections: normalized },
@@ -2374,8 +2385,15 @@ export function normalizeFeatSelections(
         ).length > 0) &&
       (feat.id !== "spell-focus" ||
         getAvailableFeatSpellSchoolChoices(
-          { ...character, featSelections: normalized },
+          featSelectionContext,
           slot.id,
+          "spell-focus",
+        ).length > 0) &&
+      (feat.id !== "greater-spell-focus" ||
+        getAvailableFeatSpellSchoolChoices(
+          featSelectionContext,
+          slot.id,
+          "greater-spell-focus",
         ).length > 0)
     )
       normalized[slot.id] = feat.id;
@@ -2462,17 +2480,21 @@ export function getFeatSkillSelectionWarnings(
 export function getAvailableFeatSpellSchoolChoices(
   character: Character,
   excludingSlot?: string,
+  featId: "spell-focus" | "greater-spell-focus" = "spell-focus",
 ): MagicSchool[] {
-  const selectedSchools = new Set(
-    Object.entries(character.featSelections ?? {})
-      .filter(
-        ([slotId, featId]) =>
-          slotId !== excludingSlot && featId === "spell-focus",
-      )
-      .map(([slotId]) => character.featSpellSchoolSelections?.[slotId])
-      .filter((school): school is MagicSchool => Boolean(school)),
+  const selectedSchools = new Set<MagicSchool>();
+  const focusedSchools = new Set<MagicSchool>();
+  for (const [slotId, selectedFeatId] of Object.entries(character.featSelections ?? {})) {
+    if (slotId === excludingSlot) continue;
+    const school = character.featSpellSchoolSelections?.[slotId];
+    if (!school) continue;
+    if (selectedFeatId === featId) selectedSchools.add(school);
+    if (selectedFeatId === "spell-focus") focusedSchools.add(school);
+  }
+  return magicSchools.filter((school) =>
+    !selectedSchools.has(school) &&
+    (featId !== "greater-spell-focus" || focusedSchools.has(school)),
   );
-  return magicSchools.filter((school) => !selectedSchools.has(school));
 }
 
 export function normalizeFeatSpellSchoolSelections(
@@ -2480,14 +2502,31 @@ export function normalizeFeatSpellSchoolSelections(
   selections: Record<string, MagicSchool>,
 ) {
   const normalized: Record<string, MagicSchool> = {};
-  getFeatSlots(character).forEach((slot) => {
+  const slots = getFeatSlots(character);
+  slots.forEach((slot) => {
     if (character.featSelections?.[slot.id] !== "spell-focus") return;
     const school = selections[slot.id];
     const context = {
       ...character,
       featSpellSchoolSelections: normalized,
     };
-    if (getAvailableFeatSpellSchoolChoices(context, slot.id).includes(school))
+    if (
+      school &&
+      getAvailableFeatSpellSchoolChoices(context, slot.id, "spell-focus").includes(school)
+    )
+      normalized[slot.id] = school;
+  });
+  slots.forEach((slot) => {
+    if (character.featSelections?.[slot.id] !== "greater-spell-focus") return;
+    const school = selections[slot.id];
+    const context = {
+      ...character,
+      featSpellSchoolSelections: normalized,
+    };
+    if (
+      school &&
+      getAvailableFeatSpellSchoolChoices(context, slot.id, "greater-spell-focus").includes(school)
+    )
       normalized[slot.id] = school;
   });
   return normalized;
@@ -2498,9 +2537,11 @@ export function getFeatSpellSchoolSelectionWarnings(
   slots = getFeatSlots(character),
 ) {
   return slots.flatMap((slot) => {
-    if (character.featSelections?.[slot.id] !== "spell-focus") return [];
+    const featId = character.featSelections?.[slot.id];
+    if (featId !== "spell-focus" && featId !== "greater-spell-focus") return [];
     const school = character.featSpellSchoolSelections?.[slot.id];
-    return school && getAvailableFeatSpellSchoolChoices(character, slot.id).includes(school)
+    return school &&
+      getAvailableFeatSpellSchoolChoices(character, slot.id, featId).includes(school)
       ? []
       : [`Choose a valid school of magic for ${slot.label}.`];
   });

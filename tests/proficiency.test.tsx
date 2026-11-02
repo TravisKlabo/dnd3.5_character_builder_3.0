@@ -441,6 +441,89 @@ describe("armor and shield proficiency", () => {
     expect(screen.getByText("Spell Focus (Illusion)")).toBeDefined();
   });
 
+  it("limits Greater Spell Focus to schools already selected for Spell Focus", () => {
+    const character = hero();
+    character.classLevels = [{ classId: "wizard", level: 6 }];
+    character.featSelections = {
+      "general-1": "greater-spell-focus",
+      "general-3": "spell-focus",
+      "general-6": "greater-spell-focus",
+      "human-1": "spell-focus",
+    };
+    character.featSpellSchoolSelections = {
+      "general-1": "Illusion",
+      "general-3": "Evocation",
+      "general-6": "Evocation",
+      "human-1": "Illusion",
+    };
+
+    expect(
+      getAvailableFeatSpellSchoolChoices(character, "general-1", "greater-spell-focus"),
+    ).toEqual(["Illusion"]);
+    expect(
+      getAvailableFeatSpellSchoolChoices(character, "general-6", "greater-spell-focus"),
+    ).toEqual(["Evocation"]);
+    expect(
+      getAvailableFeatSpellSchoolChoices(character, "general-9", "greater-spell-focus"),
+    ).toEqual([]);
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }, "general-1")
+        .map((feat) => feat.id),
+    ).toContain("greater-spell-focus");
+    expect(normalizeFeatSelections(character, character.featSelections)).toEqual({
+      "general-1": "greater-spell-focus",
+      "general-3": "spell-focus",
+      "general-6": "greater-spell-focus",
+      "human-1": "spell-focus",
+    });
+    expect(
+      normalizeFeatSpellSchoolSelections(
+        character,
+        character.featSpellSchoolSelections,
+      ),
+    ).toEqual({
+      "human-1": "Illusion",
+      "general-3": "Evocation",
+      "general-1": "Illusion",
+      "general-6": "Evocation",
+    });
+    expect(getFeatSpellSchoolSelectionWarnings(character)).toEqual([]);
+    expect(
+      getAvailableFeats(hero(), { fighterOnly: false }, "general-1")
+        .map((feat) => feat.id),
+    ).not.toContain("greater-spell-focus");
+  });
+
+  it("lets a character choose Greater Spell Focus for a school already selected", () => {
+    render(<App />);
+    const generalSlot = screen.getByRole("button", {
+      name: "General feat (level 1)",
+    }).closest("label");
+    const humanSlot = screen.getByRole("button", {
+      name: "Human bonus feat",
+    }).closest("label");
+    if (!generalSlot || !humanSlot) throw new Error("Missing level-one feat slots.");
+
+    fireEvent.click(within(generalSlot).getByRole("button", { name: "General feat (level 1)" }));
+    fireEvent.click(within(generalSlot).getByRole("option", { name: /^Spell Focus/ }));
+    fireEvent.change(
+      within(generalSlot).getByRole("combobox", {
+        name: "General feat (level 1) spell school",
+      }),
+      { target: { value: "Illusion" } },
+    );
+    fireEvent.click(within(humanSlot).getByRole("button", { name: "Human bonus feat" }));
+    fireEvent.click(within(humanSlot).getByRole("option", { name: /^Greater Spell Focus/ }));
+    fireEvent.change(
+      within(humanSlot).getByRole("combobox", {
+        name: "Human bonus feat spell school",
+      }),
+      { target: { value: "Illusion" } },
+    );
+    expect(screen.getByText("Spell Focus (Illusion)")).toBeDefined();
+    expect(screen.getByText("Greater Spell Focus (Illusion)")).toBeDefined();
+  });
+
   it("lets a character choose and display a skill for Skill Focus", () => {
     render(<App />);
     const featSlot = document.querySelector<HTMLElement>(".feat-choices label");

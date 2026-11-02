@@ -58,9 +58,15 @@ describe("casting summary", () => {
     character.featSelections["human-1"] = "spell-focus";
     character.featSpellSchoolSelections["human-1"] = "Illusion";
     expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(15);
+    character.featSelections["human-1"] = "greater-spell-focus";
+    expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(16);
     character.featSpellSchoolSelections["human-1"] = "Evocation";
     expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(15);
-    expect(getSpellSaveDC(character, "wizard", 1, "Evocation")).toBe(15);
+    expect(getSpellSaveDC(character, "wizard", 1, "Evocation")).toBe(14);
+
+    character.featSelections = { "general-1": "greater-spell-focus" };
+    character.featSpellSchoolSelections = { "general-1": "Illusion" };
+    expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(14);
   });
 
   it("does not advertise spell levels blocked by ability or lack of bonus slots", () => {

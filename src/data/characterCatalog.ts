@@ -825,7 +825,14 @@ export const featCatalog: FeatDefinition[] = ([
     id: "spell-focus",
     name: "Spell Focus",
     source: "core-35-srd",
-    description: "+1 bonus on save DCs for spells from one selected school. This feat can be taken multiple times, selecting a different school each time.",
+    description: "+1 save DC for one selected school; repeatable for different schools.",
+  },
+  {
+    id: "greater-spell-focus",
+    name: "Greater Spell Focus",
+    source: "core-35-srd",
+    description: "Additional +1 save DC for a school with Spell Focus; repeatable for different schools.",
+    prerequisites: { feats: ["spell-focus"] },
   },
   {
     id: "spring-attack",

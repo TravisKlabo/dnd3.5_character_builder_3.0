@@ -787,15 +787,17 @@ export function CharacterSheet({
                     featId === "weapon-focus" ||
                     featId === "weapon-specialization";
                   const requiresSkill = featId === "skill-focus";
-                  const requiresSpellSchool = featId === "spell-focus";
+                  const schoolFeatId = featId === "spell-focus" ||
+                    featId === "greater-spell-focus" ? featId : undefined;
+                  const requiresSpellSchool = schoolFeatId !== undefined;
                   const weaponChoices = requiresWeapon
                     ? getAvailableFeatWeaponChoices(character, featId, slotId)
                     : [];
                   const skillChoices = requiresSkill
                     ? getAvailableFeatSkillChoices(character, slotId)
                     : [];
-                  const spellSchoolChoices = requiresSpellSchool
-                    ? getAvailableFeatSpellSchoolChoices(character, slotId)
+                  const spellSchoolChoices = schoolFeatId
+                    ? getAvailableFeatSpellSchoolChoices(character, slotId, schoolFeatId)
                     : [];
                   const validWeapon = weapon && weaponChoices.includes(weapon)
                     ? weapon
@@ -825,14 +827,14 @@ export function CharacterSheet({
                       ? `${feat.name} (${validSkill || "choose skill"})`
                       : feat && requiresSpellSchool
                         ? `${feat.name} (${validSpellSchool || "choose school"})`
-                      : feat?.name;
+                        : feat?.name;
                   const featDescription = feat && requiresWeapon
                     ? `${feat.description} ${validWeapon ? `Selected weapon: ${validWeapon}.` : "Weapon choice required."}`
                     : feat && requiresSkill
                       ? `${feat.description} ${validSkill ? `Selected skill: ${validSkill}.` : "Skill choice required."}`
                       : feat && requiresSpellSchool
                         ? `${feat.description} ${validSpellSchool ? `Selected school: ${validSpellSchool}.` : "School choice required."}`
-                      : feat?.description;
+                        : feat?.description;
                   return feat ? (
                     <div className="chosen-feat" key={slotId}>
                       <span className="chosen-feat-name tooltip-anchor">
@@ -950,8 +952,10 @@ export function CharacterSheet({
                       ? getAvailableFeatSkillChoices(character, slot.id)
                       : [];
                   const selectedSkill = character.featSkillSelections?.[slot.id];
-                  const spellSchoolChoices = selected === "spell-focus"
-                    ? getAvailableFeatSpellSchoolChoices(character, slot.id)
+                  const schoolFeatId = selected === "spell-focus" ||
+                    selected === "greater-spell-focus" ? selected : undefined;
+                  const spellSchoolChoices = schoolFeatId
+                    ? getAvailableFeatSpellSchoolChoices(character, slot.id, schoolFeatId)
                     : [];
                   const selectedSpellSchool = character.featSpellSchoolSelections?.[slot.id];
                   return (
@@ -1018,7 +1022,7 @@ export function CharacterSheet({
                           </select>
                         </div>
                       ) : null}
-                      {selected === "spell-focus" ? (
+                      {schoolFeatId ? (
                         <div className="feat-weapon-choice">
                           <span>School of magic</span>
                           <select

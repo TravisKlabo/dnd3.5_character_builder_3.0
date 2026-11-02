@@ -396,18 +396,24 @@ describe("caster class subtabs", () => {
     expect(within(spellRow).getByText("DC 14")).toBeDefined();
   });
 
-  it("applies Spell Focus DC bonuses only to spells from the selected school", async () => {
+  it("applies Spell Focus and Greater Spell Focus only to spells from the selected school", async () => {
     const character = caster();
     character.knownSpellsByClass = { wizard: ["Ghost Sound", "Daze"] };
     character.knownSpells = ["Ghost Sound", "Daze"];
-    character.featSelections = { "general-1": "spell-focus" };
-    character.featSpellSchoolSelections = { "general-1": "Illusion" };
+    character.featSelections = {
+      "general-1": "spell-focus",
+      "human-1": "greater-spell-focus",
+    };
+    character.featSpellSchoolSelections = {
+      "general-1": "Illusion",
+      "human-1": "Illusion",
+    };
     save(character);
     render(<App />);
     const panel = await openSpells();
     const illusionRow = within(panel).getByRole("row", { name: /Ghost Sound/ });
     const enchantmentRow = within(panel).getByRole("row", { name: /Daze/ });
-    expect(within(illusionRow).getByText("DC 14")).toBeDefined();
+    expect(within(illusionRow).getByText("DC 15")).toBeDefined();
     expect(within(enchantmentRow).getByText("DC 13")).toBeDefined();
   });
 

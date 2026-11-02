@@ -499,7 +499,8 @@ save DC at each spell level:
   use Wisdom, half class level as base caster level, and their actual first-
   through fourth-level spell access.
 - Spell Focus lets you select a different school each time you take the feat;
-  its +1 save DC bonus applies to matching school-specific spell DCs.
+  its +1 save DC bonus applies to matching school-specific spell DCs. Greater
+  Spell Focus requires Spell Focus for that school and adds a stacking +1.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

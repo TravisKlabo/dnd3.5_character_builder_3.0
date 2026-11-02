@@ -424,6 +424,17 @@ describe("class-specific spell rules", () => {
       extendByClass: value,
     })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: { Daze: [1] } },
+    { wizard: { Daze: ["true"] } },
+    { notAClass: { Daze: [true] } },
+  ])("rejects malformed prepared Enlarge metadata %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      enlargeByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
@@ -627,15 +638,16 @@ describe("caster class subtabs", () => {
     expect(stored().maximizeByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });
 
-  it("adds Extend, Empower, and Maximize slot adjustments cumulatively", async () => {
+  it("adds all four metamagic slot adjustments cumulatively", async () => {
     const character = caster();
-    character.classLevels = [{ classId: "wizard", level: 11 }, { classId: "cleric", level: 1 }];
+    character.classLevels = [{ classId: "wizard", level: 13 }, { classId: "cleric", level: 1 }];
     character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
     character.knownSpells = ["Ghost Sound"];
     character.featSelections = {
       "general-1": "extend-spell",
       "general-2": "empower-spell",
       "general-3": "maximize-spell",
+      "general-4": "enlarge-spell",
     };
     save(character);
     render(<App />);
@@ -654,11 +666,18 @@ describe("caster class subtabs", () => {
     fireEvent.click(within(spellRow).getByRole("checkbox", {
       name: "Maximize Ghost Sound copy 1",
     }));
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Enlarge Ghost Sound copy 1",
+    }));
 
     expect(within(spellRow).getByText(
-      "Copy 1: DC 13 (Extended and Empowered and Maximized in level 6 slot)",
+      "Copy 1: DC 13 (Extended and Empowered and Maximized and Enlarged in level 7 slot)",
     )).toBeDefined();
-    expect(spellLevel(panel, "LEVEL 6 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    expect(within(spellRow).getByText("Copy 1: Enlarged")).toBeDefined();
+    expect(screen.getByText(/manually increase only distance-defined/)).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 7 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().enlargeByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });
 
   it("shows the Spell Penetration check modifier for each spellcasting class", async () => {

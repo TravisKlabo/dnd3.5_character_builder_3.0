@@ -50,6 +50,9 @@ remain manual ([SRD Maximize Spell](https://www.d20srd.org/srd/feats.htm#maximiz
 Extend Spell is tracked per prepared copy for its +1 slot cost. The app does not
 double duration text or automatically exclude concentration, instantaneous, or
 permanent spells ([SRD Extend Spell](https://www.d20srd.org/srd/feats.htm#extendSpell)).
+Enlarge Spell is tracked per prepared copy for its +1 slot cost; its qualifying
+range increases remain manual because range values are stored as prose
+([SRD Enlarge Spell](https://www.d20srd.org/srd/feats.htm#enlargeSpell)).
 
 ## Recommended audit order
 

@@ -517,6 +517,9 @@ save DC at each spell level:
 - Extend Spell lets you mark prepared copies for a slot one level higher.
   Duration doubling remains manual; concentration, instantaneous, and permanent
   spells are unaffected. Spontaneous casts and domain spells remain manual.
+- Enlarge Spell lets you mark prepared copies for a slot one level higher.
+  Increase range manually only for distance-defined close-, medium-, and
+  long-range spells; spontaneous casts and domain spells remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

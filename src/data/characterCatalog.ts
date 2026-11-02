@@ -810,6 +810,11 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Doubles eligible durations; slot +1.",
   },
   {
+    id: "enlarge-spell",
+    name: "Enlarge Spell",
+    description: "Doubles eligible ranges; slot +1.",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

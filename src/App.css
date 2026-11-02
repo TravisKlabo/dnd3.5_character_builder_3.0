@@ -283,6 +283,8 @@
 .spell-level-table .prepared-spell-maximize input { width: auto; margin: 0; }
 .spell-level-table .prepared-spell-extend { display: flex; align-items: center; gap: 2px; }
 .spell-level-table .prepared-spell-extend input { width: auto; margin: 0; }
+.spell-level-table .prepared-spell-enlarge { display: flex; align-items: center; gap: 2px; }
+.spell-level-table .prepared-spell-enlarge input { width: auto; margin: 0; }
 .spell-level-table .prepared-spell-dc { display: block; }
 .spell-level-table td input[type="checkbox"] { width: 13px; height: 13px; margin: 0; appearance: none; border: 1px solid #202020; border-radius: 0; background: #fff; vertical-align: middle; }
 .spell-level-table td input[type="checkbox"]:checked { background: linear-gradient(135deg, transparent 43%, #202020 43% 57%, transparent 57%), linear-gradient(45deg, transparent 53%, #202020 53% 65%, transparent 65%); }

@@ -143,7 +143,7 @@ export function assertCharacter(value: unknown): asserts value is Character {
       (value.preparedSpellSlotLevelsByClass !== undefined &&
         !isClassMap(value.preparedSpellSlotLevelsByClass, (spells) =>
           isMap(spells, isSpellLevelList))) ||
-      !["empowerByClass", "maximizeByClass", "extendByClass"].every((key) =>
+      !["empowerByClass", "maximizeByClass", "extendByClass", "enlargeByClass"].every((key) =>
         value[key] === undefined || isClassMap(value[key], (spells) =>
           isMap(spells, isBooleanList))) ||
       (value.spellPreparationCompletedByClass !== undefined &&

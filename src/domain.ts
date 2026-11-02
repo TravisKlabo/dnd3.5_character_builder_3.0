@@ -152,6 +152,7 @@ export interface FeatDefinition {
     baseAttackBonus?: number
     casterLevel?: number
     classLevels?: Partial<Record<ClassId, number>>
+    spellLevel?: number
     feats?: FeatId[]
   }
   fighterBonus?: boolean
@@ -195,6 +196,7 @@ export interface Character {
   preparedSpells: string[]
   preparedSpellsByClass?: Partial<Record<ClassId, string[]>>
   preparedSpellSlotLevelsByClass?: Partial<Record<ClassId, Record<string, number[]>>>
+  empowerByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
   spellPreparationCompletedByClass?: Partial<Record<ClassId, boolean>>
   clericDomains?: import('./data/clericDomains').ClericDomainId[]
   clericDomainPreparation?: Record<string, import('./data/clericDomains').ClericDomainSpell>
@@ -297,7 +299,7 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
 export const initialCharacter: Character = {
   name: 'Unnamed Hero', player: 'Player', gender: '', age: '', height: '5 ft. 7 in.', weight: '', hairColor: '', eyeColor: '', skinColor: '', temporaryHitPoints: 0, nonlethalDamage: 0, damageReduction: '', spellResistance: '', notes: '', race: 'Human', alignment: 'Neutral Good',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, featSkillSelections: {}, featSpellSchoolSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], knownSpellClasses: {}, knownSpellsByClass: {}, spellAcquisitionByClass: {}, preparedSpells: [], preparedSpellsByClass: {}, preparedSpellSlotLevelsByClass: {}, equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
+  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, featSkillSelections: {}, featSpellSchoolSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], preparedSpells: [], equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
 }
 
 export function abilityModifier(score: number) {

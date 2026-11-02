@@ -1,6 +1,6 @@
 import { type Character, type ClassId, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
-import { hasSpellLevelAtClassLevel, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
+import { hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
 import { getClassSpells, getSrdSpellSourceBook, srdSpellContentSource } from "../data/spellCatalog";
 import { Stat } from "./shared";
 import { SpellPicker } from "./pickers";
@@ -29,6 +29,7 @@ type SpellSheetProps = {
     spells: string[],
     classId?: ClassId,
     spellSlotLevels?: Record<string, number[]>,
+    spellEmpoweredCopies?: Record<string, boolean[]>,
   ) => void;
   onCharacterUpdate: (update: (current: Character) => Character) => void;
   onExpendedSpellSlotsChange: (classId: ClassId, slots: Record<string, number[]>) => void;
@@ -111,9 +112,11 @@ export function SpellSheet({
     (selectedFeats.includes("spell-penetration") ? 2 : 0) +
     (selectedFeats.includes("greater-spell-penetration") ? 2 : 0);
   const hasHeightenSpell = selectedFeats.includes("heighten-spell");
+  const hasEmpowerSpell = selectedFeats.includes("empower-spell");
   const availableLevels = Array.from({ length: 10 }, (_, index) => index).filter((level) =>
     hasSpellLevelAtClassLevel(spellcastingClass.id, classLevel, level),
   );
+  const spellAbilityScore = getEffectiveAbilityScore(character, castingAbility);
   const activeClassKnownSpells = new Set(
     getClassSpellSelections(character, "knownSpells")[spellcastingClass.id] ?? [],
   );
@@ -124,9 +127,47 @@ export function SpellSheet({
   const requiresPreparation = learningMode !== "Spells Known";
   const preparationView = learningMode !== "Spellbook" || wizardView === "preparation";
   const classSpells = spellcastingClass.id === "wizard" ? getWizardSpellbookSpells() : getClassSpells(spellcastingClass.id);
+  const getEmpowerSlotCount = (slotLevel: number, effectiveSpellLevel: number) => {
+    if (
+      !hasEmpowerSpell ||
+      slotLevel !== effectiveSpellLevel + 2 ||
+      slotLevel > 9 ||
+      !hasSpellLevelAtClassLevel(spellcastingClass.id, classLevel, slotLevel) ||
+      spellAbilityScore < 10 + effectiveSpellLevel
+    ) return 0;
+    const modifier = abilityModifier(spellAbilityScore);
+    const bonus = slotLevel > 0 && modifier >= slotLevel
+      ? Math.floor((modifier - slotLevel) / 4) + 1
+      : 0;
+    return baseSpellSlots(spellcastingClass.id, classLevel, slotLevel) + bonus;
+  };
+  const getEmpowerableSlotCount = (slotLevel: number) => Math.max(
+    0,
+    ...classSpells.flatMap((spell) => {
+      if (
+        (learningMode === "Spellbook" && !activeClassKnownSpells.has(spell.name)) ||
+        !availableLevels.includes(spell.level)
+      ) return [];
+      const effectiveLevels = hasHeightenSpell
+        ? availableLevels.filter((effectiveLevel) =>
+          effectiveLevel >= spell.level && effectiveLevel + 2 === slotLevel,
+        )
+        : [spell.level].filter((effectiveLevel) => effectiveLevel + 2 === slotLevel);
+      return effectiveLevels.map((effectiveLevel) =>
+        getEmpowerSlotCount(slotLevel, effectiveLevel),
+      );
+    }),
+  );
+  const getPreparedSlotCapacity = (slotLevel: number) => Math.max(
+    getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel),
+    getEmpowerableSlotCount(slotLevel),
+  );
   const storedPreparedSlotLevels =
     character.preparedSpellSlotLevelsByClass?.[spellcastingClass.id] ?? {};
+  const storedPreparedEmpoweredCopies =
+    character.empowerByClass?.[spellcastingClass.id] ?? {};
   const preparedSlotLevelsBySpell: Record<string, number[]> = {};
+  const preparedEmpoweredCopiesBySpell: Record<string, boolean[]> = {};
   const preparedCopyIndexes = new Map<string, number>();
   const spellLevelsByName = new Map(
     classSpells.map((spell) => [spell.name, spell.level] as const),
@@ -145,14 +186,23 @@ export function SpellSheet({
         ? storedLevel
         : baseLevel;
     (preparedSlotLevelsBySpell[spellName] ??= []).push(slotLevel);
+    (preparedEmpoweredCopiesBySpell[spellName] ??= []).push(
+      storedPreparedEmpoweredCopies[spellName]?.[copyIndex] === true,
+    );
     preparedCopyIndexes.set(spellName, copyIndex + 1);
   }
-  const preparedSlotUse = Array.from({ length: 10 }, () => 0);
-  Object.values(preparedSlotLevelsBySpell).forEach((levels) =>
-    levels.forEach((level) => { preparedSlotUse[level] += 1; }),
+  const preparedSlotUse = Array.from({ length: 12 }, () => 0);
+  Object.entries(preparedSlotLevelsBySpell).forEach(([spellName, levels]) =>
+    levels.forEach((level, copyIndex) => {
+      const empowered =
+        hasEmpowerSpell && preparedEmpoweredCopiesBySpell[spellName]?.[copyIndex] === true;
+      preparedSlotUse[level + (empowered ? 2 : 0)] += 1;
+    }),
   );
-  const preparationExceedsSlots = availableLevels.some((level) =>
-    preparedSlotUse[level] > getDailySpellSlots(character, spellcastingClass.id, classLevel, level),
+  const preparationExceedsSlots = preparedSlotUse.some((usage, level) =>
+    usage > 0 && (level > 9 || usage > getPreparedSlotCapacity(level)),
+  ) || Object.values(preparedSlotLevelsBySpell).some((levels) =>
+    levels.some((level) => spellAbilityScore < 10 + level),
   );
   const originalClassKnownSpells = new Set(
     levelUpOriginal ? getClassSpellSelections(levelUpOriginal, "knownSpells")[spellcastingClass.id] ?? [] : [],
@@ -263,10 +313,16 @@ export function SpellSheet({
               " Prepare from this class's spell list. Each spell level has its own preparation limit."}</p>
         {spellcastingClass.id === "cleric" && <p>Daily slots below are ordinary cleric slots. Domain slots are prepared and tracked separately above the ordinary spell list.</p>}
         {spellcastingClass.id === "mystic" && <p className="spell-rules-notice">Mystic casting is inherited Dragonlance content and has not been source-verified.</p>}
-        {hasHeightenSpell && <p className="spell-rules-notice">
-          {learningMode === "Spells Known"
+        {(hasHeightenSpell || hasEmpowerSpell) && <p className="spell-rules-notice">
+          {hasHeightenSpell && (learningMode === "Spells Known"
             ? "Heighten Spell for spontaneous casting remains manual, including higher-level slot use and casting time."
-            : "Heighten Spell is tracked per copy in this class's prepared list. Spontaneous casting, domain spells, and non-DC spell-level effects remain manual."}
+            : "Heighten Spell is tracked per copy in this class's prepared list.")}
+          {hasHeightenSpell && hasEmpowerSpell ? " " : ""}
+          {hasEmpowerSpell && (learningMode === "Spells Known"
+            ? "Empower Spell for spontaneous casting remains manual, including higher-level slot use, casting time, and its effect."
+            : "Empower Spell is tracked per prepared copy for slot use; apply the 1.5x increase to variable numeric effects manually.")}
+          {(hasHeightenSpell || hasEmpowerSpell) && " Spontaneous casting and cleric domain spells remain manual."}
+          {hasHeightenSpell && " Non-DC spell-level effects remain manual."}
         </p>}
         {availableLevels.length === 0 && <p>{spellcastingClass.name} spellcasting begins at class level 4. No spell slots are available yet.</p>}
         {requiresPreparation && preparationView && (
@@ -326,7 +382,7 @@ export function SpellSheet({
           (spell) => spell.level === level,
         );
         const limit = levelLimit(level);
-        const dailySlotCount = getDailySpellSlots(character, spellcastingClass.id, classLevel, level);
+        const dailySlotCount = getPreparedSlotCapacity(level);
         const preparationCount = preparedSlotUse[level];
         const selectedForLevel = levelSpells
           .filter(
@@ -436,20 +492,35 @@ export function SpellSheet({
                     ? preparedSlotLevelsBySpell[spellName] ?? []
                     : [];
                   const preparedCount = preparedLevels.length;
-                  const spellAbilityScore = getEffectiveAbilityScore(character, castingAbility);
                   const allowedPreparationLevels = availableLevels.filter(
                     (slotLevel) =>
                       slotLevel >= level &&
                       (hasHeightenSpell || slotLevel === level) &&
                       spellAbilityScore >= 10 + slotLevel,
                   );
-                  const additionalPreparationCapacity = allowedPreparationLevels.reduce(
-                    (total, slotLevel) =>
-                      total + Math.max(
-                        0,
-                        getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel) -
-                          preparedSlotUse[slotLevel],
+                  const allowedSlotCapacities = new Map<number, number>();
+                  allowedPreparationLevels.forEach((slotLevel) => {
+                    allowedSlotCapacities.set(
+                      slotLevel,
+                      Math.max(
+                        allowedSlotCapacities.get(slotLevel) ?? 0,
+                        getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel),
                       ),
+                    );
+                    if (hasEmpowerSpell && slotLevel <= 7) {
+                      const empoweredSlotLevel = slotLevel + 2;
+                      allowedSlotCapacities.set(
+                        empoweredSlotLevel,
+                        Math.max(
+                          allowedSlotCapacities.get(empoweredSlotLevel) ?? 0,
+                          getEmpowerSlotCount(empoweredSlotLevel, slotLevel),
+                        ),
+                      );
+                    }
+                  });
+                  const additionalPreparationCapacity = [...allowedSlotCapacities].reduce(
+                    (total, [slotLevel, capacity]) =>
+                      total + Math.max(0, capacity - preparedSlotUse[slotLevel]),
                     0,
                   );
                   const maxPreparedCount = preparedCount + additionalPreparationCapacity;
@@ -465,7 +536,7 @@ export function SpellSheet({
                             onChange={(event) => {
                               const count = Number(event.target.value);
                               if (!Number.isInteger(count) || count < 0 || count > maxPreparedCount) {
-                                event.currentTarget.setCustomValidity("Preparation must fit available base or heightened slots.");
+                                event.currentTarget.setCustomValidity("Preparation must fit available spell slots, including applicable metamagic slots.");
                                 event.currentTarget.reportValidity();
                                 return;
                               }
@@ -475,33 +546,60 @@ export function SpellSheet({
                                 ...Array.from({ length: count }, () => spellName),
                               ];
                               const nextSlotUse = [...preparedSlotUse];
-                              for (const removedLevel of preparedLevels.slice(count)) {
-                                nextSlotUse[removedLevel] -= 1;
+                              const nextEmpoweredCopies =
+                                (preparedEmpoweredCopiesBySpell[spellName] ?? []).slice(0, count);
+                              for (let copyIndex = count; copyIndex < preparedLevels.length; copyIndex += 1) {
+                                const empowered = hasEmpowerSpell &&
+                                  preparedEmpoweredCopiesBySpell[spellName]?.[copyIndex] === true;
+                                nextSlotUse[preparedLevels[copyIndex] + (empowered ? 2 : 0)] -= 1;
                               }
                               const nextPreparedLevels = preparedLevels.slice(0, count);
                               while (nextPreparedLevels.length < count) {
-                                const nextLevel = allowedPreparationLevels.find(
-                                  (slotLevel) =>
-                                    nextSlotUse[slotLevel] <
-                                    getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel),
+                                const choices = [
+                                  ...allowedPreparationLevels.map((slotLevel) => ({
+                                    spellLevel: slotLevel,
+                                    empowered: false,
+                                    slotLevel,
+                                    capacity: getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel),
+                                  })),
+                                  ...(hasEmpowerSpell
+                                    ? allowedPreparationLevels
+                                      .filter((slotLevel) => slotLevel <= 7)
+                                      .map((slotLevel) => ({
+                                        spellLevel: slotLevel,
+                                        empowered: true,
+                                        slotLevel: slotLevel + 2,
+                                        capacity: getEmpowerSlotCount(slotLevel + 2, slotLevel),
+                                      }))
+                                    : []),
+                                ];
+                                const nextChoice = choices.find(
+                                  ({ slotLevel, capacity }) => nextSlotUse[slotLevel] < capacity,
                                 );
-                                if (nextLevel === undefined) {
+                                if (!nextChoice) {
                                   event.currentTarget.setCustomValidity("No available spell slot can hold this preparation.");
                                   event.currentTarget.reportValidity();
                                   return;
                                 }
-                                nextPreparedLevels.push(nextLevel);
-                                nextSlotUse[nextLevel] += 1;
+                                nextPreparedLevels.push(nextChoice.spellLevel);
+                                nextEmpoweredCopies.push(nextChoice.empowered);
+                                nextSlotUse[nextChoice.slotLevel] += 1;
                               }
                               const nextSlotLevelsBySpell = Object.fromEntries(
                                 Object.entries(storedPreparedSlotLevels)
                                   .filter(([name]) => name !== spellName && nextPreparedSpells.includes(name)),
                               );
+                              const nextEmpoweredCopiesBySpell = Object.fromEntries(
+                                Object.entries(storedPreparedEmpoweredCopies)
+                                  .filter(([name]) => name !== spellName && nextPreparedSpells.includes(name)),
+                              );
                               if (count > 0) nextSlotLevelsBySpell[spellName] = nextPreparedLevels;
+                              if (count > 0) nextEmpoweredCopiesBySpell[spellName] = nextEmpoweredCopies;
                               onPreparedSpellsChange(
                                 nextPreparedSpells,
                                 spellcastingClass.id,
                                 nextSlotLevelsBySpell,
+                                nextEmpoweredCopiesBySpell,
                               );
                             }}
                           />
@@ -541,56 +639,116 @@ export function SpellSheet({
                             {spellMarker && <small>{spellMarker}</small>}
                           </>
                         )}
-                        {hasHeightenSpell && spellName && preparedLevels.map((preparedLevel, copyIndex) => (
-                          <label key={copyIndex} className="prepared-spell-heighten">
-                            Copy {copyIndex + 1} slot level
-                            <select
-                              aria-label={`Prepared ${spellName} copy ${copyIndex + 1} slot level`}
-                              value={preparedLevel}
-                              disabled={preparationComplete}
-                              onChange={(event) => {
-                                const nextLevel = Number(event.currentTarget.value);
-                                const currentLevel = preparedLevels[copyIndex];
-                                if (nextLevel === currentLevel) return;
-                                if (
-                                  !allowedPreparationLevels.includes(nextLevel) ||
-                                  preparedSlotUse[nextLevel] >=
-                                    getDailySpellSlots(character, spellcastingClass.id, classLevel, nextLevel)
-                                ) {
-                                  event.currentTarget.setCustomValidity("Choose a level with an available spell slot and sufficient casting ability.");
-                                  event.currentTarget.reportValidity();
-                                  return;
-                                }
-                                event.currentTarget.setCustomValidity("");
-                                const nextPreparedLevels = [...preparedLevels];
-                                nextPreparedLevels[copyIndex] = nextLevel;
-                                onPreparedSpellsChange(preparedSpells, spellcastingClass.id, {
-                                  ...storedPreparedSlotLevels,
-                                  [spellName]: nextPreparedLevels,
-                                });
-                              }}
-                            >
-                              {availableLevels
-                                .filter((slotLevel) => slotLevel >= level && (hasHeightenSpell || slotLevel === level))
-                                .map((slotLevel) => {
-                                  const currentCopyUsesSlot = slotLevel === preparedLevel;
-                                  const hasCapacity =
-                                    preparedSlotUse[slotLevel] - Number(currentCopyUsesSlot) <
-                                    getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel);
-                                  const canCast = spellAbilityScore >= 10 + slotLevel;
-                                  return (
-                                    <option
-                                      key={slotLevel}
-                                      value={slotLevel}
-                                      disabled={!canCast || (!hasCapacity && !currentCopyUsesSlot)}
-                                    >
-                                      Level {slotLevel}
-                                    </option>
-                                  );
-                                })}
-                            </select>
-                          </label>
-                        ))}
+                        {(hasHeightenSpell || hasEmpowerSpell) && spellName && preparedLevels.map((preparedLevel, copyIndex) => {
+                          const empowered = preparedEmpoweredCopiesBySpell[spellName]?.[copyIndex] === true;
+                          const currentUsedSlotLevel = preparedLevel + (hasEmpowerSpell && empowered ? 2 : 0);
+                          const canEmpower = empowered || (
+                            preparedLevel <= 7 &&
+                            preparedSlotUse[preparedLevel + 2] <
+                              getEmpowerSlotCount(preparedLevel + 2, preparedLevel)
+                          );
+                          return (
+                            <div key={copyIndex} className="prepared-spell-metamagic">
+                              {hasHeightenSpell && <label className="prepared-spell-heighten">
+                                Copy {copyIndex + 1} slot level
+                                <select
+                                  aria-label={`Prepared ${spellName} copy ${copyIndex + 1} slot level`}
+                                  value={preparedLevel}
+                                  disabled={preparationComplete}
+                                  onChange={(event) => {
+                                    const nextLevel = Number(event.currentTarget.value);
+                                    if (nextLevel === preparedLevel) return;
+                                    const nextUsedSlotLevel = nextLevel + (empowered ? 2 : 0);
+                                    const capacity = empowered
+                                      ? getEmpowerSlotCount(nextUsedSlotLevel, nextLevel)
+                                      : getDailySpellSlots(character, spellcastingClass.id, classLevel, nextLevel);
+                                    if (
+                                      !allowedPreparationLevels.includes(nextLevel) ||
+                                      nextUsedSlotLevel > 9 ||
+                                      preparedSlotUse[nextUsedSlotLevel] -
+                                        Number(currentUsedSlotLevel === nextUsedSlotLevel) >= capacity
+                                    ) {
+                                      event.currentTarget.setCustomValidity("Choose a level with an available slot and sufficient casting ability.");
+                                      event.currentTarget.reportValidity();
+                                      return;
+                                    }
+                                    event.currentTarget.setCustomValidity("");
+                                    const nextPreparedLevels = [...preparedLevels];
+                                    nextPreparedLevels[copyIndex] = nextLevel;
+                                    onPreparedSpellsChange(preparedSpells, spellcastingClass.id, {
+                                      ...storedPreparedSlotLevels,
+                                      [spellName]: nextPreparedLevels,
+                                    });
+                                  }}
+                                >
+                                  {availableLevels
+                                    .filter((slotLevel) => slotLevel >= level && (hasHeightenSpell || slotLevel === level))
+                                    .map((slotLevel) => {
+                                      const usedSlotLevel = slotLevel + (empowered ? 2 : 0);
+                                      const currentCopyUsesSlot = usedSlotLevel === currentUsedSlotLevel;
+                                      const capacity = empowered
+                                        ? getEmpowerSlotCount(usedSlotLevel, slotLevel)
+                                        : getDailySpellSlots(character, spellcastingClass.id, classLevel, slotLevel);
+                                      const canCast = spellAbilityScore >= 10 + slotLevel;
+                                      return (
+                                        <option
+                                          key={slotLevel}
+                                          value={slotLevel}
+                                          disabled={
+                                            !canCast ||
+                                            usedSlotLevel > 9 ||
+                                            (!currentCopyUsesSlot && preparedSlotUse[usedSlotLevel] >= capacity)
+                                          }
+                                        >
+                                          Level {slotLevel}
+                                        </option>
+                                      );
+                                    })}
+                                </select>
+                              </label>}
+                              {hasEmpowerSpell && <label className="prepared-spell-empower">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Empower ${spellName} copy ${copyIndex + 1}`}
+                                  checked={empowered}
+                                  disabled={preparationComplete || !canEmpower}
+                                  title={!canEmpower ? "Empower requires an available slot two levels higher." : undefined}
+                                  onChange={(event) => {
+                                    const nextEmpowered = event.currentTarget.checked;
+                                    const nextUsedSlotLevel = preparedLevel + (nextEmpowered ? 2 : 0);
+                                    const capacity = nextEmpowered
+                                      ? getEmpowerSlotCount(nextUsedSlotLevel, preparedLevel)
+                                      : getDailySpellSlots(character, spellcastingClass.id, classLevel, preparedLevel);
+                                    if (
+                                      nextUsedSlotLevel > 9 ||
+                                      preparedSlotUse[nextUsedSlotLevel] -
+                                        Number(currentUsedSlotLevel === nextUsedSlotLevel) >= capacity
+                                    ) {
+                                      event.currentTarget.setCustomValidity("No available slot can hold this Empowered preparation.");
+                                      event.currentTarget.reportValidity();
+                                      return;
+                                    }
+                                    event.currentTarget.setCustomValidity("");
+                                    const nextEmpoweredCopies = [
+                                      ...(preparedEmpoweredCopiesBySpell[spellName] ?? []),
+                                    ];
+                                    nextEmpoweredCopies[copyIndex] = nextEmpowered;
+                                    onPreparedSpellsChange(
+                                      preparedSpells,
+                                      spellcastingClass.id,
+                                      storedPreparedSlotLevels,
+                                      {
+                                        ...storedPreparedEmpoweredCopies,
+                                        [spellName]: nextEmpoweredCopies,
+                                      },
+                                    );
+                                  }}
+                                />
+                                Empower (+2 slot levels)
+                              </label>}
+                            </div>
+                          );
+                        })}
                       </td>
                       <td className="spell-description-cell">
                         {spell && (
@@ -610,13 +768,19 @@ export function SpellSheet({
                       <td>
                         {spell?.savingThrow || ""}
                         {spell?.savingThrow && (
-                          hasHeightenSpell && preparedLevels.length > 0
-                            ? preparedLevels.map((preparedLevel, copyIndex) => (
-                                <small key={copyIndex} className="prepared-spell-dc">
+                          (hasHeightenSpell || hasEmpowerSpell) && preparedLevels.length > 0
+                            ? preparedLevels.map((preparedLevel, copyIndex) => {
+                                const empowered = hasEmpowerSpell &&
+                                  preparedEmpoweredCopiesBySpell[spellName ?? ""]?.[copyIndex] === true;
+                                const notes = [
+                                  preparedLevel > level ? `Heightened to level ${preparedLevel}` : "",
+                                  empowered ? `Empowered in level ${preparedLevel + 2} slot` : "",
+                                ].filter(Boolean);
+                                return <small key={copyIndex} className="prepared-spell-dc">
                                   Copy {copyIndex + 1}: DC {getSpellSaveDC(character, spellcastingClassId, preparedLevel, spell.school)}
-                                  {preparedLevel > level ? ` (Heightened to level ${preparedLevel})` : ""}
-                                </small>
-                              ))
+                                  {notes.length ? ` (${notes.join("; ")})` : ""}
+                                </small>;
+                              })
                             : <small>DC {getSpellSaveDC(character, spellcastingClassId, level, spell.school)}</small>
                         )}
                       </td>

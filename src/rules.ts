@@ -2294,13 +2294,19 @@ export function featQualifies(
     getBaseAttackBonus(character) < prerequisites.baseAttackBonus
   )
     return false;
+  const baseClassLevels = character.classLevels.filter(
+    (entry) => !("prestigeClassId" in entry && entry.prestigeClassId),
+  );
   const casterLevel = Math.max(
     0,
-    ...character.classLevels
-      .filter((entry) => !("prestigeClassId" in entry && entry.prestigeClassId))
-      .map((entry) => getCasterLevel(entry.classId, entry.level)),
+    ...baseClassLevels.map((entry) => getCasterLevel(entry.classId, entry.level)),
   );
   if (prerequisites?.casterLevel && casterLevel < prerequisites.casterLevel)
+    return false;
+  const requiredSpellLevel = prerequisites?.spellLevel;
+  if (requiredSpellLevel && !baseClassLevels.some((entry) =>
+    getDailySpellSlots(character, entry.classId, entry.level, requiredSpellLevel) > 0,
+  ))
     return false;
   if (
     prerequisites?.classLevels &&

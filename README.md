@@ -507,6 +507,9 @@ save DC at each spell level:
 - Heighten Spell lets you choose a higher level for each prepared copy, using
   that level for its save DC and slot. Spontaneous casts, domain spells, and
   other spell-level-dependent effects remain manual.
+- Empower Spell requires the ability to cast 3rd-level spells. Mark prepared
+  copies to use a slot two levels higher; variable numeric effects must still be
+  multiplied by 1.5 manually. Spontaneous casts and domain spells remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

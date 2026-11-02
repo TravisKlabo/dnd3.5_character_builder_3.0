@@ -500,6 +500,33 @@ describe("armor and shield proficiency", () => {
     ).toContain("heighten-spell");
   });
 
+  it("requires access to 3rd-level spells for Empower Spell", () => {
+    const character = hero();
+    character.abilities.int = 13;
+    character.abilities.cha = 13;
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).not.toContain("empower-spell");
+
+    character.classLevels = [{ classId: "wizard", level: 4 }];
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).not.toContain("empower-spell");
+    character.classLevels = [{ classId: "wizard", level: 5 }];
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("empower-spell");
+
+    character.classLevels = [{ classId: "sorcerer", level: 5 }];
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).not.toContain("empower-spell");
+    character.classLevels = [{ classId: "sorcerer", level: 6 }];
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("empower-spell");
+  });
+
   it("requires Spell Penetration before Greater Spell Penetration is available", () => {
     const character = hero();
     expect(

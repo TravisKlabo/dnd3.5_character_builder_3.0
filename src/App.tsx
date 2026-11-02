@@ -31,6 +31,16 @@ const storeItemEntries = (item: StoreItem) =>
     .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
 const storeItemsMatch = (left: StoreItem, right: StoreItem) =>
   JSON.stringify(storeItemEntries(left)) === JSON.stringify(storeItemEntries(right));
+const prunePreparedSpellMetadata = <T,>(
+  metadata: Partial<Record<ClassId, Record<string, T>>> | undefined,
+  classId: ClassId,
+  preparedNames: Set<string>,
+) => !metadata?.[classId] ? metadata : {
+  ...metadata,
+  [classId]: Object.fromEntries(
+    Object.entries(metadata[classId]).filter(([name]) => preparedNames.has(name)),
+  ),
+};
 
 export function App() {
   const [activeSheet, setActiveSheet] = useState("character");
@@ -409,6 +419,7 @@ export function App() {
       const knownSpellsByClass = getClassSpellSelections(current, "knownSpells");
       const preparedSpellsByClass = getClassSpellSelections(current, "preparedSpells");
       let preparedSpellSlotLevelsByClass = current.preparedSpellSlotLevelsByClass;
+      let empowerByClass = current.empowerByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -417,16 +428,17 @@ export function App() {
         if (classId === "wizard" && preparedSpellsByClass[classId]) {
           preparedSpellsByClass[classId] = preparedSpellsByClass[classId].filter((name) => !removed.has(name));
         }
-        if (preparedSpellSlotLevelsByClass?.[classId]) {
-          const preparedNames = new Set(preparedSpellsByClass[classId] ?? []);
-          preparedSpellSlotLevelsByClass = {
-            ...preparedSpellSlotLevelsByClass,
-            [classId]: Object.fromEntries(
-              Object.entries(preparedSpellSlotLevelsByClass[classId] ?? {})
-                .filter(([name]) => preparedNames.has(name)),
-            ),
-          };
-        }
+        const preparedNames = new Set(preparedSpellsByClass[classId] ?? []);
+        preparedSpellSlotLevelsByClass = prunePreparedSpellMetadata(
+          preparedSpellSlotLevelsByClass,
+          classId,
+          preparedNames,
+        );
+        empowerByClass = prunePreparedSpellMetadata(
+          empowerByClass,
+          classId,
+          preparedNames,
+        );
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
         spellAcquisitionByClass[classId] = Object.fromEntries(
@@ -444,6 +456,7 @@ export function App() {
         preparedSpellsByClass,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
         ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
+        ...(empowerByClass ? { empowerByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -502,6 +515,7 @@ export function App() {
     preparedSpells: string[],
     classId?: ClassId,
     spellSlotLevels?: Record<string, number[]>,
+    spellEmpoweredCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -509,19 +523,18 @@ export function App() {
       }
       const preparedSpellsByClass = getClassSpellSelections(current, "preparedSpells");
       if (classId) preparedSpellsByClass[classId] = preparedSpells;
-      const preparedSpellSlotLevelsByClass = {
-        ...(current.preparedSpellSlotLevelsByClass ?? {}),
-      };
-      if (classId && spellSlotLevels) {
-        preparedSpellSlotLevelsByClass[classId] = spellSlotLevels;
-      }
+      const preparedSpellSlotLevelsByClass = classId && spellSlotLevels
+        ? { ...current.preparedSpellSlotLevelsByClass, [classId]: spellSlotLevels }
+        : current.preparedSpellSlotLevelsByClass;
+      const empowerByClass = classId && spellEmpoweredCopies
+        ? { ...current.empowerByClass, [classId]: spellEmpoweredCopies }
+        : current.empowerByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
         preparedSpellsByClass,
-        ...(current.preparedSpellSlotLevelsByClass || spellSlotLevels
-          ? { preparedSpellSlotLevelsByClass }
-          : {}),
+        ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
+        ...(empowerByClass ? { empowerByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

@@ -788,6 +788,12 @@ export const featCatalog: FeatDefinition[] = ([
     prerequisites: { feats: ["spell-focus"] },
   },
   {
+    id: "empower-spell",
+    name: "Empower Spell",
+    description: "Variable numeric effects +50%; slot +2.",
+    prerequisites: { spellLevel: 3 },
+  },
+  {
     id: "heighten-spell",
     name: "Heighten Spell",
     description: "Raises a prepared spell's effective level, save DC, and slot (maximum 9).",

@@ -12,6 +12,8 @@ const isString = (value: unknown): value is string => typeof value === "string";
 const isStringList = (value: unknown) => Array.isArray(value) && value.every(isString);
 const isSpellLevelList = (value: unknown) => Array.isArray(value) &&
   value.every((level) => isNumber(level) && Number.isInteger(level) && level >= 0 && level <= 9);
+const isBooleanList = (value: unknown) => Array.isArray(value) &&
+  value.every((entry) => typeof entry === "boolean");
 const isMap = (value: unknown, check: (entry: unknown) => boolean) =>
   isRecord(value) && Object.values(value).every(check);
 const isClassMap = (value: unknown, check: (entry: unknown) => boolean) =>
@@ -141,6 +143,9 @@ export function assertCharacter(value: unknown): asserts value is Character {
       (value.preparedSpellSlotLevelsByClass !== undefined &&
         !isClassMap(value.preparedSpellSlotLevelsByClass, (spells) =>
           isMap(spells, isSpellLevelList))) ||
+      (value.empowerByClass !== undefined &&
+        !isClassMap(value.empowerByClass, (spells) =>
+          isMap(spells, isBooleanList))) ||
       (value.spellPreparationCompletedByClass !== undefined &&
         !isClassMap(value.spellPreparationCompletedByClass, (entry) => typeof entry === "boolean")) ||
       (value.expendedSpellSlotsByClass !== undefined &&

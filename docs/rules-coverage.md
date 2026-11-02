@@ -53,6 +53,9 @@ permanent spells ([SRD Extend Spell](https://www.d20srd.org/srd/feats.htm#extend
 Enlarge Spell is tracked per prepared copy for its +1 slot cost; its qualifying
 range increases remain manual because range values are stored as prose
 ([SRD Enlarge Spell](https://www.d20srd.org/srd/feats.htm#enlargeSpell)).
+Quicken Spell is tracked per prepared copy for its +4 slot cost. Casting-time
+eligibility, free-action casting, the one-per-round limit, and its no-attack-of-
+opportunity effect remain manual ([SRD Quicken Spell](https://www.d20srd.org/srd/feats.htm#quickenSpell)).
 
 ## Recommended audit order
 

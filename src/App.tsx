@@ -423,6 +423,7 @@ export function App() {
       let maximizeByClass = current.maximizeByClass;
       let extendByClass = current.extendByClass;
       let enlargeByClass = current.enlargeByClass;
+      let quickenByClass = current.quickenByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -457,6 +458,11 @@ export function App() {
           classId,
           preparedNames,
         );
+        quickenByClass = prunePreparedSpellMetadata(
+          quickenByClass,
+          classId,
+          preparedNames,
+        );
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
         spellAcquisitionByClass[classId] = Object.fromEntries(
@@ -478,6 +484,7 @@ export function App() {
         ...(maximizeByClass ? { maximizeByClass } : {}),
         ...(extendByClass ? { extendByClass } : {}),
         ...(enlargeByClass ? { enlargeByClass } : {}),
+        ...(quickenByClass ? { quickenByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -540,6 +547,7 @@ export function App() {
     spellMaximizedCopies?: Record<string, boolean[]>,
     spellExtendedCopies?: Record<string, boolean[]>,
     spellEnlargedCopies?: Record<string, boolean[]>,
+    spellQuickenedCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -562,6 +570,9 @@ export function App() {
       const enlargeByClass = classId && spellEnlargedCopies
         ? { ...current.enlargeByClass, [classId]: spellEnlargedCopies }
         : current.enlargeByClass;
+      const quickenByClass = classId && spellQuickenedCopies
+        ? { ...current.quickenByClass, [classId]: spellQuickenedCopies }
+        : current.quickenByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
@@ -571,6 +582,7 @@ export function App() {
         ...(maximizeByClass ? { maximizeByClass } : {}),
         ...(extendByClass ? { extendByClass } : {}),
         ...(enlargeByClass ? { enlargeByClass } : {}),
+        ...(quickenByClass ? { quickenByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

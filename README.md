@@ -26,7 +26,7 @@ npm run benchmark
 ```
 
 `check` runs warning-free lint, regression tests, application and test type checks,
-and a production build. The build fails if initial JavaScript exceeds 430,000
+and a production build. The build fails if initial JavaScript exceeds 478,000
 uncompressed bytes. Tests cover draft isolation, progression, combat calculations,
 catalog matching and invalidation, persistence, malformed imports, lazy loading,
 screen navigation, custom items, and the absence of printing APIs/styles.
@@ -520,6 +520,10 @@ save DC at each spell level:
 - Enlarge Spell lets you mark prepared copies for a slot one level higher.
   Increase range manually only for distance-defined close-, medium-, and
   long-range spells; spontaneous casts and domain spells remain manual.
+- Quicken Spell lets you mark prepared copies for a slot four levels higher.
+  Casting-time eligibility, free-action casting, the one-per-round limit, and
+  the no-attack-of-opportunity effect remain manual; spontaneous casts and
+  domain spells remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

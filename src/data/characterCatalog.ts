@@ -815,6 +815,11 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Doubles eligible ranges; slot +1.",
   },
   {
+    id: "quicken-spell",
+    name: "Quicken Spell",
+    description: "Cast an eligible prepared spell as a free action; slot +4.",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

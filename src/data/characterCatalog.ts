@@ -799,6 +799,12 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Raises a prepared spell's effective level, save DC, and slot (maximum 9).",
   },
   {
+    id: "maximize-spell",
+    name: "Maximize Spell",
+    description: "Maximizes variable numeric effects; slot +3.",
+    prerequisites: { anyFeats: ["empower-spell", "heighten-spell"] },
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

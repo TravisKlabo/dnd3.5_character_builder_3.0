@@ -43,6 +43,11 @@ D&D 3.5 rules: several areas are intentionally manual, and no exhaustive
 source-by-source audit has established a complete denominator. A percentage
 would therefore be misleading.
 
+Maximize Spell is tracked per prepared copy for its +3 slot cost; it does not
+raise the spell's actual level or save DC. Combined Empower and Maximize uses a
+slot five levels higher; maximizing effects and adding half the normal roll
+remain manual ([SRD Maximize Spell](https://www.d20srd.org/srd/feats.htm#maximizeSpell)).
+
 ## Recommended audit order
 
 1. Continue the source-indexed audit of core creation rules, especially

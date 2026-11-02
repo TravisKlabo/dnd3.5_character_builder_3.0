@@ -2328,6 +2328,11 @@ export function featQualifies(
   )
     return false;
   const chosenFeats = [...getArmorShieldProficiencies(character, excludingSlot)];
+  if (
+    prerequisites?.anyFeats?.length &&
+    !prerequisites.anyFeats.some((requiredFeat) => chosenFeats.includes(requiredFeat))
+  )
+    return false;
   return !(prerequisites?.feats ?? []).some(
     (requiredFeat) => !chosenFeats.includes(requiredFeat),
   );

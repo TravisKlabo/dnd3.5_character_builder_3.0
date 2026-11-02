@@ -402,6 +402,17 @@ describe("class-specific spell rules", () => {
       empowerByClass: value,
     })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: { Daze: [1] } },
+    { wizard: { Daze: ["true"] } },
+    { notAClass: { Daze: [true] } },
+  ])("rejects malformed prepared Maximize metadata %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      maximizeByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
@@ -518,6 +529,66 @@ describe("caster class subtabs", () => {
 
     expect(within(spellRow).getByText("Copy 1: DC 13 (Empowered in level 2 slot)")).toBeDefined();
     expect(spellLevel(panel, "LEVEL 2 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+  });
+
+  it("tracks Maximize per prepared copy without changing its save DC", async () => {
+    const character = caster();
+    character.classLevels = [{ classId: "wizard", level: 5 }, { classId: "cleric", level: 1 }];
+    character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
+    character.knownSpells = ["Ghost Sound"];
+    character.featSelections = {
+      "general-1": "heighten-spell",
+      "general-2": "maximize-spell",
+    };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const cantrips = spellLevel(panel, "CANTRIPS");
+    const spellRow = cantrips.getByRole("row", { name: /Ghost Sound/ });
+    fireEvent.change(within(spellRow).getByRole("spinbutton", { name: "Prepare Ghost Sound" }), {
+      target: { value: "1" },
+    });
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Maximize Ghost Sound copy 1",
+    }));
+
+    expect(within(spellRow).getByText("Copy 1: DC 13 (Maximized in level 3 slot)")).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 3 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().maximizeByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+  });
+
+  it("stacks Maximize and Empower slot costs on one prepared copy", async () => {
+    const character = caster();
+    character.classLevels = [{ classId: "wizard", level: 9 }, { classId: "cleric", level: 1 }];
+    character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
+    character.knownSpells = ["Ghost Sound"];
+    character.featSelections = {
+      "general-1": "empower-spell",
+      "general-2": "maximize-spell",
+    };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const cantrips = spellLevel(panel, "CANTRIPS");
+    const spellRow = cantrips.getByRole("row", { name: /Ghost Sound/ });
+    fireEvent.change(within(spellRow).getByRole("spinbutton", { name: "Prepare Ghost Sound" }), {
+      target: { value: "1" },
+    });
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Maximize Ghost Sound copy 1",
+    }));
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Empower Ghost Sound copy 1",
+    }));
+
+    expect(within(spellRow).getByText(
+      "Copy 1: DC 13 (Empowered and Maximized in level 5 slot)",
+    )).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 5 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().empowerByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+    expect(stored().maximizeByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });
 
   it("shows the Spell Penetration check modifier for each spellcasting class", async () => {

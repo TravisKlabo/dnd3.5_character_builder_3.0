@@ -510,6 +510,10 @@ save DC at each spell level:
 - Empower Spell requires the ability to cast 3rd-level spells. Mark prepared
   copies to use a slot two levels higher; variable numeric effects must still be
   multiplied by 1.5 manually. Spontaneous casts and domain spells remain manual.
+- Maximize Spell requires another metamagic feat. Mark prepared copies to use a
+  slot three levels higher; maximize variable numeric effects manually. When
+  combined with Empower, the slot cost is five levels higher and the result is
+  the maximum plus half the normally rolled result, resolved manually.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

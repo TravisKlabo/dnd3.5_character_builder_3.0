@@ -500,6 +500,18 @@ describe("armor and shield proficiency", () => {
     ).toContain("heighten-spell");
   });
 
+  it("requires another metamagic feat before Maximize Spell", () => {
+    const character = hero();
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).not.toContain("maximize-spell");
+
+    character.featSelections = { "general-1": "heighten-spell" };
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("maximize-spell");
+  });
+
   it("requires access to 3rd-level spells for Empower Spell", () => {
     const character = hero();
     character.abilities.int = 13;

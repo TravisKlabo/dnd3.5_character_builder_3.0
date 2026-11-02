@@ -420,6 +420,7 @@ export function App() {
       const preparedSpellsByClass = getClassSpellSelections(current, "preparedSpells");
       let preparedSpellSlotLevelsByClass = current.preparedSpellSlotLevelsByClass;
       let empowerByClass = current.empowerByClass;
+      let maximizeByClass = current.maximizeByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -436,6 +437,11 @@ export function App() {
         );
         empowerByClass = prunePreparedSpellMetadata(
           empowerByClass,
+          classId,
+          preparedNames,
+        );
+        maximizeByClass = prunePreparedSpellMetadata(
+          maximizeByClass,
           classId,
           preparedNames,
         );
@@ -457,6 +463,7 @@ export function App() {
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
         ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
         ...(empowerByClass ? { empowerByClass } : {}),
+        ...(maximizeByClass ? { maximizeByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -516,6 +523,7 @@ export function App() {
     classId?: ClassId,
     spellSlotLevels?: Record<string, number[]>,
     spellEmpoweredCopies?: Record<string, boolean[]>,
+    spellMaximizedCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -529,12 +537,16 @@ export function App() {
       const empowerByClass = classId && spellEmpoweredCopies
         ? { ...current.empowerByClass, [classId]: spellEmpoweredCopies }
         : current.empowerByClass;
+      const maximizeByClass = classId && spellMaximizedCopies
+        ? { ...current.maximizeByClass, [classId]: spellMaximizedCopies }
+        : current.maximizeByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
         preparedSpellsByClass,
         ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
         ...(empowerByClass ? { empowerByClass } : {}),
+        ...(maximizeByClass ? { maximizeByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

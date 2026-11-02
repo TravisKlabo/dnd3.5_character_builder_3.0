@@ -494,6 +494,28 @@ describe("armor and shield proficiency", () => {
     ).not.toContain("greater-spell-focus");
   });
 
+  it("requires 3rd-level arcane spells for Empower and Maximize Spell", () => {
+    const wizard = hero("wizard");
+    wizard.classLevels[0].level = 5;
+    wizard.abilities.int = 13;
+    const wizardFeats = () =>
+      getAvailableFeats(wizard, { fighterOnly: false }).map((feat) => feat.id);
+
+    expect(wizardFeats()).toContain("empower-spell");
+    expect(wizardFeats()).not.toContain("maximize-spell");
+    wizard.featSelections = { "general-1": "extend-spell" };
+    expect(wizardFeats()).toContain("maximize-spell");
+
+    const cleric = hero("cleric");
+    cleric.classLevels[0].level = 5;
+    cleric.abilities.wis = 13;
+    cleric.featSelections = { "general-1": "extend-spell" };
+    const clericFeats = getAvailableFeats(cleric, { fighterOnly: false })
+      .map((feat) => feat.id);
+    expect(clericFeats).not.toContain("empower-spell");
+    expect(clericFeats).not.toContain("maximize-spell");
+  });
+
   it("offers Heighten Spell without prerequisites", () => {
     expect(
       getAvailableFeats(hero(), { fighterOnly: false }).map((feat) => feat.id),
@@ -555,6 +577,8 @@ describe("armor and shield proficiency", () => {
 
   it("requires another metamagic feat before Maximize Spell", () => {
     const character = hero();
+    character.classLevels[0].level = 5;
+    character.abilities.int = 13;
     expect(
       getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
     ).not.toContain("maximize-spell");
@@ -565,7 +589,7 @@ describe("armor and shield proficiency", () => {
     ).toContain("maximize-spell");
   });
 
-  it("requires access to 3rd-level spells for Empower Spell", () => {
+  it("requires access to 3rd-level arcane spells for Empower Spell", () => {
     const character = hero();
     character.abilities.int = 13;
     character.abilities.cha = 13;

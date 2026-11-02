@@ -2241,6 +2241,12 @@ export function getAvailableFeatWeaponChoices(
     .sort((left, right) => left.localeCompare(right));
 }
 
+const arcaneSpellcastingClasses: ReadonlySet<ClassId> = new Set([
+  "bard",
+  "sorcerer",
+  "wizard",
+]);
+
 export function featQualifies(
   character: Character,
   feat: FeatDefinition,
@@ -2280,9 +2286,10 @@ export function featQualifies(
   );
   if (prerequisites?.casterLevel && casterLevel < prerequisites.casterLevel)
     return false;
-  const requiredSpellLevel = prerequisites?.spellLevel;
-  if (requiredSpellLevel && !baseClassLevels.some((entry) =>
-    getDailySpellSlots(character, entry.classId, entry.level, requiredSpellLevel) > 0,
+  const requiredArcaneSpellLevel = prerequisites?.arcaneSpellLevel;
+  if (requiredArcaneSpellLevel && !baseClassLevels.some((entry) =>
+    arcaneSpellcastingClasses.has(entry.classId) &&
+    getDailySpellSlots(character, entry.classId, entry.level, requiredArcaneSpellLevel) > 0,
   ))
     return false;
   if (

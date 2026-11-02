@@ -24,7 +24,9 @@ describe("ability-enhancement equipment", () => {
     expect(will.total).toBe(1);
     expect(will.detail).toContain("racial +1");
     expect(will.title).toContain("Select context for situational racial bonuses.");
-    expect(getSavingThrow(character, "will", ["fear"]).total).toBe(3);
+    const fearSave = getSavingThrow(character, "will", ["fear"]);
+    expect(fearSave.total).toBe(3);
+    expect(fearSave.detail).toContain("fear morale +2");
     expect(getSavingThrow(character, "will", ["poison"]).total).toBe(1);
   });
 

@@ -791,7 +791,7 @@ export const featCatalog: FeatDefinition[] = ([
     id: "empower-spell",
     name: "Empower Spell",
     description: "Variable numeric effects +50%; slot +2.",
-    prerequisites: { spellLevel: 3 },
+    prerequisites: { arcaneSpellLevel: 3 },
   },
   {
     id: "heighten-spell",
@@ -802,7 +802,20 @@ export const featCatalog: FeatDefinition[] = ([
     id: "maximize-spell",
     name: "Maximize Spell",
     description: "Maximizes variable numeric effects; slot +3.",
-    prerequisites: { anyFeats: ["empower-spell", "heighten-spell"] },
+    prerequisites: {
+      arcaneSpellLevel: 3,
+      anyFeats: [
+        "empower-spell",
+        "heighten-spell",
+        "extend-spell",
+        "enlarge-spell",
+        "quicken-spell",
+        "silent-spell",
+        "still-spell",
+        "widen-spell",
+        "sculpt-spell",
+      ],
+    },
   },
   {
     id: "extend-spell",

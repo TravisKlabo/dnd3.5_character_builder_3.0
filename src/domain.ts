@@ -152,7 +152,7 @@ export interface FeatDefinition {
     baseAttackBonus?: number
     casterLevel?: number
     classLevels?: Partial<Record<ClassId, number>>
-    spellLevel?: number
+    arcaneSpellLevel?: number
     feats?: FeatId[]
     anyFeats?: FeatId[]
   }

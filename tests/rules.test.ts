@@ -7,12 +7,13 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getLanguageBonusSlots,
   getAvailableFeats, getFeatSlots, getLevelUpSkillWarnings, getRacialSkillBonus,
   getDwarfStabilityBonus, getRacialSkillContextOptions, getRacialSpellLikeAbilities, getSkillCheckModifier, getSkillTotalTooltip,
-  formatRaceDetails, getImprovedInitiativeBonus, getInitiativeModifier,
+  getImprovedInitiativeBonus, getInitiativeModifier,
   getNewLevelUpFeatSlots, getSavingThrow, getSkillMaximum, getSpentSkillPoints,
   normalizeFeatSelections,
   getTwoWeaponAttackPenalty, isClassAlignmentAllowed } from "../src/rules";
 import { featCatalog } from "../src/data/characterCatalog";
 import { getClassSpells, loadSpellCatalog, spells } from "../src/data/spellCatalog";
+import { formatRaceDetails } from "../src/creationRules";
 
 beforeAll(loadSpellCatalog);
 

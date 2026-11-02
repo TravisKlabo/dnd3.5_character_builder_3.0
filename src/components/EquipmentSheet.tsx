@@ -1,6 +1,7 @@
 import { type Character } from "../domain";
 import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "./shared";
-import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, formatSpellSchool, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
+import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
+import { formatSpellSchool } from "../spellFormatting";
 import { getEncumbrance, getMovement } from "../rules";
 
 export function EquipmentSheet({

@@ -1,6 +1,7 @@
 import { type Character, type ClassId, type AbilityName, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
-import { isClassAlignmentAllowed, alignmentDistance, isPrestigeClassEligible, getClassAlignmentRestriction, isHighSorceryAlignmentAllowed, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, formatRaceDetails, formatClassDetails, formatPrestigeClassDetails, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
+import { isClassAlignmentAllowed, getClassAlignmentRestriction, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
+import { alignmentDistance, formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
 import { ContentSourceLabel, Panel } from "./shared";

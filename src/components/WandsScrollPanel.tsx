@@ -1,5 +1,6 @@
 import { type Character, classDefinitions, type ClassId } from "../domain";
-import { getChosenFeats, formatSpellSchool } from "../rules";
+import { getChosenFeats } from "../rules";
+import { formatSpellSchool } from "../spellFormatting";
 import { useState } from "react";
 import { spells as srdSpells } from "../data/spellCatalog";
 import { SpellPicker } from "./pickers";

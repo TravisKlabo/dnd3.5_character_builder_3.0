@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Character, ClassId, SpellAcquisition, WizardSpellLearning } from "../domain";
-import { getClassSpellSelections, getWizardCopyRequirements, getWizardFreeSpellAllowance, getWizardSpellbookSpells, hasSpellLevelAtClassLevel } from "../rules";
+import { getClassSpellSelections, getWizardFreeSpellAllowance, getWizardSpellbookSpells, hasSpellLevelAtClassLevel } from "../rules";
+import { getWizardCopyRequirements } from "../wizardSpellbookRules";
 import { getEffectiveAbilityScore } from "../abilityEquipment";
 
 type AcquisitionChange = (classId: ClassId, spell: string, source: SpellAcquisition | null, record?: WizardSpellLearning) => void;

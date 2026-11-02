@@ -203,13 +203,6 @@ export function getClassSpellSelections(character: Character, field: "knownSpell
   return result;
 }
 
-export function getWizardCopyRequirements(level: number) {
-  if (!Number.isInteger(level) || level < 0 || level > 9) throw new Error("Wizard spell level must be 0 through 9.");
-  const pages = Math.max(1, level);
-  return { decipherDC: 20 + level, learningDC: 15 + level, studyHours: 8, pages,
-    writingCostGp: pages * 100, writingHours: 24, usualAccessFeeGp: level * 50 };
-}
-
 export function getWizardSpellbookSpells() {
   const names = new Set<string>();
   return getClassSpells("wizard").filter((spell) => {
@@ -1742,22 +1735,6 @@ export function getItemProficiencyWarning(character: Character, item: StoreItem)
   return null;
 }
 
-export function formatRaceModifiers(modifiers: Partial<Record<AbilityName, number>>) {
-  const entries = Object.entries(modifiers).filter(([, value]) => value);
-  if (!entries.length) return "no ability modifiers";
-  return entries
-    .map(
-      ([ability, value]) =>
-        `${ability.toUpperCase()} ${Number(value) > 0 ? "+" : ""}${value}`,
-    )
-    .join(", ");
-}
-
-export function formatRaceDetails(race: (typeof raceDefinitions)[string]) {
-  const abilities = race.specialAbilities ?? race.traits ?? [];
-  return `${formatRaceModifiers(race.abilityModifiers)}; Size ${race.size ?? "Medium"}; Speed ${race.speed ?? 30} ft.; ${abilities.length ? abilities.join(", ") : "No special abilities recorded"}`;
-}
-
 export function isClassSkill(
   character: Character,
   skill: string,
@@ -3016,56 +2993,6 @@ export function getSkillTotalTooltip(
   return lines.filter(Boolean).join("\n");
 }
 
-export function formatClassDetails(
-  classDefinition: (typeof classDefinitions)[ClassId],
-) {
-  const attack =
-    classDefinition.baseAttackBonus === "good"
-      ? "good"
-      : classDefinition.baseAttackBonus;
-  const saves = [
-    classDefinition.fortitude === "good" ? "Fortitude" : "",
-    classDefinition.reflex === "good" ? "Reflex" : "",
-    classDefinition.will === "good" ? "Will" : "",
-  ].filter(Boolean);
-  return `d${classDefinition.hitDie} Hit Die; ${attack} base attack; ${saves.length ? `${saves.join(", ")} good save${saves.length > 1 ? "s" : ""}` : "no good saves"}; ${classDefinition.skillPoints} skill points per level; ${classDefinition.spellcasting ? "spellcasting class" : "non-spellcasting class"}.`;
-}
-
-export function formatPrestigeClassDetails(
-  prestigeClass: (typeof dragonlancePrestigeClasses)[PrestigeClassId],
-) {
-  const prerequisites = prestigeClass.prerequisites;
-  const requirements = [
-    prerequisites.bab ? `BAB +${prerequisites.bab}` : "",
-    prerequisites.ability
-      ? Object.entries(prerequisites.ability)
-          .map(([ability, score]) => `${ability.toUpperCase()} ${score}`)
-          .join(", ")
-      : "",
-    prerequisites.classes?.length
-      ? prerequisites.classes
-          .map((classId) => classDefinitions[classId].name)
-          .join(" or ")
-      : "",
-    prerequisites.races?.length ? prerequisites.races.join(" or ") : "",
-    prerequisites.feats?.length ? prerequisites.feats.join(", ") : "",
-  ].filter(Boolean);
-  return `${requirements.length ? `Prerequisites: ${requirements.join("; ")}. ` : ""}Features: ${prestigeClass.features.join(", ")}.`;
-}
-
-export function isPrestigeClassEligible(
-  definition: (typeof dragonlancePrestigeClasses)[PrestigeClassId],
-  classId: ClassId,
-  race: string,
-) {
-  const prerequisites = definition.prerequisites;
-  const raceId = race.toLowerCase().replaceAll(" ", "-");
-  return (
-    (!prerequisites.classes?.length || prerequisites.classes.includes(classId)) &&
-    (!prerequisites.races?.length || prerequisites.races.includes(raceId))
-  );
-}
-
 export function isNeutralAlignment(alignment: string) {
   return alignment === "True Neutral" || alignment.startsWith("Neutral ") || alignment.endsWith(" Neutral");
 }
@@ -3092,22 +3019,6 @@ export function getLevelUpAlignmentWarnings(character: Character, classId: Class
   return [
     `Cannot take a ${classDefinitions[classId].name} level with ${character.alignment}; this class ${getClassAlignmentRestriction(classId)}.`,
   ];
-}
-
-export function isHighSorceryAlignmentAllowed(order: Character["highSorceryOrder"], alignment: string) {
-  if (order === "white") return alignment.endsWith(" Good") || alignment === "Good";
-  if (order === "black") return alignment.endsWith(" Evil") || alignment === "Evil";
-  return order === "red" ? isNeutralAlignment(alignment) : true;
-}
-
-export function alignmentDistance(first: string, second: string) {
-  const axes = (alignment: string) => ({
-    law: alignment.startsWith("Lawful ") ? -1 : alignment.startsWith("Chaotic ") ? 1 : 0,
-    moral: alignment.endsWith(" Good") ? 1 : alignment.endsWith(" Evil") ? -1 : 0,
-  });
-  const left = axes(first);
-  const right = axes(second);
-  return Math.max(Math.abs(left.law - right.law), Math.abs(left.moral - right.moral));
 }
 
 export function heightToTotalInches(height: string | undefined) {
@@ -3260,33 +3171,4 @@ export function unequipInventoryItem(
     Object.entries(character.equipment ?? {}).filter(([, value]) => value !== key),
   );
   onEquipmentChange(nextEquipment);
-}
-
-export function formatSpellSchool(school?: string) {
-  const abbreviations: Record<string, string> = {
-    Abjuration: "Abj",
-    Conjuration: "Conj",
-    Divination: "Div",
-    Enchantment: "Ench",
-    Evocation: "Evoc",
-    Illusion: "Ill",
-    Necromancy: "Necro",
-    Transmutation: "Trans",
-    Universal: "Univ",
-  };
-  return school ? abbreviations[school] ?? school : "";
-}
-
-export function formatSpellDuration(duration: string) {
-  return duration
-    .replace(/Concentration/gi, "Con")
-    .replace(/Permanent/gi, "Perm")
-    .replace(/Instantaneous/gi, "Inst")
-    .replace(/rounds?/gi, "rds")
-    .replace(/minutes?/gi, "min")
-    .replace(/hours?/gi, "hr")
-    .replace(/days?/gi, "day")
-    .replace(/weeks?/gi, "wk")
-    .replace(/months?/gi, "mo")
-    .replace(/years?/gi, "yr");
 }

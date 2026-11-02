@@ -1,6 +1,7 @@
 import { type Character, type ClassId, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
-import { hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, formatSpellDuration, formatSpellSchool, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
+import { hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
+import { formatSpellDuration, formatSpellSchool } from "../spellFormatting";
 import { getClassSpells, getSrdSpellSourceBook, srdSpellContentSource } from "../data/spellCatalog";
 import { Stat } from "./shared";
 import { SpellPicker } from "./pickers";

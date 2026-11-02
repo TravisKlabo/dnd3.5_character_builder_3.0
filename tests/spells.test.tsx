@@ -7,7 +7,8 @@ import { defaultSrdSpellSourceBook, getSrdSpellSourceBook, loadSpellCatalog } fr
 import { srdSpells } from "../src/srdSpells";
 import { baseSpellSlots, getCasterLevel, getClassSpellSelections, getDailySpellSlots,
   getKnownSpellLimit, getLevelUpSpellWarnings, getSpellcastingAbility, hasSpellLevelAtClassLevel,
-  getWizardCopyRequirements, getWizardFreeSpellAllowance, getWizardSpellbookSpells } from "../src/rules";
+  getWizardFreeSpellAllowance, getWizardSpellbookSpells } from "../src/rules";
+import { getWizardCopyRequirements } from "../src/wizardSpellbookRules";
 import { savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 import { SpellSheets } from "../src/components/SpellSheet";

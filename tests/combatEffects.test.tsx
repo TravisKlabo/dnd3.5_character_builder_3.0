@@ -101,7 +101,7 @@ describe("combat effect tracker", () => {
 
     const activeEffects = within(tracker).getByRole("list", { name: "Active effects" });
     expect(within(activeEffects).getByText("Shaken")).toBeDefined();
-    expect(screen.getByText("Attack -1", { exact: true })).toBeDefined();
+    expect(await screen.findByText("Attack -1", { exact: true })).toBeDefined();
     const fortitude = screen.getByText("Fortitude", { selector: ".stat > small" }).parentElement!;
     expect(within(fortitude).getByRole("strong").textContent).toBe("+0");
     const climb = within(screen.getByRole("group", { name: "Climb skill" }));

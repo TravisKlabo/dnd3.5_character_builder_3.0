@@ -1,10 +1,10 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool } from "../domain";
-import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRangerCombatStyleStatus, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
-import { type CombatCastingContext, type SkillSynergyContext } from "../rules";
-import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
+import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool } from "../domain";
+import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
+import { type CombatAttackMode, type CombatCastingContext, type SkillSynergyContext } from "../rules";
+import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat, CombatCastingContextControl, ContentSourceLabel } from "./shared";
+import { Panel, Stat, ArmorClassStat, SavingThrowStat, DodgeTargetControl, AttacksOfOpportunityStat, CombatCastingContextControl, ContentSourceLabel } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -13,16 +13,16 @@ import { CastingSummary } from "./CastingSummary";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
 import { CombatEffectsTracker } from "./CombatEffectsTracker";
 import { getCombatEffectDetails, type CombatEffect } from "../combatEffects";
-
+import { useCombatTargetContext } from "../combatTargetDefenseContext";
 const SavingThrowContextSelector = lazy(() =>
   import("./SavingThrowContextSelector").then((module) => ({
     default: module.SavingThrowContextSelector,
   })),
 );
 
-const CombatTargetContextSelector = lazy(() =>
-  import("./CombatTargetContextSelector").then((module) => ({
-    default: module.CombatTargetContextSelector,
+const CombatAttackPanel = lazy(() =>
+  import("./CombatAttackPanel").then((module) => ({
+    default: module.CombatAttackPanel,
   })),
 );
 
@@ -50,6 +50,8 @@ export function CharacterSheet({
   onCombatEffectsChange,
   rangedTargetDistanceFeet,
   onRangedTargetDistanceFeetChange,
+  combatAttackMode,
+  onCombatAttackModeChange,
   combatExpertiseAmount,
   onCombatExpertiseAmountChange,
   powerAttackAmount,
@@ -58,8 +60,6 @@ export function CharacterSheet({
   onDodgeTargetSelectedChange,
   combatCastingContext,
   onCombatCastingContextChange,
-  targetDamageReduction,
-  onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
   onRangedAmmunitionChange,
   onOpenSpells,
@@ -87,6 +87,8 @@ export function CharacterSheet({
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
+  combatAttackMode: CombatAttackMode;
+  onCombatAttackModeChange: (mode: CombatAttackMode) => void;
   combatExpertiseAmount: number;
   onCombatExpertiseAmountChange: (amount: number) => void;
   powerAttackAmount: number;
@@ -95,14 +97,12 @@ export function CharacterSheet({
   onDodgeTargetSelectedChange: (selected: boolean) => void;
   combatCastingContext?: CombatCastingContext;
   onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
-  targetDamageReduction: string;
-  onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
   onRangedAmmunitionChange: (key: string | undefined) => void;
   onOpenSpells: () => void;
 }) {
+  const { value: targetContext } = useCombatTargetContext();
   const [savingThrowConditions, setSavingThrowConditions] = useState<SavingThrowCondition[]>([]);
-  const [combatTargetTypes, setCombatTargetTypes] = useState<CombatTargetType[]>([]);
   const [skillCheckContexts, setSkillCheckContexts] = useState<
     Partial<Record<string, RacialSkillCondition>>
   >({});
@@ -112,7 +112,6 @@ export function CharacterSheet({
   const skillDisplayClassId = levelUpOriginal
     ? levelUpClassId ?? getLevelUpClassId(levelUpOriginal, character)
     : undefined;
-  const rangerCombatStyle = getRangerCombatStyleStatus(character);
   const classSummary = character.classLevels
     .filter(
       (level) =>
@@ -314,123 +313,21 @@ export function CharacterSheet({
           })}
         </div>
       </Panel>
-      <Panel title="Attacks & Weapons" className="attacks-panel">
-        <CombatExpertiseControl
+      <Suspense fallback={<Panel title="Attacks & Weapons" className="attacks-panel">Loading attack details...</Panel>}>
+        <CombatAttackPanel
           character={character}
-          amount={combatExpertiseAmount}
-          onChange={onCombatExpertiseAmountChange}
+          rangedTargetDistanceFeet={rangedTargetDistanceFeet}
+          onRangedTargetDistanceFeetChange={onRangedTargetDistanceFeetChange}
+          combatAttackMode={combatAttackMode}
+          onCombatAttackModeChange={onCombatAttackModeChange}
+          combatExpertiseAmount={combatExpertiseAmount}
+          onCombatExpertiseAmountChange={onCombatExpertiseAmountChange}
+          powerAttackAmount={powerAttackAmount}
+          onPowerAttackAmountChange={onPowerAttackAmountChange}
+          selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
+          onRangedAmmunitionChange={onRangedAmmunitionChange}
         />
-        <PowerAttackControl
-          character={character}
-          amount={powerAttackAmount}
-          onChange={onPowerAttackAmountChange}
-        />
-        <Suspense fallback={<p>Loading target-specific racial bonuses...</p>}>
-          <CombatTargetContextSelector
-            targetTypes={combatTargetTypes}
-            onChange={(targetType) =>
-              setCombatTargetTypes((current) =>
-                current.includes(targetType)
-                  ? current.filter((entry) => entry !== targetType)
-                  : [...current, targetType],
-              )
-            }
-          />
-        </Suspense>
-        <RangedDistanceControl
-          distanceFeet={rangedTargetDistanceFeet}
-          onChange={onRangedTargetDistanceFeetChange}
-        />
-        <TargetDamageReductionControl
-          value={targetDamageReduction}
-          onChange={onTargetDamageReductionChange}
-        />
-        {rangerCombatStyle.warning && (
-          <p className="combat-note" role="status">
-            {rangerCombatStyle.warning}
-          </p>
-        )}
-        <div className="combat-weapon-row">
-          {(["Main Weapon", "Off Hand Weapon", "Ranged Weapon"] as const).map((slot) => {
-            const attackPenalty =
-              slot === "Main Weapon" || slot === "Off Hand Weapon"
-                ? getTwoWeaponAttackPenalty(character, slot)
-                : 0;
-            const equippedWeapon = getEffectiveWeaponKey(character, slot);
-            const sizeHandling = equippedWeapon ? getWeaponSizeHandling(character, equippedWeapon, slot) : null;
-            const towerShieldCoverActive = getTowerShieldState(character).coverActive;
-            const compatibilityWarning = equippedWeapon
-              ? getWeaponCompatibilityWarning(character, equippedWeapon, slot)
-              : null;
-            const stats = equippedWeapon
-              ? getEquippedWeaponStats(character, equippedWeapon, attackPenalty, slot, combatTargetTypes, rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount, powerAttackAmount)
-              : null;
-            return (
-              <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
-                <small>{slot.replace(" Weapon", "")}</small>
-                {stats ? <>
-                <strong title={[stats.attackSequenceNote, stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.combatExpertisePenalty ? [`Combat Expertise ${formatModifier(stats.combatExpertisePenalty)} attack`] : []), ...(stats.powerAttackPenalty ? [`Power Attack ${formatModifier(stats.powerAttackPenalty)} attack`] : []), ...(stats.pointBlankShotBonus ? ["Point Blank Shot +1 attack and damage"] : []), ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
-                  {stats.rangeOutOfRange ? "Out of range" : `Attack ${stats.attackSequence.map(formatModifier).join(" / ")}`}
-                </strong>
-                {stats.maximumRangeFeet !== undefined && <span>Maximum range {stats.maximumRangeFeet} ft.</span>}
-                {stats.rangeStatusMessage && <span className={stats.rangeOutOfRange ? "combat-warning" : ""} role="status">{stats.rangeStatusMessage}</span>}
-                {stats.ammunitionStatus && <span className={stats.ammunitionStatus.status === "ready" ? "" : "combat-warning"} role={stats.ammunitionStatus.status === "missing" ? "alert" : "status"}>{stats.ammunitionStatus.message}</span>}
-                {stats.ammunitionOptions !== undefined && <RangedAmmunitionControl
-                  options={stats.ammunitionOptions}
-                  selectedKey={stats.selectedAmmunitionKey}
-                  onChange={onRangedAmmunitionChange}
-                />}
-                {stats.damageReductionStatus && <span className={stats.damageReductionStatus.status === "applies" || stats.damageReductionStatus.status === "manual" ? "combat-warning" : ""} role="status">{stats.damageReductionStatus.message}</span>}
-                {stats.reloadNote && <span>{stats.reloadNote}</span>}
-                {stats.compositeBowStrengthRating !== undefined &&
-                  <span>Composite bow rating {formatModifier(stats.compositeBowStrengthRating)}</span>}
-                {stats.compositeBowStrengthPenalty < 0 && <span className="attack-penalty">
-                  {formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating
-                </span>}
-                {stats.weaponFocusBonus > 0 && <span>+1 Weapon Focus</span>}
-                {stats.pointBlankShotBonus > 0 && <span>+1 Point Blank Shot attack and damage</span>}
-                {stats.combatExpertisePenalty < 0 && <span className="attack-penalty">
-                  {formatModifier(stats.combatExpertisePenalty)} Combat Expertise attack
-                </span>}
-                {stats.powerAttackPenalty < 0 && <span className="attack-penalty">
-                  {formatModifier(stats.powerAttackPenalty)} Power Attack
-                </span>}
-                <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
-                {stats.powerAttackDamageBonus > 0 && <span>
-                  +{stats.powerAttackDamageBonus} Power Attack damage
-                </span>}
-                {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
-                {stats.weaponSpecializationBonus > 0 && <span>+2 Weapon Specialization damage</span>}
-                <span>Crit {stats.critical}</span>
-                {(stats.rangeIncrement || stats.reach) && <span className="weapon-distance">
-                  {[stats.reach && `Reach ${stats.reach}`, stats.rangeIncrement && `${stats.rangeLabel} ${stats.rangeIncrement}`].filter(Boolean).join(" · ")}
-                </span>}
-                {stats.nonproficiencyPenalty < 0 && <span className="attack-penalty"
-                  title={stats.nonproficiencyPenalties.map((entry) => `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency`).join("\n")}>
-                  {stats.nonproficiencyPenalties.map((entry) => `${formatModifier(entry.penalty)} ${entry.source}`).join(", ")}
-                </span>}
-                {stats.towerShieldAttackPenalty < 0 && <span className="attack-penalty">
-                  {formatModifier(stats.towerShieldAttackPenalty)} tower shield
-                </span>}
-                {stats.weaponSizePenalty < 0 && <span className="attack-penalty" title={stats.weaponSizeDetail}>
-                  {formatModifier(stats.weaponSizePenalty)} weapon size
-                </span>}
-                {stats.twoHandedGrip && <span>Two-handed grip</span>}
-                {stats.bucklerAttackPenalty !== 0 && <span className="attack-penalty">
-                  {formatModifier(stats.bucklerAttackPenalty)} buckler
-                </span>}
-                </> : <span title={compatibilityWarning ?? sizeHandling?.warning}>
-                  {towerShieldCoverActive && equippedWeapon
-                    ? "Unavailable while using tower shield for total cover"
-                    : compatibilityWarning ?? (sizeHandling && !sizeHandling.wieldable ? "Cannot wield: incompatible weapon size" : "Not equipped")}
-                </span>}
-              </div>
-            );
-          })}
-        </div>
-        <SpecialAttackStats character={character} />
-        <CombatMovementLine character={character} />
-      </Panel>
+      </Suspense>
       <CastingSummary
         character={character}
         onOpenSpells={onOpenSpells}
@@ -498,7 +395,7 @@ export function CharacterSheet({
         <div className="stat-grid">
           <ArmorClassStat
             character={character}
-            targetTypes={combatTargetTypes}
+            targetTypes={targetContext.targetTypes}
             combatExpertiseAmount={combatExpertiseAmount}
             dodgeTargetSelected={dodgeTargetSelected}
           />

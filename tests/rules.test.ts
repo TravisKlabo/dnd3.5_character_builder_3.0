@@ -10,7 +10,8 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getImprovedInitiativeBonus, getInitiativeModifier,
   getNewLevelUpFeatSlots, getSavingThrow, getSkillMaximum, getSpentSkillPoints,
   normalizeFeatSelections,
-  getTwoWeaponAttackPenalty, isClassAlignmentAllowed } from "../src/rules";
+  getTwoWeaponAttackPenalty, alignmentDistance, isClericAlignmentAllowed,
+  isClassAlignmentAllowed } from "../src/rules";
 import { featCatalog } from "../src/data/characterCatalog";
 import { getClassSpells, loadSpellCatalog, spells } from "../src/data/spellCatalog";
 import { formatRaceDetails } from "../src/creationRules";
@@ -642,6 +643,43 @@ describe("character rules preserved from 2.0", () => {
     ]);
     character.alignment = "Lawful Good";
     expect(getLevelUpAlignmentWarnings(character, "paladin")).toEqual([]);
+  });
+
+  it.each([
+    ["barbarian", "Lawful Good", false],
+    ["barbarian", "Chaotic Good", true],
+    ["bard", "Lawful Neutral", false],
+    ["bard", "True Neutral", true],
+    ["druid", "Chaotic Good", false],
+    ["druid", "Neutral Good", true],
+    ["monk", "Neutral Good", false],
+    ["monk", "Lawful Evil", true],
+    ["paladin", "Lawful Neutral", false],
+    ["paladin", "Lawful Good", true],
+  ] as const)("checks the %s alignment restriction for %s", (classId, alignment, allowed) => {
+    expect(isClassAlignmentAllowed(classId, alignment)).toBe(allowed);
+  });
+
+  it("limits Clerics to one alignment axis and reserves True Neutral for neutral deities", () => {
+    expect(alignmentDistance("Neutral Good", "Lawful Neutral")).toBe(2);
+    expect(isClericAlignmentAllowed("Lawful Good", "Neutral Good")).toBe(true);
+    expect(isClericAlignmentAllowed("Neutral Good", "Lawful Neutral")).toBe(false);
+    expect(isClericAlignmentAllowed("Neutral Good", "True Neutral")).toBe(true);
+    expect(isClericAlignmentAllowed("True Neutral", "Neutral Good")).toBe(false);
+    expect(isClericAlignmentAllowed("True Neutral", "True Neutral")).toBe(true);
+
+    const character = cloneCharacter(initialCharacter);
+    character.alignment = "Lawful Neutral";
+    character.deity = "pelor";
+    expect(getLevelUpAlignmentWarnings(character, "cleric")).toEqual([
+      "Cannot take a Cleric level with Lawful Neutral; it must be within one step of Pelor.",
+    ]);
+    character.alignment = "Neutral Good";
+    expect(getLevelUpAlignmentWarnings(character, "cleric")).toEqual([]);
+    character.deity = undefined;
+    expect(getLevelUpAlignmentWarnings(character, "cleric")).toEqual([
+      "Choose a deity before taking a Cleric level.",
+    ]);
   });
 });
 

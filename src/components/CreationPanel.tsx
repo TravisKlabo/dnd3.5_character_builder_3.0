@@ -1,7 +1,7 @@
 import { type Character, type ClassId, type AbilityName, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
-import { isClassAlignmentAllowed, getClassAlignmentRestriction, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
-import { alignmentDistance, formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
+import { isClassAlignmentAllowed, isClericAlignmentAllowed, getClassAlignmentRestriction, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
+import { formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
 import { ContentSourceLabel, Panel } from "./shared";
@@ -137,7 +137,7 @@ export function CreationPanel({
           ? "core-35-srd"
           : "dragonlance-user-pack") &&
       (classId !== "cleric" ||
-        alignmentDistance(draft.alignment, deity.alignment) <= 1),
+        isClericAlignmentAllowed(draft.alignment, deity.alignment)),
   );
           const dragonlanceRuleset = ruleset !== "core-35-srd";
   const availablePrestigeClasses = Object.values(dragonlancePrestigeClasses).filter(
@@ -222,7 +222,7 @@ export function CreationPanel({
   const selectedDeity = deityDefinitions.find((deity) => deity.id === draft.deity);
   if (classId === "cleric" && !selectedDeity)
     creationErrors.push("Cleric characters must choose a deity.");
-  if (selectedDeity && classId === "cleric" && alignmentDistance(draft.alignment, selectedDeity.alignment) > 1)
+  if (selectedDeity && classId === "cleric" && !isClericAlignmentAllowed(draft.alignment, selectedDeity.alignment))
     creationErrors.push(`Cleric alignment must be within one step of ${selectedDeity.name}.`);
     if (dragonlanceRuleset && draft.highSorceryOrder &&
       (classId === "wizard" || classId === "sorcerer") &&

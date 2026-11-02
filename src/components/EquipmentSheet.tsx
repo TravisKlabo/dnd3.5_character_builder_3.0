@@ -1,21 +1,29 @@
 import { type Character } from "../domain";
-import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "./shared";
-import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem } from "../rules";
+import { useCombatTargetContext } from "../combatTargetDefenseContext";
+import { lazy, Suspense } from "react";
+import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, CombatAttackModeControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "./shared";
+import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem, type CombatAttackMode } from "../rules";
 import { formatSpellSchool } from "../spellFormatting";
 import { getEncumbrance, getMovement } from "../rules";
+
+const CombatTargetDefenseControl = lazy(() =>
+  import("./CombatTargetContextSelector").then((module) => ({
+    default: module.CombatTargetDefenseControl,
+  })),
+);
 
 export function EquipmentSheet({
   character,
   rangedTargetDistanceFeet,
   onRangedTargetDistanceFeetChange,
+  combatAttackMode,
+  onCombatAttackModeChange,
   combatExpertiseAmount,
   onCombatExpertiseAmountChange,
   powerAttackAmount,
   onPowerAttackAmountChange,
   dodgeTargetSelected,
   onDodgeTargetSelectedChange,
-  targetDamageReduction,
-  onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
   onRangedAmmunitionChange,
   onEquipmentChange,
@@ -30,14 +38,14 @@ export function EquipmentSheet({
   character: Character;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
+  combatAttackMode: CombatAttackMode;
+  onCombatAttackModeChange: (mode: CombatAttackMode) => void;
   combatExpertiseAmount: number;
   onCombatExpertiseAmountChange: (amount: number) => void;
   powerAttackAmount: number;
   onPowerAttackAmountChange: (amount: number) => void;
   dodgeTargetSelected: boolean;
   onDodgeTargetSelectedChange: (selected: boolean) => void;
-  targetDamageReduction: string;
-  onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
   onRangedAmmunitionChange: (key: string | undefined) => void;
   onEquipmentChange: (equipment: Record<string, string>) => void;
@@ -52,6 +60,7 @@ export function EquipmentSheet({
     inventory: Record<string, number>,
   ) => void;
 }) {
+  const { value: targetContext, onChange: onTargetContextChange } = useCombatTargetContext();
   const slots = [
     "Head",
     "Neck",
@@ -192,9 +201,18 @@ export function EquipmentSheet({
           distanceFeet={rangedTargetDistanceFeet}
           onChange={onRangedTargetDistanceFeetChange}
         />
+        <CombatAttackModeControl
+          mode={combatAttackMode}
+          onChange={onCombatAttackModeChange}
+        />
+        <Suspense fallback={<p>Loading target defenses...</p>}>
+          <CombatTargetDefenseControl
+            character={character}
+          />
+        </Suspense>
         <TargetDamageReductionControl
-          value={targetDamageReduction}
-          onChange={onTargetDamageReductionChange}
+          value={targetContext.damageReduction}
+          onChange={(damageReduction) => onTargetContextChange({ ...targetContext, damageReduction })}
         />
         {doubleWeaponModeState && <>
           <label className="weapon-grip-control">
@@ -238,7 +256,8 @@ export function EquipmentSheet({
           ) : null;
         })()}
         {(["Main Weapon", "Off Hand Weapon", "Ranged Weapon"] as const).map((slot) => {
-          const twoWeaponPenalty = slot === "Main Weapon" || slot === "Off Hand Weapon"
+          const twoWeaponPenalty = combatAttackMode === "full-attack" &&
+            (slot === "Main Weapon" || slot === "Off Hand Weapon")
             ? getTwoWeaponAttackPenalty(character, slot)
             : 0;
           const weaponKey = getEffectiveWeaponKey(character, slot);
@@ -247,7 +266,7 @@ export function EquipmentSheet({
             ? getWeaponCompatibilityWarning(character, weaponKey, slot)
             : null;
           const stats = weaponKey
-            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot, [], rangedTargetDistanceFeet, targetDamageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount, powerAttackAmount)
+            ? getEquippedWeaponStats(character, weaponKey, twoWeaponPenalty, slot, [], rangedTargetDistanceFeet, targetContext.damageReduction, selectedRangedAmmunitionKey, combatExpertiseAmount, powerAttackAmount, combatAttackMode, targetContext.defense)
             : null;
           return (
             <div className="equipment-weapon-stat" key={slot}>
@@ -279,10 +298,15 @@ export function EquipmentSheet({
                     </label>
                     <small>Strength below the rating gives -2 attack; positive Strength damage is capped at the rating. Each point adds 100 gp for a longbow or 75 gp for a shortbow; adjust currency manually.</small>
                   </>}
-                  {stats.attackSequence.length > 1 && <span title={stats.attackSequenceNote}>BAB full attack: {stats.attackSequence.map(formatModifier).join(" / ")}</span>}
+                  {stats.attackSequence.length > 1 && <span>Full attack: {stats.attackSequence.map(formatModifier).join(" / ")}</span>}
+                  {stats.attackActionWarning && <span className="combat-warning" role="status">{stats.attackActionWarning}</span>}
+                  {stats.manyshotArrowCount && <span>{stats.manyshotArrowCount} arrows use one Manyshot attack roll</span>}
+                  {stats.manyshotDamage && <span className="combat-note" role="status">
+                    Weapon damage expression: {stats.manyshotDamage.damagePerArrow} per arrow. Apply damage reduction and other resistances separately against each arrow; add precision-based damage once. On a critical, only the first arrow deals critical damage.
+                  </span>}
                   {stats.rangeIncrement && <span>{stats.rangeLabel}: {stats.rangeIncrement}</span>}
                   {stats.reach && <span>Reach: {stats.reach}</span>}
-                  <span title={[stats.weaponSizeDetail, stats.rangeStatusMessage].filter(Boolean).join("\n")}>Attack: {stats.rangeOutOfRange ? "OUT OF RANGE" : formatModifier(stats.attack)} ({formatModifier(stats.baseAttackBonus)} base, {formatModifier(stats.abilityAttackBonus)} ability, {formatModifier(stats.sizeAttackBonus)} size{stats.weaponSizePenalty !== 0 ? `, ${formatModifier(stats.weaponSizePenalty)} weapon size` : ""}{stats.rangeAttackPenalty !== 0 ? `, ${formatModifier(stats.rangeAttackPenalty)} range` : ""}, {formatModifier(stats.attackEnhancement)} enhancement{stats.weaponFocusBonus ? `, +${stats.weaponFocusBonus} Weapon Focus` : ""}{stats.attackPenalty !== 0 ? `, ${formatModifier(stats.attackPenalty)} two-weapon` : ""}{stats.combatExpertisePenalty !== 0 ? `, ${formatModifier(stats.combatExpertisePenalty)} Combat Expertise` : ""}{stats.finessePenalty !== 0 ? `, ${formatModifier(stats.finessePenalty)} finesse shield penalty` : ""}{stats.nonproficiencyPenalty !== 0 ? `, ${formatModifier(stats.nonproficiencyPenalty)} nonproficiency` : ""}{stats.towerShieldAttackPenalty !== 0 ? `, ${formatModifier(stats.towerShieldAttackPenalty)} tower shield` : ""}{stats.compositeBowStrengthPenalty !== 0 ? `, ${formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating` : ""})</span>
+                  <span title={[stats.weaponSizeDetail, stats.rangeStatusMessage].filter(Boolean).join("\n")}>Attack: {stats.rangeOutOfRange ? "OUT OF RANGE" : stats.attackActionWarning || targetContext.defense.cover === "total" ? "UNAVAILABLE" : formatModifier(stats.attack)} ({formatModifier(stats.baseAttackBonus)} base, {formatModifier(stats.abilityAttackBonus)} ability, {formatModifier(stats.sizeAttackBonus)} size{stats.weaponSizePenalty !== 0 ? `, ${formatModifier(stats.weaponSizePenalty)} weapon size` : ""}{stats.rangeAttackPenalty !== 0 ? `, ${formatModifier(stats.rangeAttackPenalty)} range` : ""}, {formatModifier(stats.attackEnhancement)} enhancement{stats.weaponFocusBonus ? `, +${stats.weaponFocusBonus} Weapon Focus` : ""}{stats.attackPenalty !== 0 ? `, ${formatModifier(stats.attackPenalty)} two-weapon` : ""}{stats.combatExpertisePenalty !== 0 ? `, ${formatModifier(stats.combatExpertisePenalty)} Combat Expertise` : ""}{stats.finessePenalty !== 0 ? `, ${formatModifier(stats.finessePenalty)} finesse shield penalty` : ""}{stats.nonproficiencyPenalty !== 0 ? `, ${formatModifier(stats.nonproficiencyPenalty)} nonproficiency` : ""}{stats.towerShieldAttackPenalty !== 0 ? `, ${formatModifier(stats.towerShieldAttackPenalty)} tower shield` : ""}{stats.compositeBowStrengthPenalty !== 0 ? `, ${formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating` : ""})</span>
                   {stats.maximumRangeFeet !== undefined && <span>Maximum range: {stats.maximumRangeFeet} ft.</span>}
                   {stats.rangeStatusMessage && <span className={stats.rangeOutOfRange ? "combat-warning" : ""} role="status">{stats.rangeStatusMessage}</span>}
                   {stats.ammunitionStatus && <span className={stats.ammunitionStatus.status === "ready" ? "" : "combat-warning"} role={stats.ammunitionStatus.status === "missing" ? "alert" : "status"}>{stats.ammunitionStatus.message}</span>}
@@ -292,6 +316,7 @@ export function EquipmentSheet({
                     onChange={onRangedAmmunitionChange}
                   />}
                   {stats.damageReductionStatus && <span className={stats.damageReductionStatus.status === "applies" || stats.damageReductionStatus.status === "manual" ? "combat-warning" : ""} role="status">{stats.damageReductionStatus.message}</span>}
+                  {stats.rapidShotPenalty < 0 && <span className="attack-penalty">{formatModifier(stats.rapidShotPenalty)} Rapid Shot</span>}
                   {stats.reloadNote && <span>{stats.reloadNote}</span>}
                   {stats.nonproficiencyPenalty < 0 && <span className="attack-penalty"
                     title={stats.nonproficiencyPenalties.map((entry) => `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency`).join("\n")}>

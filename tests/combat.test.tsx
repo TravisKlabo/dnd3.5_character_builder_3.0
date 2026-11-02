@@ -6,6 +6,8 @@ import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, 
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
+import { CombatTargetDefenseControl } from "../src/components/CombatTargetContextSelector";
+import { CombatTargetContextProvider } from "../src/combatTargetDefenseContext";
 import { CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "../src/components/shared";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
@@ -305,8 +307,12 @@ describe("SRD weapon attack and damage", () => {
 
   it("disables Ranger combat style in medium or heavy armor, but not light armor", () => {
     const character = fighter();
-    character.classLevels = [{ classId: "ranger", level: 2 }];
-    character.featSelections = { "ranger-style-2": "two-weapon-fighting" };
+    character.classLevels = [{ classId: "ranger", level: 11 }];
+    character.featSelections = {
+      "ranger-style-2": "two-weapon-fighting",
+      "ranger-style-6": "improved-two-weapon-fighting",
+      "ranger-style-11": "greater-two-weapon-fighting",
+    };
 
     expect(getRangerCombatStyleStatus(character)).toMatchObject({
       hasStyle: true,
@@ -332,18 +338,24 @@ describe("SRD weapon attack and damage", () => {
 
   it("applies Two-Weapon Fighting from Ranger style only while its armor restriction allows", () => {
     const character = fighter();
-    character.classLevels = [{ classId: "ranger", level: 2 }];
+    character.classLevels = [{ classId: "ranger", level: 11 }];
     character.equipment = {
       "Main Weapon": "Longsword (Medium)",
       "Off Hand Weapon": "Dagger (Medium)",
     };
-    character.featSelections = { "ranger-style-2": "two-weapon-fighting" };
+    character.featSelections = {
+      "ranger-style-2": "two-weapon-fighting",
+      "ranger-style-6": "improved-two-weapon-fighting",
+      "ranger-style-11": "greater-two-weapon-fighting",
+    };
 
     expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-2);
     expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-2);
-    character.equipment.Armor = "Chainmail";
-    expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-4);
-    expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
+    for (const armor of ["Chainmail", "Full Plate"]) {
+      character.equipment.Armor = armor;
+      expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-4);
+      expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
+    }
 
     character.featSelections["general-1"] = "two-weapon-fighting";
     expect(getTwoWeaponAttackPenalty(character, "Main Weapon")).toBe(-2);
@@ -826,29 +838,33 @@ describe("consistent equipment handling", () => {
     const weaponKey = "Composite Longbow (Medium)";
     character.equipment["Ranged Weapon"] = weaponKey;
     const onRatingChange = vi.fn();
-    render(<EquipmentSheet
-      character={character}
-      onEquipmentChange={vi.fn()}
-      rangedTargetDistanceFeet={undefined}
-      onRangedTargetDistanceFeetChange={vi.fn()}
-      combatExpertiseAmount={0}
-      onCombatExpertiseAmountChange={vi.fn()}
-      powerAttackAmount={0}
-      onPowerAttackAmountChange={vi.fn()}
-      dodgeTargetSelected={false}
-      onDodgeTargetSelectedChange={vi.fn()}
-      targetDamageReduction=""
-      onTargetDamageReductionChange={vi.fn()}
-      selectedRangedAmmunitionKey={undefined}
-      onRangedAmmunitionChange={vi.fn()}
-      onMainWeaponGripChange={vi.fn()}
-      onDoubleWeaponModeChange={vi.fn()}
-      onDoubleWeaponPrimaryEndChange={vi.fn()}
-      onTowerShieldTotalCoverChange={vi.fn()}
-      onShieldBashModeChange={vi.fn()}
-      onCompositeBowStrengthRatingChange={onRatingChange}
-      onEquipmentAndInventoryChange={vi.fn()}
-    />);
+    render(
+      <CombatTargetContextProvider>
+        <EquipmentSheet
+          character={character}
+          onEquipmentChange={vi.fn()}
+          rangedTargetDistanceFeet={undefined}
+          onRangedTargetDistanceFeetChange={vi.fn()}
+          combatAttackMode="full-attack"
+          onCombatAttackModeChange={vi.fn()}
+          combatExpertiseAmount={0}
+          onCombatExpertiseAmountChange={vi.fn()}
+          powerAttackAmount={0}
+          onPowerAttackAmountChange={vi.fn()}
+          dodgeTargetSelected={false}
+          onDodgeTargetSelectedChange={vi.fn()}
+          selectedRangedAmmunitionKey={undefined}
+          onRangedAmmunitionChange={vi.fn()}
+          onMainWeaponGripChange={vi.fn()}
+          onDoubleWeaponModeChange={vi.fn()}
+          onDoubleWeaponPrimaryEndChange={vi.fn()}
+          onTowerShieldTotalCoverChange={vi.fn()}
+          onShieldBashModeChange={vi.fn()}
+          onCompositeBowStrengthRatingChange={onRatingChange}
+          onEquipmentAndInventoryChange={vi.fn()}
+        />
+      </CombatTargetContextProvider>,
+    );
     const ratingInput = screen.getByRole("spinbutton", {
       name: "Ranged Weapon composite bow Strength rating",
     });
@@ -864,6 +880,7 @@ it("shows the same corrected off-hand damage and attacks on both sheets", async 
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
   const user = userEvent.setup();
   const { container } = render(<App />);
+  await screen.findByText("Damage 1d8+5");
   const combat = container.querySelector(".combat-weapon-row");
   if (!(combat instanceof HTMLElement)) throw new Error("Missing character weapon summary.");
   expect(within(combat).getByText("Damage 1d8+5")).toBeDefined();
@@ -1087,6 +1104,111 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(getEquippedWeaponStats(character, "Longsword (Medium)")?.attackSequence).toEqual(attacks);
     });
 
+    it("applies Improved Precise Shot only to less-than-total target cover and concealment", () => {
+      const character = fighter();
+      const targetDefense = { cover: "less-than-total", concealment: "less-than-total" } as const;
+      const targetControl = render(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: "Target cover" }), {
+        target: { value: targetDefense.cover },
+      });
+      fireEvent.change(screen.getByRole("combobox", { name: "Target concealment" }), {
+        target: { value: targetDefense.concealment },
+      });
+      expect(screen.getByText(/cover AC bonus applies/)).toBeDefined();
+      expect(screen.getByText(/its miss chance applies/)).toBeDefined();
+
+      character.featSelections = { "general-1": "improved-precise-shot" };
+      targetControl.rerender(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      expect(screen.getByText(/ignores this cover AC bonus on ranged attacks/)).toBeDefined();
+      expect(screen.getByText(/ignores this concealment miss chance on ranged attacks/)).toBeDefined();
+      const meleeAttackSequence = getEquippedWeaponStats(
+        character,
+        "Longsword (Medium)",
+        0,
+        "Main Weapon",
+        [],
+        undefined,
+        undefined,
+        undefined,
+        0,
+        0,
+        "single",
+        targetDefense,
+      )?.attackSequence;
+      expect(meleeAttackSequence).toEqual(
+        getEquippedWeaponStats(character, "Longsword (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 0, "single")
+          ?.attackSequence,
+      );
+    });
+
+    it("honors the Ranger armor restriction and does not bypass total cover or concealment", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level: 11 }];
+      character.featSelections = {
+        "ranger-style-2": "rapid-shot",
+        "ranger-style-11": "improved-precise-shot",
+      };
+      const targetDefense = { cover: "less-than-total", concealment: "less-than-total" } as const;
+      const rangerTargetControl = render(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: "Target cover" }), {
+        target: { value: targetDefense.cover },
+      });
+      fireEvent.change(screen.getByRole("combobox", { name: "Target concealment" }), {
+        target: { value: targetDefense.concealment },
+      });
+      expect(screen.getByText(/ignores this cover AC bonus on ranged attacks/)).toBeDefined();
+      character.equipment.Armor = "Chainmail";
+      rangerTargetControl.rerender(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      expect(screen.getByText(/cover AC bonus applies/)).toBeDefined();
+
+      character.featSelections = { "general-1": "improved-precise-shot" };
+      const totalDefense = { cover: "total", concealment: "total" } as const;
+      fireEvent.change(screen.getByRole("combobox", { name: "Target cover" }), {
+        target: { value: totalDefense.cover },
+      });
+      fireEvent.change(screen.getByRole("combobox", { name: "Target concealment" }), {
+        target: { value: totalDefense.concealment },
+      });
+      const blockedAttack = getEquippedWeaponStats(
+        character,
+        "Longbow (Medium)",
+        0,
+        "Ranged Weapon",
+        [],
+        undefined,
+        undefined,
+        undefined,
+        0,
+        0,
+        "single",
+        totalDefense,
+      )!;
+      expect(blockedAttack.attackSequence).toEqual([]);
+      rangerTargetControl.rerender(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      expect(screen.getByText(/attacks cannot reach it/)).toBeDefined();
+      expect(screen.getByText(/50% miss chance applies/)).toBeDefined();
+    });
+
     it("uses multiclass BAB, not character level or total attack bonus, for iteratives", () => {
       const character = fighter();
       character.classLevels = [{ classId: "fighter", level: 4 }, { classId: "wizard", level: 4 }];
@@ -1094,6 +1216,155 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(getEquippedWeaponStats(character, "Dagger (Medium)", -8, "Off Hand Weapon")?.attackSequence).toEqual([1]);
       character.classLevels = [{ classId: "wizard", level: 5 }];
       expect(getEquippedWeaponStats(character, "+5 Longsword (Medium)")?.attackSequence).toEqual([6]);
+    });
+
+    it("applies Rapid Shot only to an active full-attack style", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level: 6 }];
+      character.featSelections = {
+        "ranger-style-2": "rapid-shot",
+        "ranger-style-6": "manyshot",
+      };
+      const rangedStats = (mode: "single" | "full-attack" | "manyshot") =>
+        getEquippedWeaponStats(
+          character,
+          "Longbow (Medium)",
+          0,
+          "Ranged Weapon",
+          [],
+          30,
+          undefined,
+          undefined,
+          0,
+          0,
+          mode,
+        )!;
+
+      const fullAttack = rangedStats("full-attack");
+      expect(fullAttack.rapidShotPenalty).toBe(-2);
+      expect(fullAttack.attackSequence).toEqual([
+        fullAttack.attack,
+        fullAttack.attack,
+        fullAttack.attack - 5,
+      ]);
+      expect(rangedStats("single").attackSequence).toHaveLength(1);
+
+      character.equipment.Armor = "Chainmail";
+      const armoredAttack = rangedStats("full-attack");
+      expect(armoredAttack.rapidShotPenalty).toBe(0);
+      expect(armoredAttack.attackSequence).toEqual([
+        armoredAttack.attack,
+        armoredAttack.attack - 5,
+      ]);
+    });
+
+    it("adds Improved and Greater Two-Weapon Fighting attacks only when active", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level: 11 }];
+      character.equipment["Main Weapon"] = "Longsword (Medium)";
+      character.equipment["Off Hand Weapon"] = "Dagger (Medium)";
+      character.featSelections = {
+        "ranger-style-2": "two-weapon-fighting",
+        "ranger-style-6": "improved-two-weapon-fighting",
+        "ranger-style-11": "greater-two-weapon-fighting",
+      };
+      const offHandAttack = () => {
+        const penalty = getTwoWeaponAttackPenalty(character, "Off Hand Weapon");
+        return getEquippedWeaponStats(
+          character,
+          "Dagger (Medium)",
+          penalty,
+          "Off Hand Weapon",
+          [],
+          undefined,
+          undefined,
+          undefined,
+          0,
+          0,
+          "full-attack",
+        )!;
+      };
+
+      expect(offHandAttack().attackSequence).toHaveLength(3);
+      character.equipment.Armor = "Chainmail";
+      expect(offHandAttack().attackSequence).toHaveLength(1);
+
+      character.featSelections["general-1"] = "two-weapon-fighting";
+      character.featSelections["general-3"] = "improved-two-weapon-fighting";
+      character.featSelections["general-6"] = "greater-two-weapon-fighting";
+      expect(offHandAttack().attackSequence).toHaveLength(3);
+    });
+
+    it.each([
+      [6, 2, -4],
+      [11, 3, -6],
+      [16, 4, -8],
+    ])("calculates Manyshot at ranger level %i", (level, arrows, penalty) => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level }];
+      character.featSelections = {
+        "ranger-style-2": "rapid-shot",
+        "ranger-style-6": "manyshot",
+      };
+      const attack = (mode: "single" | "manyshot", distance?: number) =>
+        getEquippedWeaponStats(
+          character,
+          "Longbow (Medium)",
+          0,
+          "Ranged Weapon",
+          [],
+          distance,
+          undefined,
+          undefined,
+          0,
+          0,
+          mode,
+        )!;
+
+      const normal = attack("single", 30);
+      const manyshot = attack("manyshot", 30);
+      expect(manyshot.manyshotArrowCount).toBe(arrows);
+      expect(manyshot.attack).toBe(normal.attack + penalty);
+      expect(manyshot.attackSequence).toEqual([manyshot.attack]);
+      expect(manyshot.attackSequence).toHaveLength(1);
+      expect(manyshot.manyshotDamage).toMatchObject({
+        arrowCount: arrows,
+        damagePerArrow: manyshot.damage,
+        damageReductionPerArrow: undefined,
+        precisionDamageApplications: 1,
+        criticalDamageOnlyOnFirstArrow: true,
+      });
+      expect(attack("manyshot", 31).attackActionWarning)
+        .toBe("Target must be within 30 ft.");
+    });
+
+    it("tracks target damage reduction for each Manyshot arrow", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level: 6 }];
+      character.featSelections = {
+        "ranger-style-2": "rapid-shot",
+        "ranger-style-6": "manyshot",
+      };
+      character.inventory = { "Masterwork Arrows (20) (Medium)": 1 };
+      const stats = getEquippedWeaponStats(
+        character,
+        "Longbow (Medium)",
+        0,
+        "Ranged Weapon",
+        [],
+        30,
+        "5/silver",
+        "Masterwork Arrows (20) (Medium)",
+        0,
+        0,
+        "manyshot",
+      )!;
+
+      expect(stats.damageReductionStatus).toMatchObject({ status: "applies" });
+      expect(stats.manyshotDamage).toMatchObject({
+        arrowCount: 2,
+        damageReductionPerArrow: { status: "applies" },
+      });
     });
 
     it.each([
@@ -1319,7 +1590,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(movement.textContent).toContain("3 lb. / 76 lb. light limit");
       await user.click(screen.getByRole("button", { name: "Equipment" }));
       await screen.findByText("EQUIPMENT SLOTS");
-      expect(screen.getByText("BAB full attack: +10 / +5")).toBeDefined();
+      expect(screen.getByText("Full attack: +10 / +5")).toBeDefined();
       expect(screen.getByText("Range increment: 100 ft.")).toBeDefined();
       expect(screen.getByRole("group", { name: "Space, reach, and load" }).textContent).toBe(movement.textContent);
     });
@@ -1347,7 +1618,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(screen.getByText("Alchemical silver ammunition: -1 damage (minimum 1).")).toBeDefined();
       await user.click(screen.getByRole("button", { name: "Equipment" }));
       await screen.findByText("EQUIPMENT SLOTS");
-      expect(screen.getByText("BAB full attack: +8 / +3")).toBeDefined();
+      expect(screen.getByText("Full attack: +8 / +3")).toBeDefined();
       expect(screen.getByText("At 150 ft.: -2 range penalty.")).toBeDefined();
       expect(screen.getByRole("combobox", { name: "Ammunition to fire" })).toHaveProperty(
         "value",

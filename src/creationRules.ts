@@ -72,13 +72,3 @@ export function isHighSorceryAlignmentAllowed(order: Character["highSorceryOrder
   if (order === "black") return alignment.endsWith(" Evil") || alignment === "Evil";
   return order === "red" ? isNeutralAlignment(alignment) : true;
 }
-
-export function alignmentDistance(first: string, second: string) {
-  const axes = (alignment: string) => ({
-    law: alignment.startsWith("Lawful ") ? -1 : alignment.startsWith("Chaotic ") ? 1 : 0,
-    moral: alignment.endsWith(" Good") ? 1 : alignment.endsWith(" Evil") ? -1 : 0,
-  });
-  const left = axes(first);
-  const right = axes(second);
-  return Math.max(Math.abs(left.law - right.law), Math.abs(left.moral - right.moral));
-}

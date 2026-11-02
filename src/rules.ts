@@ -1,5 +1,5 @@
 import { languageCatalog, dragonlanceLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures } from "./data/characterCatalog";
-import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool } from "./domain";
+import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, deityDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool } from "./domain";
 import { classFeatureProgression } from "./data/classFeatureProgression";
 import { spellProgressions, bardKnownProgression, sorcererKnownProgression } from "./data/spellProgression";
 import { armorBonuses, findStoreItem, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, type StoreItem, storeItems, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentCatalog";
@@ -916,6 +916,15 @@ export function getRangerCombatStyleStatus(character: Character) {
   };
 }
 
+export function hasActiveCombatFeat(character: Character, featId: string) {
+  return Object.entries(character.featSelections ?? {}).some(
+    ([slotId, selectedFeat]) =>
+      selectedFeat === featId &&
+      (!slotId.startsWith("ranger-style-") ||
+        getRangerCombatStyleStatus(character).active),
+  );
+}
+
 export function getMovement(character: Character) {
   const race = raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ?? raceDefinitions.human;
   const baseSpeed = race.speed ?? 30;
@@ -963,6 +972,11 @@ export function getWeaponProfile(name: string) {
 }
 
 export type WeaponSlot = "Main Weapon" | "Off Hand Weapon" | "Ranged Weapon";
+export type CombatAttackMode = "single" | "full-attack" | "manyshot";
+export type CombatTargetDefenseContext = {
+  cover: "none" | "less-than-total" | "total";
+  concealment: "none" | "less-than-total" | "total";
+};
 
 const projectileWeaponNames = new Set([
   "Shortbow", "Longbow", "Composite Shortbow", "Composite Longbow",
@@ -1353,6 +1367,8 @@ export function getEquippedWeaponStats(
   selectedAmmunitionKey?: string,
   selectedCombatExpertiseAmount = 0,
   selectedPowerAttackAmount = 0,
+  attackMode: CombatAttackMode = "full-attack",
+  targetDefense?: CombatTargetDefenseContext,
 ) {
   const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
   const size = key.match(/ \((Small|Medium|Large)\)$/)?.[1] ?? "Medium";
@@ -1451,7 +1467,7 @@ export function getEquippedWeaponStats(
       : []),
     ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
   ];
-  const attack = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + combatExpertisePenalty + powerAttackPenalty + activeAttack;
+  const attackBeforeFinalPenalties = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + combatExpertisePenalty + powerAttackPenalty + activeAttack;
   const rangeIncrement = getWeaponRangeForSize(item, size);
   const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
   const ammunition = getWeaponAmmunitionProfile(item, isRanged);
@@ -1477,7 +1493,71 @@ export function getEquippedWeaponStats(
       (twoHandedGrip || Boolean(character.equipment?.["Off Hand Weapon"]) || doubleWeaponMode)))
     ? -1
     : 0;
-  const finalAttack = attack + bucklerAttackPenalty + rangeDetails.attackPenalty;
+  const finalAttack = attackBeforeFinalPenalties + bucklerAttackPenalty + rangeDetails.attackPenalty;
+  const attackSequenceLength = slot === "Off Hand Weapon"
+    ? 1
+    : Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5)));
+  let attackSequence = rangeDetails.outOfRange
+    ? []
+    : Array.from(
+      { length: attackMode === "single" ? 1 : attackSequenceLength },
+      (_, index) => finalAttack - index * 5,
+    );
+  let rapidShotPenalty = 0;
+  let manyshotArrowCount: number | undefined;
+  let attackActionWarning: string | undefined;
+
+  if (attackMode === "full-attack" && slot === "Off Hand Weapon") {
+    const hasImprovedTwoWeaponFighting =
+      hasActiveCombatFeat(character, "improved-two-weapon-fighting");
+    const hasGreaterTwoWeaponFighting =
+      hasImprovedTwoWeaponFighting &&
+      hasActiveCombatFeat(character, "greater-two-weapon-fighting");
+    const offHandAttackCount =
+      1 + Number(hasImprovedTwoWeaponFighting) + Number(hasGreaterTwoWeaponFighting);
+    attackSequence = rangeDetails.outOfRange
+      ? []
+      : Array.from(
+        { length: offHandAttackCount },
+        (_, index) => finalAttack - index * 5,
+      );
+  }
+
+  if (attackMode === "full-attack" && isRanged &&
+    hasActiveCombatFeat(character, "rapid-shot")) {
+    rapidShotPenalty = -2;
+    attackSequence = attackSequence.map((bonus) => bonus + rapidShotPenalty);
+    if (attackSequence.length > 0) attackSequence.splice(1, 0, attackSequence[0]);
+  }
+
+  if (attackMode === "manyshot") {
+    const hasActiveManyshot = hasActiveCombatFeat(character, "manyshot");
+    const isBow = traits.baseName.endsWith("bow") &&
+      !traits.baseName.endsWith("Crossbow");
+    if (!hasActiveManyshot) {
+      attackActionWarning = "Manyshot feat must be active.";
+    } else if (!isRanged || !isBow) {
+      attackActionWarning = "Bow required.";
+    } else if (baseAttackBonus < 6) {
+      attackActionWarning = "BAB needs +6.";
+    } else if (targetDistanceFeet === undefined || targetDistanceFeet > 30) {
+      attackActionWarning = "Target must be within 30 ft.";
+    } else if (!rangeDetails.outOfRange) {
+      manyshotArrowCount = Math.min(
+        4,
+        1 + Math.floor((baseAttackBonus - 1) / 5),
+      );
+      attackSequence = [finalAttack - 2 * manyshotArrowCount];
+    }
+    if (attackActionWarning) {
+      attackSequence = [];
+    }
+  }
+  if (targetDefense?.cover === "total") {
+    attackSequence = [];
+    manyshotArrowCount = undefined;
+  }
+  const attack = attackSequence[0] ?? finalAttack;
   let damageAbility = strength;
   const customProjectile = item.custom === true && !traits.thrown &&
     (item.ranged === true || item.handedness === "Ranged");
@@ -1517,17 +1597,26 @@ export function getEquippedWeaponStats(
     ["Frost", "cold"],
     ["Shock", "electricity"],
   ].filter(([property]) => name.includes(`${property} `));
+  const damage = damageDice === "—" || damageDice === "varies" ? damageDice :
+    `${damageDice}${damageBonus >= 0 ? `+${damageBonus}` : damageBonus}`;
+  const manyshotDamage = manyshotArrowCount ? {
+    arrowCount: manyshotArrowCount,
+    damagePerArrow: damage,
+    damageReductionPerArrow: damageReductionStatus,
+    precisionDamageApplications: 1,
+    criticalDamageOnlyOnFirstArrow: true,
+  } : undefined;
   return {
     name: displayName,
-    attack: finalAttack,
+    attack,
     combatExpertisePenalty,
     powerAttackPenalty,
     powerAttackDamageBonus,
-    attackSequence: rangeDetails.outOfRange ? [] : Array.from(
-      { length: slot === "Off Hand Weapon" ? 1 : Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5))) },
-      (_, index) => finalAttack - index * 5,
-    ),
-    attackSequenceNote: "BAB-based full attack only; not extra attacks from feats, haste, flurry, or special routines. Off-hand shows one attack. Ranged attacks require ammunition and sufficient reload/draw actions.",
+    attackSequence,
+    attackActionWarning,
+    rapidShotPenalty,
+    manyshotArrowCount,
+    manyshotDamage,
     rangeIncrement,
     rangeLabel: isRanged ? "Range increment" : "Thrown increment",
     rangeAttackPenalty: rangeDetails.attackPenalty,
@@ -1539,8 +1628,7 @@ export function getEquippedWeaponStats(
     selectedAmmunitionKey: selectedAmmunition?.key,
     damageReductionStatus,
     reach: isRanged ? undefined : getWeaponReach(character, item),
-    damage: damageDice === "—" || damageDice === "varies" ? damageDice :
-      `${damageDice}${damageBonus >= 0 ? `+${damageBonus}` : damageBonus}`,
+    damage,
     materialDamageNote: silverAmmunitionDamagePenalty
       ? "Alchemical silver ammunition: -1 damage (minimum 1)."
       : silverWeaponDamagePenalty ? "Alchemical silver: -1 damage (minimum 1)." : undefined,
@@ -1583,12 +1671,7 @@ export function getTwoWeaponAttackPenalty(character: Character, slot: "Main Weap
   const mainWeapon = character.equipment?.["Main Weapon"];
   const offHandWeapon = getEffectiveWeaponKey(character, "Off Hand Weapon");
   if (!mainWeapon || !offHandWeapon) return 0;
-  const hasFeat = Object.entries(character.featSelections ?? {}).some(
-    ([slotId, featId]) =>
-      featId === "two-weapon-fighting" &&
-      (!slotId.startsWith("ranger-style-") ||
-        getRangerCombatStyleStatus(character).active),
-  );
+  const hasFeat = hasActiveCombatFeat(character, "two-weapon-fighting");
   const offHandName = getInventoryEntryDetails(offHandWeapon).name;
   const offHandItem = findStoreItem(offHandName);
   const offHandSize = getWeaponSizeHandling(character, offHandWeapon, "Off Hand Weapon");
@@ -3004,6 +3087,21 @@ export function isNeutralAlignment(alignment: string) {
   return alignment === "True Neutral" || alignment.startsWith("Neutral ") || alignment.endsWith(" Neutral");
 }
 
+export function alignmentDistance(first: string, second: string) {
+  const axes = (alignment: string) => ({
+    law: alignment.startsWith("Lawful ") ? -1 : alignment.startsWith("Chaotic ") ? 1 : 0,
+    moral: alignment.endsWith(" Good") ? 1 : alignment.endsWith(" Evil") ? -1 : 0,
+  });
+  const left = axes(first);
+  const right = axes(second);
+  return Math.abs(left.law - right.law) + Math.abs(left.moral - right.moral);
+}
+
+export function isClericAlignmentAllowed(alignment: string, deityAlignment: string) {
+  return alignmentDistance(alignment, deityAlignment) <= 1 &&
+    (alignment !== "True Neutral" || deityAlignment === "True Neutral");
+}
+
 export function isClassAlignmentAllowed(classId: ClassId, alignment: string) {
   if (classId === "barbarian" || classId === "bard")
     return !alignment.startsWith("Lawful ");
@@ -3022,9 +3120,16 @@ export function getClassAlignmentRestriction(classId: ClassId) {
 }
 
 export function getLevelUpAlignmentWarnings(character: Character, classId: ClassId) {
-  if (isClassAlignmentAllowed(classId, character.alignment)) return [];
+  if (!isClassAlignmentAllowed(classId, character.alignment))
+    return [
+      `Cannot take a ${classDefinitions[classId].name} level with ${character.alignment}; this class ${getClassAlignmentRestriction(classId)}.`,
+    ];
+  if (classId !== "cleric") return [];
+  const deity = deityDefinitions.find((entry) => entry.id === character.deity);
+  if (!deity) return ["Choose a deity before taking a Cleric level."];
+  if (isClericAlignmentAllowed(character.alignment, deity.alignment)) return [];
   return [
-    `Cannot take a ${classDefinitions[classId].name} level with ${character.alignment}; this class ${getClassAlignmentRestriction(classId)}.`,
+    `Cannot take a Cleric level with ${character.alignment}; it must be within one step of ${deity.name}.`,
   ];
 }
 

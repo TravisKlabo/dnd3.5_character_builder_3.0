@@ -3,7 +3,7 @@ import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initia
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
 import { customItemsLoadFailed } from "./customItemsStorage";
 import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
-import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, type CombatCastingContext } from "./rules";
+import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, type CombatAttackMode, type CombatCastingContext } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
 import { storeItems, addCustomStoreItems, type StoreItem } from "./data/equipmentCatalog";
@@ -13,6 +13,7 @@ import "./App.css";
 import { formatNoteDate } from "./noteDates";
 import { type HitPointAction, applyHitPointAction, getStoredCurrentHitPoints } from "./hitPoints";
 import { type CombatEffect } from "./combatEffects";
+import { CombatTargetContextProvider } from "./combatTargetDefenseContext";
 
 const EquipmentSheet = lazy(() => import("./components/EquipmentSheet").then((module) => ({ default: module.EquipmentSheet })));
 const EquipmentStore = lazy(() => import("./components/EquipmentStore").then((module) => ({ default: module.EquipmentStore })));
@@ -48,11 +49,11 @@ export function App() {
   const [operationError, setOperationError] = useState(savedState.error);
   const [character, setCharacter] = useState<Character>(() => savedState.character);
   const [rangedTargetDistanceFeet, setRangedTargetDistanceFeet] = useState<number | undefined>(undefined);
+  const [combatAttackMode, setCombatAttackMode] = useState<CombatAttackMode>("full-attack");
   const [combatExpertiseAmount, setCombatExpertiseAmount] = useState(0);
   const [powerAttackAmount, setPowerAttackAmount] = useState(0);
   const [dodgeTargetSelected, setDodgeTargetSelected] = useState(false);
   const [combatCastingContext, setCombatCastingContext] = useState<CombatCastingContext>();
-  const [targetDamageReduction, setTargetDamageReduction] = useState("");
   const [selectedRangedAmmunitionKey, setSelectedRangedAmmunitionKey] = useState<string | undefined>();
   const [creationState, setCreationDraft] = useState<Character>(() =>
     cloneCharacter(savedState.character),
@@ -1041,6 +1042,7 @@ export function App() {
     !hasSpellcasting && activeSheet === "spells" ? "character" : activeSheet;
 
   return (
+    <CombatTargetContextProvider>
     <main className="app-shell">
       <header className="app-header">
         <div className="app-title">
@@ -1253,6 +1255,8 @@ export function App() {
             onCombatEffectsChange={updateCombatEffects}
             rangedTargetDistanceFeet={rangedTargetDistanceFeet}
             onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
+            combatAttackMode={combatAttackMode}
+            onCombatAttackModeChange={setCombatAttackMode}
             combatExpertiseAmount={combatExpertiseAmount}
             onCombatExpertiseAmountChange={setCombatExpertiseAmount}
             powerAttackAmount={powerAttackAmount}
@@ -1261,8 +1265,6 @@ export function App() {
             onDodgeTargetSelectedChange={setDodgeTargetSelected}
             combatCastingContext={combatCastingContext}
             onCombatCastingContextChange={setCombatCastingContext}
-            targetDamageReduction={targetDamageReduction}
-            onTargetDamageReductionChange={setTargetDamageReduction}
             selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
             onRangedAmmunitionChange={setSelectedRangedAmmunitionKey}
             onAddNote={addCharacterNote}
@@ -1293,14 +1295,14 @@ export function App() {
           character={displayedCharacter}
           rangedTargetDistanceFeet={rangedTargetDistanceFeet}
           onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
+          combatAttackMode={combatAttackMode}
+          onCombatAttackModeChange={setCombatAttackMode}
           combatExpertiseAmount={combatExpertiseAmount}
           onCombatExpertiseAmountChange={setCombatExpertiseAmount}
           powerAttackAmount={powerAttackAmount}
           onPowerAttackAmountChange={setPowerAttackAmount}
           dodgeTargetSelected={dodgeTargetSelected}
           onDodgeTargetSelectedChange={setDodgeTargetSelected}
-          targetDamageReduction={targetDamageReduction}
-          onTargetDamageReductionChange={setTargetDamageReduction}
           selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
           onRangedAmmunitionChange={setSelectedRangedAmmunitionKey}
           onEquipmentChange={updateEquipment}
@@ -1354,6 +1356,7 @@ export function App() {
       )}
       </ScreenBoundary>
     </main>
+    </CombatTargetContextProvider>
   );
 }
 

@@ -1,5 +1,5 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
-import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit, getDodgeFeatBonus, getAttackOfOpportunityCapacity } from "../rules";
+import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit, getDodgeFeatBonus, getAttackOfOpportunityCapacity, type CombatAttackMode } from "../rules";
 import { combatCastingContextOptions, getCombatCastingBonus, type CombatCastingContext } from "../rules";
 
 export function CombatCastingContextControl({ character, context, onChange }: {
@@ -112,6 +112,24 @@ export function RangedDistanceControl({ distanceFeet, onChange }: {
     </label>
   );
 }
+
+export function CombatAttackModeControl({ mode, onChange }: {
+  mode: CombatAttackMode;
+  onChange: (mode: CombatAttackMode) => void;
+}) {
+  return (
+    <label className="weapon-grip-control">
+      Attack action
+      <select aria-label="Attack action" value={mode}
+        onChange={(event) => onChange(event.currentTarget.value as CombatAttackMode)}>
+        <option value="single">Single attack</option>
+        <option value="full-attack">Full attack</option>
+        <option value="manyshot">Manyshot</option>
+      </select>
+    </label>
+  );
+}
+
 
 export function TargetDamageReductionControl({ value, onChange }: {
   value: string;

@@ -994,8 +994,12 @@ describe("application workflows", () => {
 
   it("warns when Ranger combat-style benefits are disabled by medium armor", async () => {
     const original = savedHero();
-    original.classLevels = [{ classId: "ranger", level: 2 }];
-    original.featSelections = { "ranger-style-2": "rapid-shot" };
+    original.classLevels = [{ classId: "ranger", level: 11 }];
+    original.featSelections = {
+      "ranger-style-2": "rapid-shot",
+      "ranger-style-6": "manyshot",
+      "ranger-style-11": "improved-precise-shot",
+    };
     original.equipment.Armor = "Chainmail";
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
     render(<App />);
@@ -1005,6 +1009,62 @@ describe("application workflows", () => {
         /Ranger style is inactive in medium or heavy armor/,
       ),
     ).toBeDefined();
+  });
+
+  it("applies Manyshot on both character and equipment sheets", async () => {
+    const user = userEvent.setup();
+    const original = savedHero();
+    original.classLevels = [{ classId: "ranger", level: 11 }];
+    original.featSelections = {
+      "ranger-style-2": "rapid-shot",
+      "ranger-style-6": "manyshot",
+      "ranger-style-11": "improved-precise-shot",
+    };
+    original.equipment["Ranged Weapon"] = "Longbow (Medium)";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    render(<App />);
+
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Attack action" }),
+      "manyshot",
+    );
+    await user.type(screen.getByRole("spinbutton", { name: "Target distance (ft.)" }), "30");
+    expect(await screen.findByText("3 arrows use one Manyshot attack roll")).toBeDefined();
+    expect(await screen.findByText(/Weapon damage expression: .* per arrow\. Apply damage reduction and other resistances separately against each arrow; add precision-based damage once\. On a critical, only the first arrow deals critical damage\./)).toBeDefined();
+
+    const tabs = within(
+      screen.getByRole("navigation", { name: "Character sheets" }),
+    );
+    await user.click(tabs.getByRole("button", { name: "Equipment" }));
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Attack action" }).value)
+      .toBe("manyshot");
+    expect(screen.getByText("3 arrows use one Manyshot attack roll")).toBeDefined();
+    expect(screen.getByText(/Weapon damage expression: .* per arrow\. Apply damage reduction and other resistances separately against each arrow; add precision-based damage once\. On a critical, only the first arrow deals critical damage\./)).toBeDefined();
+  });
+
+  it("shares target cover and concealment context across character and equipment sheets", async () => {
+    const user = userEvent.setup();
+    const original = savedHero();
+    original.featSelections = { "general-1": "improved-precise-shot" };
+    original.equipment["Ranged Weapon"] = "Longbow (Medium)";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    render(<App />);
+
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Target cover" }),
+      "less-than-total",
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Target concealment" }),
+      "less-than-total",
+    );
+    expect(await screen.findByText(/ignores this cover AC bonus on ranged attacks/)).toBeDefined();
+    expect(await screen.findByText(/ignores this concealment miss chance on ranged attacks/)).toBeDefined();
+
+    const tabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(tabs.getByRole("button", { name: "Equipment" }));
+    expect(await screen.findByText(/ignores this cover AC bonus on ranged attacks/)).toBeDefined();
+    expect(await screen.findByText(/ignores this concealment miss chance on ranged attacks/)).toBeDefined();
   });
 
   it("selects Monk bonus feats without their usual prerequisites", async () => {
@@ -1227,12 +1287,20 @@ describe("application workflows", () => {
     await user.click(
       within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
         "option",
-        { name: "Lawful Evil" },
+        { name: "Lawful Neutral" },
       ),
     );
     expect(screen.getByText("Cleric alignment must be within one step of Pelor.")).toBeDefined();
     expect(screen.getByRole("button", { name: "Finalize Character" }).hasAttribute("disabled"))
       .toBe(true);
+    await user.click(screen.getByRole("button", { name: "Alignment" }));
+    await user.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "True Neutral" },
+      ),
+    );
+    expect(screen.getByText("Cleric alignment must be within one step of Pelor.")).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Alignment" }));
     await user.click(
       within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(

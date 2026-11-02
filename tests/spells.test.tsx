@@ -468,6 +468,17 @@ describe("class-specific spell rules", () => {
       stillByClass: value,
     })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: { Daze: [1] } },
+    { wizard: { Daze: ["true"] } },
+    { notAClass: { Daze: [true] } },
+  ])("rejects malformed prepared Widen metadata %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      widenByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
@@ -823,6 +834,45 @@ describe("caster class subtabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(stored().stillByClass?.wizard).toEqual({ "Ghost Sound": [true] });
     expect(stored().silentByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+    expect(stored().quickenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+  });
+
+  it("tracks Widen's three slot levels per prepared copy", async () => {
+    const character = caster();
+    character.classLevels = [{ classId: "wizard", level: 13 }, { classId: "cleric", level: 1 }];
+    character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
+    character.knownSpells = ["Ghost Sound"];
+    character.featSelections = {
+      "general-1": "widen-spell",
+      "general-2": "quicken-spell",
+    };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const cantrips = spellLevel(panel, "CANTRIPS");
+    const spellRow = cantrips.getByRole("row", { name: /Ghost Sound/ });
+    fireEvent.change(within(spellRow).getByRole("spinbutton", { name: "Prepare Ghost Sound" }), {
+      target: { value: "1" },
+    });
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Widen Ghost Sound copy 1",
+    }));
+
+    expect(within(spellRow).getByText("Copy 1: DC 13 (Widened in level 3 slot)")).toBeDefined();
+    expect(within(spellRow).getByText("Copy 1: Widened")).toBeDefined();
+    expect(screen.getByText(/Verify a burst, emanation, line, or spread area and double its numeric measurements manually/)).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 3 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Quicken Ghost Sound copy 1",
+    }));
+    expect(within(spellRow).getByText(
+      "Copy 1: DC 13 (Quickened and Widened in level 7 slot)",
+    )).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 7 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().widenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
     expect(stored().quickenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });
 

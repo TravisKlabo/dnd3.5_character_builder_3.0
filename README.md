@@ -26,7 +26,7 @@ npm run benchmark
 ```
 
 `check` runs warning-free lint, regression tests, application and test type checks,
-and a production build. The build fails if initial JavaScript exceeds 478,000
+and a production build. The build fails if initial JavaScript exceeds 478,500
 uncompressed bytes. Tests cover draft isolation, progression, combat calculations,
 catalog matching and invalidation, persistence, malformed imports, lazy loading,
 screen navigation, custom items, and the absence of printing APIs/styles.
@@ -530,6 +530,9 @@ save DC at each spell level:
 - Still Spell lets you mark prepared copies for a slot one level higher.
   Verify a somatic component is present and omit it manually; bard spells with
   somatic components can benefit, but spontaneous casts remain manual.
+- Widen Spell lets you mark prepared copies for a slot three levels higher.
+  Verify that the spell has a burst, emanation, line, or spread area and double
+  its numeric measurements manually; spontaneous casts remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

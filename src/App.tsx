@@ -426,6 +426,7 @@ export function App() {
       let quickenByClass = current.quickenByClass;
       let silentByClass = current.silentByClass;
       let stillByClass = current.stillByClass;
+      let widenByClass = current.widenByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -475,6 +476,11 @@ export function App() {
           classId,
           preparedNames,
         );
+        widenByClass = prunePreparedSpellMetadata(
+          widenByClass,
+          classId,
+          preparedNames,
+        );
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
         spellAcquisitionByClass[classId] = Object.fromEntries(
@@ -499,6 +505,7 @@ export function App() {
         ...(quickenByClass ? { quickenByClass } : {}),
         ...(silentByClass ? { silentByClass } : {}),
         ...(stillByClass ? { stillByClass } : {}),
+        ...(widenByClass ? { widenByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -564,6 +571,7 @@ export function App() {
     spellQuickenedCopies?: Record<string, boolean[]>,
     spellSilencedCopies?: Record<string, boolean[]>,
     spellStilledCopies?: Record<string, boolean[]>,
+    spellWidenedCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -595,6 +603,9 @@ export function App() {
       const stillByClass = classId && spellStilledCopies
         ? { ...current.stillByClass, [classId]: spellStilledCopies }
         : current.stillByClass;
+      const widenByClass = classId && spellWidenedCopies
+        ? { ...current.widenByClass, [classId]: spellWidenedCopies }
+        : current.widenByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
@@ -607,6 +618,7 @@ export function App() {
         ...(quickenByClass ? { quickenByClass } : {}),
         ...(silentByClass ? { silentByClass } : {}),
         ...(stillByClass ? { stillByClass } : {}),
+        ...(widenByClass ? { widenByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

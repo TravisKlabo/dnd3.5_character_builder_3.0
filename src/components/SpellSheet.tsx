@@ -36,6 +36,7 @@ type SpellSheetProps = {
     spellQuickenedCopies?: Record<string, boolean[]>,
     spellSilencedCopies?: Record<string, boolean[]>,
     spellStilledCopies?: Record<string, boolean[]>,
+    spellWidenedCopies?: Record<string, boolean[]>,
   ) => void;
   onCharacterUpdate: (update: (current: Character) => Character) => void;
   onExpendedSpellSlotsChange: (classId: ClassId, slots: Record<string, number[]>) => void;
@@ -51,6 +52,7 @@ type PreparedMetamagicMode = {
   quickened: boolean;
   silenced: boolean;
   stilled: boolean;
+  widened: boolean;
   slotAdjustment: number;
 };
 
@@ -136,6 +138,7 @@ export function SpellSheet({
   const hasQuickenSpell = selectedFeats.includes("quicken-spell");
   const hasSilentSpell = selectedFeats.includes("silent-spell");
   const hasStillSpell = selectedFeats.includes("still-spell");
+  const hasWidenSpell = selectedFeats.includes("widen-spell");
   const availableLevels = Array.from({ length: 10 }, (_, index) => index).filter((level) =>
     hasSpellLevelAtClassLevel(spellcastingClass.id, classLevel, level),
   );
@@ -158,14 +161,16 @@ export function SpellSheet({
           for (const quickened of hasQuickenSpell ? [false, true] : [false]) {
             for (const silenced of hasSilentSpell ? [false, true] : [false]) {
               for (const stilled of hasStillSpell ? [false, true] : [false]) {
-                const slotAdjustment =
-                  Number(extended) + (empowered ? 2 : 0) + (maximized ? 3 : 0) +
-                  Number(enlarged) + (quickened ? 4 : 0) +
-                  Number(silenced) + Number(stilled);
-                if (slotAdjustment)
-                  metamagicModes.push({
-                    extended, empowered, maximized, enlarged, quickened, silenced, stilled, slotAdjustment,
-                  });
+                for (const widened of hasWidenSpell ? [false, true] : [false]) {
+                  const slotAdjustment =
+                    Number(extended) + (empowered ? 2 : 0) + (maximized ? 3 : 0) +
+                    Number(enlarged) + (quickened ? 4 : 0) +
+                    Number(silenced) + Number(stilled) + (widened ? 3 : 0);
+                  if (slotAdjustment)
+                    metamagicModes.push({
+                      extended, empowered, maximized, enlarged, quickened, silenced, stilled, widened, slotAdjustment,
+                    });
+                }
               }
             }
           }
@@ -225,6 +230,7 @@ export function SpellSheet({
       quickened: false,
       silenced: false,
       stilled: false,
+      widened: false,
       slotLevel: effectiveSpellLevel,
       capacity: getDailySpellSlots(character, spellcastingClass.id, classLevel, effectiveSpellLevel),
     },
@@ -255,6 +261,8 @@ export function SpellSheet({
     character.silentByClass?.[spellcastingClass.id] ?? {};
   const storedPreparedStilledCopies =
     character.stillByClass?.[spellcastingClass.id] ?? {};
+  const storedPreparedWidenedCopies =
+    character.widenByClass?.[spellcastingClass.id] ?? {};
   const preparedSlotLevelsBySpell: Record<string, number[]> = {};
   const preparedEmpoweredCopiesBySpell: Record<string, boolean[]> = {};
   const preparedMaximizedCopiesBySpell: Record<string, boolean[]> = {};
@@ -263,6 +271,7 @@ export function SpellSheet({
   const preparedQuickenedCopiesBySpell: Record<string, boolean[]> = {};
   const preparedSilencedCopiesBySpell: Record<string, boolean[]> = {};
   const preparedStilledCopiesBySpell: Record<string, boolean[]> = {};
+  const preparedWidenedCopiesBySpell: Record<string, boolean[]> = {};
   const preparedCopyIndexes = new Map<string, number>();
   const spellLevelsByName = new Map(
     classSpells.map((spell) => [spell.name, spell.level] as const),
@@ -302,6 +311,9 @@ export function SpellSheet({
     (preparedStilledCopiesBySpell[spellName] ??= []).push(
       storedPreparedStilledCopies[spellName]?.[copyIndex] === true,
     );
+    (preparedWidenedCopiesBySpell[spellName] ??= []).push(
+      storedPreparedWidenedCopies[spellName]?.[copyIndex] === true,
+    );
     preparedCopyIndexes.set(spellName, copyIndex + 1);
   }
   const preparedSlotUse = Array.from({ length: 17 }, () => 0);
@@ -321,10 +333,12 @@ export function SpellSheet({
         preparedSilencedCopiesBySpell[spellName]?.[copyIndex] === true;
       const stilled = hasStillSpell &&
         preparedStilledCopiesBySpell[spellName]?.[copyIndex] === true;
+      const widened = hasWidenSpell &&
+        preparedWidenedCopiesBySpell[spellName]?.[copyIndex] === true;
       const slotAdjustment =
         Number(extended) + (empowered ? 2 : 0) + (maximized ? 3 : 0) +
         Number(enlarged) + (quickened ? 4 : 0) +
-        Number(silenced) + Number(stilled);
+        Number(silenced) + Number(stilled) + (widened ? 3 : 0);
       preparedSlotUse[level + slotAdjustment] += 1;
     }),
   );
@@ -460,11 +474,11 @@ export function SpellSheet({
               " Prepare from this class's spell list. Each spell level has its own preparation limit."}</p>
         {spellcastingClass.id === "cleric" && <p>Daily slots below are ordinary cleric slots. Domain slots are prepared and tracked separately above the ordinary spell list.</p>}
         {spellcastingClass.id === "mystic" && <p className="spell-rules-notice">Mystic casting is inherited Dragonlance content and has not been source-verified.</p>}
-        {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) && <p className="spell-rules-notice">
+        {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell) && <p className="spell-rules-notice">
           {hasHeightenSpell && (learningMode === "Spells Known"
             ? "Heighten Spell for spontaneous casting remains manual, including higher-level slot use and casting time."
             : "Heighten Spell is tracked per copy in this class's prepared list.")}
-          {hasHeightenSpell && (hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) ? " " : ""}
+          {hasHeightenSpell && (hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell) ? " " : ""}
           {hasEmpowerSpell && hasMaximizeSpell && learningMode !== "Spells Known"
             ? "Empower and Maximize are tracked per prepared copy for slot use; maximize the variable effect and add half the normally rolled result manually."
             : hasEmpowerSpell && (learningMode === "Spells Known"
@@ -477,7 +491,7 @@ export function SpellSheet({
           {hasExtendSpell && (learningMode === "Spells Known"
             ? "Extend Spell for spontaneous casting remains manual, including higher-level slot use, casting time, and duration."
             : "Extend Spell is tracked per prepared copy for slot use; double eligible durations manually. Concentration, instantaneous, and permanent spells are unaffected.")}
-          {(hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell) && (hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) ? " " : ""}
+          {(hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell) && (hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell) ? " " : ""}
           {hasEnlargeSpell && (learningMode === "Spells Known"
             ? "Enlarge Spell for spontaneous casting remains manual, including higher-level slot use, casting time, and range."
             : "Enlarge Spell is tracked per prepared copy for slot use; manually increase only distance-defined close, medium, or long ranges.")}
@@ -493,7 +507,11 @@ export function SpellSheet({
           {hasStillSpell && (learningMode === "Spells Known"
             ? "Still Spell for spontaneous casting remains manual, including higher-level slot use and component changes."
             : "Still Spell is tracked per prepared copy for its +1 slot cost. Verify a somatic component is present and omit it manually; bard spells with somatic components can benefit.")}
-          {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) && " Spontaneous casting and cleric domain spells remain manual."}
+          {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) && hasWidenSpell ? " " : ""}
+          {hasWidenSpell && (learningMode === "Spells Known"
+            ? "Widen Spell for spontaneous casting remains manual, including higher-level slot use and area changes."
+            : "Widen Spell is tracked per prepared copy for its +3 slot cost. Verify a burst, emanation, line, or spread area and double its numeric measurements manually.")}
+          {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell) && " Spontaneous casting and cleric domain spells remain manual."}
           {hasHeightenSpell && " Non-DC spell-level effects remain manual."}
         </p>}
         {availableLevels.length === 0 && <p>{spellcastingClass.name} spellcasting begins at class level 4. No spell slots are available yet.</p>}
@@ -724,6 +742,8 @@ export function SpellSheet({
                                 (preparedSilencedCopiesBySpell[spellName] ?? []).slice(0, count);
                               const nextStilledCopies =
                                 (preparedStilledCopiesBySpell[spellName] ?? []).slice(0, count);
+                              const nextWidenedCopies =
+                                (preparedWidenedCopiesBySpell[spellName] ?? []).slice(0, count);
                               for (let copyIndex = count; copyIndex < preparedLevels.length; copyIndex += 1) {
                                 const empowered = preparedEmpoweredCopiesBySpell[spellName]?.[copyIndex] === true;
                                 const maximized = preparedMaximizedCopiesBySpell[spellName]?.[copyIndex] === true;
@@ -732,6 +752,7 @@ export function SpellSheet({
                                 const quickened = preparedQuickenedCopiesBySpell[spellName]?.[copyIndex] === true;
                                 const silenced = preparedSilencedCopiesBySpell[spellName]?.[copyIndex] === true;
                                 const stilled = preparedStilledCopiesBySpell[spellName]?.[copyIndex] === true;
+                                const widened = preparedWidenedCopiesBySpell[spellName]?.[copyIndex] === true;
                                 nextSlotUse[
                                   preparedLevels[copyIndex] +
                                   Number(extended) +
@@ -740,7 +761,8 @@ export function SpellSheet({
                                   Number(enlarged) +
                                   (quickened ? 4 : 0) +
                                   Number(silenced) +
-                                  Number(stilled)
+                                  Number(stilled) +
+                                  (widened ? 3 : 0)
                                 ] -= 1;
                               }
                               const nextPreparedLevels = preparedLevels.slice(0, count);
@@ -762,6 +784,7 @@ export function SpellSheet({
                                 nextQuickenedCopies.push(nextChoice.quickened);
                                 nextSilencedCopies.push(nextChoice.silenced);
                                 nextStilledCopies.push(nextChoice.stilled);
+                                nextWidenedCopies.push(nextChoice.widened);
                                 nextSlotUse[nextChoice.slotLevel] += 1;
                               }
                               const nextSlotLevelsBySpell = Object.fromEntries(
@@ -796,6 +819,10 @@ export function SpellSheet({
                                 Object.entries(storedPreparedStilledCopies)
                                   .filter(([name]) => name !== spellName && nextPreparedSpells.includes(name)),
                               );
+                              const nextWidenedCopiesBySpell = Object.fromEntries(
+                                Object.entries(storedPreparedWidenedCopies)
+                                  .filter(([name]) => name !== spellName && nextPreparedSpells.includes(name)),
+                              );
                               if (count > 0) {
                                 nextSlotLevelsBySpell[spellName] = nextPreparedLevels;
                                 nextEmpoweredCopiesBySpell[spellName] = nextEmpoweredCopies;
@@ -805,6 +832,7 @@ export function SpellSheet({
                                 nextQuickenedCopiesBySpell[spellName] = nextQuickenedCopies;
                                 nextSilencedCopiesBySpell[spellName] = nextSilencedCopies;
                                 nextStilledCopiesBySpell[spellName] = nextStilledCopies;
+                                nextWidenedCopiesBySpell[spellName] = nextWidenedCopies;
                               }
                               onPreparedSpellsChange(
                                 nextPreparedSpells,
@@ -817,6 +845,7 @@ export function SpellSheet({
                                 nextQuickenedCopiesBySpell,
                                 nextSilencedCopiesBySpell,
                                 nextStilledCopiesBySpell,
+                                nextWidenedCopiesBySpell,
                               );
                             }}
                           />
@@ -856,7 +885,7 @@ export function SpellSheet({
                             {spellMarker && <small>{spellMarker}</small>}
                           </>
                         )}
-                                      {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) && spellName && preparedLevels.map((preparedLevel, copyIndex) => {
+                                      {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell) && spellName && preparedLevels.map((preparedLevel, copyIndex) => {
                                         const empowered = hasEmpowerSpell &&
                                           preparedEmpoweredCopiesBySpell[spellName]?.[copyIndex] === true;
                                         const maximized = hasMaximizeSpell &&
@@ -871,59 +900,71 @@ export function SpellSheet({
                                           preparedSilencedCopiesBySpell[spellName]?.[copyIndex] === true;
                                         const stilled = hasStillSpell &&
                                           preparedStilledCopiesBySpell[spellName]?.[copyIndex] === true;
+                                        const widened = hasWidenSpell &&
+                                          preparedWidenedCopiesBySpell[spellName]?.[copyIndex] === true;
                                         const currentSlotAdjustment =
                                           Number(extended) + (empowered ? 2 : 0) +
                                           (maximized ? 3 : 0) + Number(enlarged) +
                                           (quickened ? 4 : 0) + Number(silenced) +
-                                          Number(stilled);
+                                          Number(stilled) + (widened ? 3 : 0);
                                         const currentUsedSlotLevel = preparedLevel + currentSlotAdjustment;
                                         const canEmpower = empowered || canFitPreparedCopy(
                                           preparedLevel,
                                           Number(extended) + 2 + (maximized ? 3 : 0) +
                                             Number(enlarged) + (quickened ? 4 : 0) +
-                                            Number(silenced) + Number(stilled),
+                                            Number(silenced) + Number(stilled) + (widened ? 3 : 0),
                                             currentUsedSlotLevel,
                                         );
                                         const canSilent = silenced || canFitPreparedCopy(
                                           preparedLevel,
                                           Number(extended) + (empowered ? 2 : 0) +
                                             (maximized ? 3 : 0) + Number(enlarged) +
-                                            (quickened ? 4 : 0) + Number(stilled) + 1,
+                                            (quickened ? 4 : 0) + Number(stilled) +
+                                            (widened ? 3 : 0) + 1,
                                           currentUsedSlotLevel,
                                         );
                                         const canMaximize = maximized || canFitPreparedCopy(
                                           preparedLevel,
                                           Number(extended) + (empowered ? 2 : 0) + 3 +
                                             Number(enlarged) + (quickened ? 4 : 0) +
-                                            Number(silenced) + Number(stilled),
+                                            Number(silenced) + Number(stilled) + (widened ? 3 : 0),
                                           currentUsedSlotLevel,
                                         );
                                         const canExtend = extended || canFitPreparedCopy(
                                           preparedLevel,
                                           1 + (empowered ? 2 : 0) + (maximized ? 3 : 0) +
                                             Number(enlarged) + (quickened ? 4 : 0) +
-                                            Number(silenced) + Number(stilled),
+                                            Number(silenced) + Number(stilled) + (widened ? 3 : 0),
                                           currentUsedSlotLevel,
                                         );
                                         const canEnlarge = enlarged || canFitPreparedCopy(
                                           preparedLevel,
                                           Number(extended) + (empowered ? 2 : 0) +
                                             (maximized ? 3 : 0) + 1 + (quickened ? 4 : 0) +
-                                            Number(silenced) + Number(stilled),
+                                            Number(silenced) + Number(stilled) + (widened ? 3 : 0),
                                           currentUsedSlotLevel,
                                         );
                                         const canQuicken = quickened || canFitPreparedCopy(
                                           preparedLevel,
                                           Number(extended) + (empowered ? 2 : 0) +
                                             (maximized ? 3 : 0) + Number(enlarged) + 4 +
-                                            Number(silenced) + Number(stilled),
+                                            Number(silenced) + Number(stilled) + (widened ? 3 : 0),
                                           currentUsedSlotLevel,
                                         );
                                         const canStill = stilled || canFitPreparedCopy(
                                           preparedLevel,
                                           Number(extended) + (empowered ? 2 : 0) +
                                             (maximized ? 3 : 0) + Number(enlarged) +
-                                            (quickened ? 4 : 0) + Number(silenced) + 1,
+                                            (quickened ? 4 : 0) + Number(silenced) +
+                                            (widened ? 3 : 0) + 1,
+                                          currentUsedSlotLevel,
+                                        );
+                                        const canWiden = widened || canFitPreparedCopy(
+                                          preparedLevel,
+                                          Number(extended) + (empowered ? 2 : 0) +
+                                            (maximized ? 3 : 0) + Number(enlarged) +
+                                            (quickened ? 4 : 0) + Number(silenced) +
+                                            Number(stilled) + 3,
                                           currentUsedSlotLevel,
                                         );
                                         return (
@@ -994,7 +1035,7 @@ export function SpellSheet({
                                       Number(extended) + (empowered ? 2 : 0) +
                                       (maximized ? 3 : 0) + Number(nextEnlarged) +
                                       (quickened ? 4 : 0) + Number(silenced) +
-                                      Number(stilled);
+                                      Number(stilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Enlarged preparation.");
                                       event.currentTarget.reportValidity();
@@ -1037,7 +1078,7 @@ export function SpellSheet({
                                       Number(extended) + (empowered ? 2 : 0) +
                                       (maximized ? 3 : 0) + Number(enlarged) +
                                       (nextQuickened ? 4 : 0) + Number(silenced) +
-                                      Number(stilled);
+                                      Number(stilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Quickened preparation.");
                                       event.currentTarget.reportValidity();
@@ -1080,7 +1121,7 @@ export function SpellSheet({
                                       Number(extended) + (empowered ? 2 : 0) +
                                       (maximized ? 3 : 0) + Number(enlarged) +
                                       (quickened ? 4 : 0) + Number(nextSilenced) +
-                                      Number(stilled);
+                                      Number(stilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Silenced preparation.");
                                       event.currentTarget.reportValidity();
@@ -1123,7 +1164,7 @@ export function SpellSheet({
                                       Number(extended) + (empowered ? 2 : 0) +
                                       (maximized ? 3 : 0) + Number(enlarged) +
                                       (quickened ? 4 : 0) + Number(silenced) +
-                                      Number(nextStilled);
+                                      Number(nextStilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Stilled preparation.");
                                       event.currentTarget.reportValidity();
@@ -1153,6 +1194,50 @@ export function SpellSheet({
                                 />
                                 Still (+1 slot level)
                               </label>}
+                              {hasWidenSpell && <label className="prepared-spell-widen">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Widen ${spellName} copy ${copyIndex + 1}`}
+                                  checked={widened}
+                                  disabled={preparationComplete || !canWiden}
+                                  title={!canWiden ? "Widen requires an available slot three levels higher." : undefined}
+                                  onChange={(event) => {
+                                    const nextWidened = event.currentTarget.checked;
+                                    const nextAdjustment =
+                                      Number(extended) + (empowered ? 2 : 0) +
+                                      (maximized ? 3 : 0) + Number(enlarged) +
+                                      (quickened ? 4 : 0) + Number(silenced) +
+                                      Number(stilled) + (nextWidened ? 3 : 0);
+                                    if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
+                                      event.currentTarget.setCustomValidity("No available slot can hold this Widened preparation.");
+                                      event.currentTarget.reportValidity();
+                                      return;
+                                    }
+                                    event.currentTarget.setCustomValidity("");
+                                    const nextWidenedCopies = [
+                                      ...(preparedWidenedCopiesBySpell[spellName] ?? []),
+                                    ];
+                                    nextWidenedCopies[copyIndex] = nextWidened;
+                                    onPreparedSpellsChange(
+                                      preparedSpells,
+                                      spellcastingClass.id,
+                                      storedPreparedSlotLevels,
+                                      storedPreparedEmpoweredCopies,
+                                      storedPreparedMaximizedCopies,
+                                      storedPreparedExtendedCopies,
+                                      storedPreparedEnlargedCopies,
+                                      storedPreparedQuickenedCopies,
+                                      storedPreparedSilencedCopies,
+                                      storedPreparedStilledCopies,
+                                      {
+                                        ...storedPreparedWidenedCopies,
+                                        [spellName]: nextWidenedCopies,
+                                      },
+                                    );
+                                  }}
+                                />
+                                Widen (+3 slot levels)
+                              </label>}
                               {hasExtendSpell && <label className="prepared-spell-extend">
                                 <input
                                   type="checkbox"
@@ -1166,7 +1251,7 @@ export function SpellSheet({
                                       Number(nextExtended) + (empowered ? 2 : 0) +
                                       (maximized ? 3 : 0) + Number(enlarged) +
                                       (quickened ? 4 : 0) + Number(silenced) +
-                                      Number(stilled);
+                                      Number(stilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Extended preparation.");
                                       event.currentTarget.reportValidity();
@@ -1209,7 +1294,7 @@ export function SpellSheet({
                                       Number(extended) + (nextEmpowered ? 2 : 0) +
                                       (maximized ? 3 : 0) + Number(enlarged) +
                                       (quickened ? 4 : 0) + Number(silenced) +
-                                      Number(stilled);
+                                      Number(stilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Empowered preparation.");
                                       event.currentTarget.reportValidity();
@@ -1252,7 +1337,7 @@ export function SpellSheet({
                                       Number(extended) + (empowered ? 2 : 0) +
                                       (nextMaximized ? 3 : 0) + Number(enlarged) +
                                       (quickened ? 4 : 0) + Number(silenced) +
-                                      Number(stilled);
+                                      Number(stilled) + (widened ? 3 : 0);
                                     if (!canFitPreparedCopy(preparedLevel, nextAdjustment, currentUsedSlotLevel)) {
                                       event.currentTarget.setCustomValidity("No available slot can hold this Maximized preparation.");
                                       event.currentTarget.reportValidity();
@@ -1290,6 +1375,10 @@ export function SpellSheet({
                         {spell && (
                           <>
                             {spell.description || ""}
+                            {hasWidenSpell && spellName && preparedLevels.map((_, copyIndex) =>
+                              preparedWidenedCopiesBySpell[spellName]?.[copyIndex] === true
+                                ? <small key={copyIndex} className="prepared-spell-dc">Copy {copyIndex + 1}: Widened</small>
+                                : null)}
                             <small>
                               ({spellcastingClass.name})
                             </small>
@@ -1304,7 +1393,7 @@ export function SpellSheet({
                       <td>
                         {spell?.savingThrow || ""}
                         {spell?.savingThrow && (
-                          (hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell) && preparedLevels.length > 0
+                          (hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell) && preparedLevels.length > 0
                             ? preparedLevels.map((preparedLevel, copyIndex) => {
                                 const empowered = hasEmpowerSpell &&
                                   preparedEmpoweredCopiesBySpell[spellName ?? ""]?.[copyIndex] === true;
@@ -1320,11 +1409,13 @@ export function SpellSheet({
                                   preparedSilencedCopiesBySpell[spellName ?? ""]?.[copyIndex] === true;
                                 const stilled = hasStillSpell &&
                                   preparedStilledCopiesBySpell[spellName ?? ""]?.[copyIndex] === true;
+                                const widened = hasWidenSpell &&
+                                  preparedWidenedCopiesBySpell[spellName ?? ""]?.[copyIndex] === true;
                                 const usedSlotLevel =
                                   preparedLevel + Number(extended) + (empowered ? 2 : 0) +
                                   (maximized ? 3 : 0) + Number(enlarged) +
                                   (quickened ? 4 : 0) + Number(silenced) +
-                                  Number(stilled);
+                                  Number(stilled) + (widened ? 3 : 0);
                                 const metamagic = [
                                   extended ? "Extended" : "",
                                   empowered ? "Empowered" : "",
@@ -1333,6 +1424,7 @@ export function SpellSheet({
                                   quickened ? "Quickened" : "",
                                   silenced ? "Silenced" : "",
                                   stilled ? "Stilled" : "",
+                                  widened ? "Widened" : "",
                                 ].filter(Boolean);
                                 const notes = [
                                   preparedLevel > level ? `Heightened to level ${preparedLevel}` : "",

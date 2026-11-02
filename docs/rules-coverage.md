@@ -64,6 +64,10 @@ Still Spell is tracked per prepared copy for its +1 slot cost. Component
 eligibility and removing the somatic component remain manual because component
 lists are free-form; bard spells with somatic components can benefit
 ([SRD Still Spell](https://www.d20srd.org/srd/feats.htm#stillSpell)).
+Widen Spell is tracked per prepared copy for its +3 slot cost. Only burst,
+emanation, line, and spread areas qualify; area eligibility and doubling
+numeric measurements remain manual because spell areas are not structured
+([SRD Widen Spell](https://www.d20srd.org/srd/feats.htm#widenSpell)).
 
 ## Recommended audit order
 

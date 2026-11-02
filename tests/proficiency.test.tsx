@@ -530,6 +530,12 @@ describe("armor and shield proficiency", () => {
     ).toContain("still-spell");
   });
 
+  it("offers Widen Spell without prerequisites", () => {
+    expect(
+      getAvailableFeats(hero(), { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("widen-spell");
+  });
+
   it("requires another metamagic feat before Maximize Spell", () => {
     const character = hero();
     expect(

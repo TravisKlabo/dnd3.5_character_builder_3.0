@@ -204,6 +204,7 @@ export interface Character {
   quickenByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
   silentByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
   stillByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
+  widenByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
   spellPreparationCompletedByClass?: Partial<Record<ClassId, boolean>>
   clericDomains?: import('./data/clericDomains').ClericDomainId[]
   clericDomainPreparation?: Record<string, import('./data/clericDomains').ClericDomainSpell>

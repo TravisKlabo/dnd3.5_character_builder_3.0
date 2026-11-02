@@ -830,6 +830,11 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Cast a spell without somatic components; slot +1.",
   },
   {
+    id: "widen-spell",
+    name: "Widen Spell",
+    description: "Double eligible areas; slot +3.",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

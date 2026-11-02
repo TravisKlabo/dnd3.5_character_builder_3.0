@@ -536,6 +536,23 @@ describe("armor and shield proficiency", () => {
     ).toContain("widen-spell");
   });
 
+  it("requires another metamagic feat before Sculpt Spell", () => {
+    const character = hero();
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).not.toContain("sculpt-spell");
+
+    character.featSelections = { "general-1": "spell-focus" };
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).not.toContain("sculpt-spell");
+
+    character.featSelections = { "general-1": "widen-spell" };
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("sculpt-spell");
+  });
+
   it("requires another metamagic feat before Maximize Spell", () => {
     const character = hero();
     expect(

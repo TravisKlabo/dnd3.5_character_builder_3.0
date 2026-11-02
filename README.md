@@ -533,6 +533,9 @@ save DC at each spell level:
 - Widen Spell lets you mark prepared copies for a slot three levels higher.
   Verify that the spell has a burst, emanation, line, or spread area and double
   its numeric measurements manually; spontaneous casts remain manual.
+- Sculpt Spell requires another metamagic feat and lets you mark prepared
+  copies for a slot one level higher. Verify area eligibility and choose a new
+  area shape manually.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

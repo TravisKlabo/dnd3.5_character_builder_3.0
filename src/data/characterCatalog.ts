@@ -835,6 +835,24 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Double eligible areas; slot +3.",
   },
   {
+    id: "sculpt-spell",
+    name: "Sculpt Spell",
+    description: "Reshape an area spell; slot +1.",
+    prerequisites: {
+      anyFeats: [
+        "empower-spell",
+        "heighten-spell",
+        "maximize-spell",
+        "extend-spell",
+        "enlarge-spell",
+        "quicken-spell",
+        "silent-spell",
+        "still-spell",
+        "widen-spell",
+      ],
+    },
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

@@ -480,6 +480,17 @@ describe("class-specific spell rules", () => {
       widenByClass: value,
     })).toThrow(/spell progression/);
   });
+
+  it.each([
+    { wizard: { Daze: [1] } },
+    { wizard: { Daze: ["true"] } },
+    { notAClass: { Daze: [true] } },
+  ])("rejects malformed prepared Sculpt metadata %j", (value) => {
+    expect(() => parseCharacter({
+      ...caster(),
+      sculptByClass: value,
+    })).toThrow(/spell progression/);
+  });
 });
 
 describe("caster class subtabs", () => {
@@ -838,14 +849,15 @@ describe("caster class subtabs", () => {
     expect(stored().quickenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });
 
-  it("tracks Widen's three slot levels per prepared copy", async () => {
+  it("tracks Widen and Sculpt slot costs per prepared copy", async () => {
     const character = caster();
-    character.classLevels = [{ classId: "wizard", level: 13 }, { classId: "cleric", level: 1 }];
+    character.classLevels = [{ classId: "wizard", level: 17 }, { classId: "cleric", level: 1 }];
     character.knownSpellsByClass = { wizard: ["Ghost Sound"] };
     character.knownSpells = ["Ghost Sound"];
     character.featSelections = {
       "general-1": "widen-spell",
       "general-2": "quicken-spell",
+      "general-3": "sculpt-spell",
     };
     save(character);
     render(<App />);
@@ -858,22 +870,28 @@ describe("caster class subtabs", () => {
     fireEvent.click(within(spellRow).getByRole("checkbox", {
       name: "Widen Ghost Sound copy 1",
     }));
+    fireEvent.click(within(spellRow).getByRole("checkbox", {
+      name: "Sculpt Ghost Sound copy 1",
+    }));
 
-    expect(within(spellRow).getByText("Copy 1: DC 13 (Widened in level 3 slot)")).toBeDefined();
+    expect(within(spellRow).getByText("Copy 1: DC 13 (Widened and Sculpted in level 4 slot)")).toBeDefined();
     expect(within(spellRow).getByText("Copy 1: Widened")).toBeDefined();
+    expect(within(spellRow).getByText("Copy 1: Sculpted")).toBeDefined();
     expect(screen.getByText(/Verify a burst, emanation, line, or spread area and double its numeric measurements manually/)).toBeDefined();
-    expect(spellLevel(panel, "LEVEL 3 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    expect(screen.getByText(/choose one of the feat's area shapes manually/i)).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 4 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
 
     fireEvent.click(within(spellRow).getByRole("checkbox", {
       name: "Quicken Ghost Sound copy 1",
     }));
     expect(within(spellRow).getByText(
-      "Copy 1: DC 13 (Quickened and Widened in level 7 slot)",
+      "Copy 1: DC 13 (Quickened and Widened and Sculpted in level 8 slot)",
     )).toBeDefined();
-    expect(spellLevel(panel, "LEVEL 7 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 8 SPELLS").getByText(/Prepared 1\//)).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(stored().widenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
+    expect(stored().sculptByClass?.wizard).toEqual({ "Ghost Sound": [true] });
     expect(stored().quickenByClass?.wizard).toEqual({ "Ghost Sound": [true] });
   });
 

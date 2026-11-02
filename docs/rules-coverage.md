@@ -68,6 +68,10 @@ Widen Spell is tracked per prepared copy for its +3 slot cost. Only burst,
 emanation, line, and spread areas qualify; area eligibility and doubling
 numeric measurements remain manual because spell areas are not structured
 ([SRD Widen Spell](https://www.d20srd.org/srd/feats.htm#widenSpell)).
+Sculpt Spell requires another metamagic feat and is tracked per prepared copy
+for its +1 slot cost. Verify that the spell has an area and choose one of the
+feat's area shapes manually; the catalog does not structure spell areas
+(*Complete Arcane*, p. 83).
 
 ## Recommended audit order
 

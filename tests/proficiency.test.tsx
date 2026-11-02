@@ -500,6 +500,12 @@ describe("armor and shield proficiency", () => {
     ).toContain("heighten-spell");
   });
 
+  it("offers Extend Spell without prerequisites", () => {
+    expect(
+      getAvailableFeats(hero(), { fighterOnly: false }).map((feat) => feat.id),
+    ).toContain("extend-spell");
+  });
+
   it("requires another metamagic feat before Maximize Spell", () => {
     const character = hero();
     expect(

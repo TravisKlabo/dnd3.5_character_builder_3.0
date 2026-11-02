@@ -514,6 +514,9 @@ save DC at each spell level:
   slot three levels higher; maximize variable numeric effects manually. When
   combined with Empower, the slot cost is five levels higher and the result is
   the maximum plus half the normally rolled result, resolved manually.
+- Extend Spell lets you mark prepared copies for a slot one level higher.
+  Duration doubling remains manual; concentration, instantaneous, and permanent
+  spells are unaffected. Spontaneous casts and domain spells remain manual.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

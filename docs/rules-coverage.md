@@ -47,6 +47,9 @@ Maximize Spell is tracked per prepared copy for its +3 slot cost; it does not
 raise the spell's actual level or save DC. Combined Empower and Maximize uses a
 slot five levels higher; maximizing effects and adding half the normal roll
 remain manual ([SRD Maximize Spell](https://www.d20srd.org/srd/feats.htm#maximizeSpell)).
+Extend Spell is tracked per prepared copy for its +1 slot cost. The app does not
+double duration text or automatically exclude concentration, instantaneous, or
+permanent spells ([SRD Extend Spell](https://www.d20srd.org/srd/feats.htm#extendSpell)).
 
 ## Recommended audit order
 

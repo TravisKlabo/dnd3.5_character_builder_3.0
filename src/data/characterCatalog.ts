@@ -805,6 +805,11 @@ export const featCatalog: FeatDefinition[] = ([
     prerequisites: { anyFeats: ["empower-spell", "heighten-spell"] },
   },
   {
+    id: "extend-spell",
+    name: "Extend Spell",
+    description: "Doubles eligible durations; slot +1.",
+  },
+  {
     id: "spell-penetration",
     name: "Spell Penetration",
     description: "+2 on checks vs. spell resistance.",

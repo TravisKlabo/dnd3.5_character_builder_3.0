@@ -421,6 +421,7 @@ export function App() {
       let preparedSpellSlotLevelsByClass = current.preparedSpellSlotLevelsByClass;
       let empowerByClass = current.empowerByClass;
       let maximizeByClass = current.maximizeByClass;
+      let extendByClass = current.extendByClass;
       const spellAcquisitionByClass = {
         ...(current.spellAcquisitionByClass ?? {}),
       };
@@ -445,6 +446,11 @@ export function App() {
           classId,
           preparedNames,
         );
+        extendByClass = prunePreparedSpellMetadata(
+          extendByClass,
+          classId,
+          preparedNames,
+        );
         knownSpellsByClass[classId] = [...new Set(knownSpells)];
         const previous = spellAcquisitionByClass[classId] ?? {};
         spellAcquisitionByClass[classId] = Object.fromEntries(
@@ -464,6 +470,7 @@ export function App() {
         ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
         ...(empowerByClass ? { empowerByClass } : {}),
         ...(maximizeByClass ? { maximizeByClass } : {}),
+        ...(extendByClass ? { extendByClass } : {}),
       };
     };
     if (creationOpen && !creationLocked) setCreationDraft(update);
@@ -524,6 +531,7 @@ export function App() {
     spellSlotLevels?: Record<string, number[]>,
     spellEmpoweredCopies?: Record<string, boolean[]>,
     spellMaximizedCopies?: Record<string, boolean[]>,
+    spellExtendedCopies?: Record<string, boolean[]>,
   ) => {
     const update = (current: Character) => {
       if (classId && current.spellPreparationCompletedByClass?.[classId]) {
@@ -540,6 +548,9 @@ export function App() {
       const maximizeByClass = classId && spellMaximizedCopies
         ? { ...current.maximizeByClass, [classId]: spellMaximizedCopies }
         : current.maximizeByClass;
+      const extendByClass = classId && spellExtendedCopies
+        ? { ...current.extendByClass, [classId]: spellExtendedCopies }
+        : current.extendByClass;
       return {
         ...current,
         preparedSpells: [...new Set(Object.values(preparedSpellsByClass).flat())],
@@ -547,6 +558,7 @@ export function App() {
         ...(preparedSpellSlotLevelsByClass ? { preparedSpellSlotLevelsByClass } : {}),
         ...(empowerByClass ? { empowerByClass } : {}),
         ...(maximizeByClass ? { maximizeByClass } : {}),
+        ...(extendByClass ? { extendByClass } : {}),
       };
     };
     updateSpellcastingCharacter(update);

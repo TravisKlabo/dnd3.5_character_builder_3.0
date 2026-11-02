@@ -199,6 +199,7 @@ export interface Character {
   preparedSpellSlotLevelsByClass?: Partial<Record<ClassId, Record<string, number[]>>>
   empowerByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
   maximizeByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
+  extendByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
   spellPreparationCompletedByClass?: Partial<Record<ClassId, boolean>>
   clericDomains?: import('./data/clericDomains').ClericDomainId[]
   clericDomainPreparation?: Record<string, import('./data/clericDomains').ClericDomainSpell>

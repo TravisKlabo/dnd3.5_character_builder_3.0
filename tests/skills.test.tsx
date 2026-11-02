@@ -233,6 +233,27 @@ describe("skill training and untrained use", () => {
     expect(getSkillCheckModifier(character, "Speak Language")).toBeNull();
   });
 
+  it.each(["defensive-casting", "grappled", "pinned"] as const)(
+    "applies Combat Casting only to Concentration checks for %s",
+    (context) => {
+      const character = cloneCharacter(initialCharacter);
+      character.abilities.con = 14;
+      character.skills.Concentration = 3;
+      character.featSelections = { "general-1": "combat-casting" };
+      expect(getSkillCheckModifier(character, "Concentration")).toBe(5);
+      expect(getSkillCheckModifier(character, "Concentration", undefined, undefined, context)).toBe(9);
+      expect(getSkillCheckModifier(character, "Listen", undefined, undefined, context)).toBe(0);
+      const contextLabel = context === "defensive-casting"
+        ? "Casting defensively"
+        : `${context[0].toUpperCase()}${context.slice(1)}`;
+      expect(getSkillTotalTooltip(character, "Concentration", undefined, undefined, context))
+        .toContain(`Combat Casting (${contextLabel}): +4`);
+
+      character.featSelections = {};
+      expect(getSkillCheckModifier(character, "Concentration", undefined, undefined, context)).toBe(5);
+    },
+  );
+
   it.each(coreSkillSynergyCases)(
     "applies the 5-rank synergy from $sourceSkill to $targetSkill",
     ({ sourceSkill, targetSkill, context }) => {

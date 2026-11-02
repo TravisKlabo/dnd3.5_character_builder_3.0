@@ -1,5 +1,5 @@
 import { languageCatalog, dragonlanceLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures } from "./data/characterCatalog";
-import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId } from "./domain";
+import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool } from "./domain";
 import { classFeatureProgression } from "./data/classFeatureProgression";
 import { spellProgressions, bardKnownProgression, sorcererKnownProgression } from "./data/spellProgression";
 import { armorBonuses, findStoreItem, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, type StoreItem, storeItems, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentCatalog";
@@ -88,14 +88,20 @@ export function getSpellSaveDC(
   spellLevel: number,
   spellSchool?: string,
 ) {
+  const schoolName = spellSchool?.split("(")[0].trim().toLowerCase();
   const racialBonus =
     character.race.toLowerCase() === "gnome" &&
-    spellSchool?.toLowerCase().startsWith("illusion")
+    schoolName === "illusion"
       ? 1
       : 0;
+  const spellFocusBonus = schoolName && Object.entries(character.featSelections ?? {}).some(
+    ([slotId, featId]) =>
+      featId === "spell-focus" &&
+      character.featSpellSchoolSelections?.[slotId]?.toLowerCase() === schoolName,
+  ) ? 1 : 0;
   return 10 + spellLevel +
     abilityModifier(getEffectiveAbilityScore(character, getSpellcastingAbility(classId))) +
-    racialBonus;
+    racialBonus + spellFocusBonus;
 }
 
 export function getRacialSpellLikeAbilities(character: Character) {
@@ -2162,7 +2168,7 @@ const repeatableWeaponFeats = new Set([
   "weapon-focus",
   "weapon-specialization",
 ]);
-const repeatableFeats = new Set([...repeatableWeaponFeats, "skill-focus"]);
+const repeatableFeats = new Set([...repeatableWeaponFeats, "skill-focus", "spell-focus"]);
 const weaponSelectionFeats = new Set(repeatableWeaponFeats);
 const strength13ExoticWeapons = new Set(["Bastard Sword", "Dwarven Waraxe"]);
 
@@ -2326,7 +2332,9 @@ export function getAvailableFeats(
       (!weaponSelectionFeats.has(feat.id) ||
         getAvailableFeatWeaponChoices(character, feat.id, excludingSlot).length > 0) &&
       (feat.id !== "skill-focus" ||
-        getAvailableFeatSkillChoices(character, excludingSlot).length > 0),
+        getAvailableFeatSkillChoices(character, excludingSlot).length > 0) &&
+      (feat.id !== "spell-focus" ||
+        getAvailableFeatSpellSchoolChoices(character, excludingSlot).length > 0),
   );
 }
 
@@ -2361,6 +2369,11 @@ export function normalizeFeatSelections(
         ).length > 0) &&
       (feat.id !== "skill-focus" ||
         getAvailableFeatSkillChoices(
+          { ...character, featSelections: normalized },
+          slot.id,
+        ).length > 0) &&
+      (feat.id !== "spell-focus" ||
+        getAvailableFeatSpellSchoolChoices(
           { ...character, featSelections: normalized },
           slot.id,
         ).length > 0)
@@ -2443,6 +2456,53 @@ export function getFeatSkillSelectionWarnings(
     return skill && getAvailableFeatSkillChoices(character, slot.id).includes(skill)
       ? []
       : [`Choose a valid skill for ${slot.label}.`];
+  });
+}
+
+export function getAvailableFeatSpellSchoolChoices(
+  character: Character,
+  excludingSlot?: string,
+): MagicSchool[] {
+  const selectedSchools = new Set(
+    Object.entries(character.featSelections ?? {})
+      .filter(
+        ([slotId, featId]) =>
+          slotId !== excludingSlot && featId === "spell-focus",
+      )
+      .map(([slotId]) => character.featSpellSchoolSelections?.[slotId])
+      .filter((school): school is MagicSchool => Boolean(school)),
+  );
+  return magicSchools.filter((school) => !selectedSchools.has(school));
+}
+
+export function normalizeFeatSpellSchoolSelections(
+  character: Character,
+  selections: Record<string, MagicSchool>,
+) {
+  const normalized: Record<string, MagicSchool> = {};
+  getFeatSlots(character).forEach((slot) => {
+    if (character.featSelections?.[slot.id] !== "spell-focus") return;
+    const school = selections[slot.id];
+    const context = {
+      ...character,
+      featSpellSchoolSelections: normalized,
+    };
+    if (getAvailableFeatSpellSchoolChoices(context, slot.id).includes(school))
+      normalized[slot.id] = school;
+  });
+  return normalized;
+}
+
+export function getFeatSpellSchoolSelectionWarnings(
+  character: Character,
+  slots = getFeatSlots(character),
+) {
+  return slots.flatMap((slot) => {
+    if (character.featSelections?.[slot.id] !== "spell-focus") return [];
+    const school = character.featSpellSchoolSelections?.[slot.id];
+    return school && getAvailableFeatSpellSchoolChoices(character, slot.id).includes(school)
+      ? []
+      : [`Choose a valid school of magic for ${slot.label}.`];
   });
 }
 
@@ -2718,11 +2778,26 @@ function getSmallSizeHideBonus(character: Character, skill: string) {
   return skill === "Hide" && sizeModifier(character) === 1 ? 4 : 0;
 }
 
+export const combatCastingContextOptions = [
+  { value: "defensive-casting", label: "Casting defensively" },
+  { value: "grappled", label: "Grappled" },
+  { value: "pinned", label: "Pinned" },
+] as const;
+export type CombatCastingContext = (typeof combatCastingContextOptions)[number]["value"];
+
+export function getCombatCastingBonus(
+  character: Character,
+  context?: CombatCastingContext,
+) {
+  return context && getChosenFeats(character).includes("combat-casting") ? 4 : 0;
+}
+
 export function getSkillCheckModifier(
   character: Character,
   skill: string,
   condition?: RacialSkillCondition,
   synergyContext?: SkillSynergyContext,
+  combatCastingContext?: CombatCastingContext,
 ): number | null {
   const use = getSkillUse(character, skill);
   if (!use.usable) return null;
@@ -2733,9 +2808,12 @@ export function getSkillCheckModifier(
   const synergyBonus = getSkillSynergyBonus(character, skill, synergyContext);
   const sizeBonus = getSmallSizeHideBonus(character, skill);
   const skillFocusBonus = getSkillFocusBonus(character, skill);
+  const combatCastingBonus = skill === "Concentration"
+    ? getCombatCastingBonus(character, combatCastingContext)
+    : 0;
   if (!use.trained && use.untrainedUse === "limited")
-    return abilityBonus + penalty + activeChecks + synergyBonus + skillFocusBonus;
-  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks + skillFocusBonus;
+    return abilityBonus + penalty + activeChecks + synergyBonus + skillFocusBonus + combatCastingBonus;
+  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks + skillFocusBonus + combatCastingBonus;
 }
 
 export function getSkillFocusBonus(character: Character, skill: string) {
@@ -2818,6 +2896,7 @@ export function getSkillTotalTooltip(
   skill: string,
   condition?: RacialSkillCondition,
   synergyContext?: SkillSynergyContext,
+  combatCastingContext?: CombatCastingContext,
 ) {
   const ability = getSkillAbility(skill);
   const abilityBonus = ability
@@ -2826,6 +2905,12 @@ export function getSkillTotalTooltip(
   const racialBonus = getRacialSkillBonus(character, skill, condition);
   const sizeBonus = getSmallSizeHideBonus(character, skill);
   const skillFocusBonus = getSkillFocusBonus(character, skill);
+  const combatCastingBonus = skill === "Concentration"
+    ? getCombatCastingBonus(character, combatCastingContext)
+    : 0;
+  const combatCastingLabel = combatCastingContextOptions.find(
+    (option) => option.value === combatCastingContext,
+  )?.label;
   const racialContext = getRacialSkillContextOptions(character, skill).find(
     (option) => option.condition === condition,
   );
@@ -2858,6 +2943,9 @@ export function getSkillTotalTooltip(
       ? `${getCharacterRace(character)}${racialContext ? ` (${racialContext.label})` : ""}: ${formatModifier(racialBonus)}`
       : "",
     skillFocusBonus ? `Skill Focus: ${formatModifier(skillFocusBonus)}` : "",
+    combatCastingBonus && combatCastingLabel
+      ? `Combat Casting (${combatCastingLabel}): ${formatModifier(combatCastingBonus)}`
+      : "",
     sizeBonus ? `Small size (Hide): ${formatModifier(sizeBonus)}` : "",
     synergySources.length
       ? `Skill synergy ${formatModifier(2)}: ${[...new Set(synergySources.map((entry) => entry.sourceSkill))].join(", ")}`

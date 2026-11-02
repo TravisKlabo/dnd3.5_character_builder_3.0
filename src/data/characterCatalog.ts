@@ -516,7 +516,7 @@ export const featCatalog: FeatDefinition[] = ([
     name: "Combat Casting",
     source: "core-35-srd",
     description:
-      "+4 bonus on Concentration checks for defensive casting or casting while grappled.",
+      "+4 bonus on Concentration checks for defensive casting or casting while grappled or pinned.",
   },
   {
     id: "combat-reflexes",
@@ -820,6 +820,12 @@ export const featCatalog: FeatDefinition[] = ([
     name: "Skill Focus",
     source: "core-35-srd",
     description: "+3 bonus on one selected skill.",
+  },
+  {
+    id: "spell-focus",
+    name: "Spell Focus",
+    source: "core-35-srd",
+    description: "+1 bonus on save DCs for spells from one selected school. This feat can be taken multiple times, selecting a different school each time.",
   },
   {
     id: "spring-attack",

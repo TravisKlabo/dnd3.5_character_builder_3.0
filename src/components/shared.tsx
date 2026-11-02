@@ -1,5 +1,35 @@
 import { contentSources, type Character, type CombatTargetType, type ContentSourceId, type SavingThrowCondition } from "../domain";
 import { formatModifier, getArmorClassValues, getArmorClassRestrictions, getSpecialAttackBonuses, getCombatSpace, getEncumbrance, getSavingThrow, getCombatExpertiseAmount, getCombatExpertiseLimit, getPowerAttackAmount, getPowerAttackLimit, getDodgeFeatBonus, getAttackOfOpportunityCapacity } from "../rules";
+import { combatCastingContextOptions, getCombatCastingBonus, type CombatCastingContext } from "../rules";
+
+export function CombatCastingContextControl({ character, context, onChange }: {
+  character: Character;
+  context?: CombatCastingContext;
+  onChange: (context: CombatCastingContext | undefined) => void;
+}) {
+  if (!getCombatCastingBonus(character, "defensive-casting")) return null;
+  return (
+    <label className="skill-check-context">
+      <span>Combat Casting context</span>
+      <select
+        aria-label="Combat Casting context"
+        value={context ?? ""}
+        onChange={(event) => {
+          const selected = combatCastingContextOptions.find(
+            (option) => option.value === event.currentTarget.value,
+          )?.value;
+          onChange(selected);
+        }}
+      >
+        <option value="">No active context</option>
+        {combatCastingContextOptions.map(({ value, label }) => (
+          <option key={value} value={value}>{label}</option>
+        ))}
+      </select>
+      <small>Session-only; applies +4 to Concentration checks while casting defensively, grappled, or pinned.</small>
+    </label>
+  );
+}
 
 export function ContentSourceLabel({ source, book }: { source: ContentSourceId; book?: string }) {
   return (

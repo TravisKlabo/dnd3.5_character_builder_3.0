@@ -20,12 +20,12 @@ function caster(): Character {
 
 describe("casting summary", () => {
   it("omits the panel for noncasters", () => {
-    const { container } = render(<CastingSummary character={initialCharacter} onOpenSpells={vi.fn()} />);
+    const { container } = render(<CastingSummary character={initialCharacter} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
     expect(container.childElementCount).toBe(0);
   });
 
   it("separates multiclass caster levels, abilities and spell DCs", () => {
-    render(<CastingSummary character={caster()} onOpenSpells={vi.fn()} />);
+    render(<CastingSummary character={caster()} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
     const wizard = within(screen.getByRole("group", { name: "Wizard casting summary" }));
     const cleric = within(screen.getByRole("group", { name: "Cleric casting summary" }));
     expect(wizard.getByText("3", { selector: "strong" })).toBeDefined();
@@ -47,17 +47,33 @@ describe("casting summary", () => {
     expect(getSpellSaveDC(gnome, "wizard", 1, "Evocation")).toBe(14);
   });
 
+  it("applies Spell Focus only to spells of its selected school", () => {
+    const character = caster();
+    character.featSelections = { "general-1": "spell-focus" };
+    character.featSpellSchoolSelections = { "general-1": "Illusion" };
+    expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(15);
+    expect(getSpellSaveDC(character, "wizard", 1, "Evocation")).toBe(14);
+    expect(getSpellSaveDC(character, "wizard", 1)).toBe(14);
+
+    character.featSelections["human-1"] = "spell-focus";
+    character.featSpellSchoolSelections["human-1"] = "Illusion";
+    expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(15);
+    character.featSpellSchoolSelections["human-1"] = "Evocation";
+    expect(getSpellSaveDC(character, "wizard", 1, "Illusion (Figment)")).toBe(15);
+    expect(getSpellSaveDC(character, "wizard", 1, "Evocation")).toBe(15);
+  });
+
   it("does not advertise spell levels blocked by ability or lack of bonus slots", () => {
     const character = caster();
     character.classLevels = [{ classId: "paladin", level: 3 }];
-    const view = render(<CastingSummary character={character} onOpenSpells={vi.fn()} />);
+    const view = render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
     expect(screen.getByText(/No castable spell levels/)).toBeDefined();
     character.classLevels = [{ classId: "paladin", level: 4 }];
     character.abilities.wis = 10;
-    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} />);
+    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
     expect(screen.getByText(/No castable spell levels/)).toBeDefined();
     character.abilities.wis = 12;
-    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} />);
+    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
     expect(screen.getByText("DC 12")).toBeDefined();
     expect(screen.queryByText(/No castable/)).toBeNull();
   });
@@ -99,7 +115,7 @@ describe("casting summary", () => {
       character.equipment.Armor = "Unrecorded armor";
       expect(getArcaneSpellFailure(character, "wizard")).toMatchObject({ percent: null });
       expect(getArcaneSpellFailure(character, "wizard")?.detail).toContain("Unrecorded armor: spell failure not recorded");
-      render(<CastingSummary character={character} onOpenSpells={vi.fn()} />);
+      render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
       expect(screen.getByText("Unknown")).toBeDefined();
     } finally {
       deleteCustomStoreItem(armorName);
@@ -119,5 +135,27 @@ describe("casting summary", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
     expect(screen.getByText("Save DC 15")).toBeDefined();
     expect(readStoredCharacter()).toEqual(character);
+  });
+
+  it("shares the session-only Combat Casting context across the skill, summary, and spell sheet", async () => {
+    const character = caster();
+    character.featSelections = { "general-1": "combat-casting" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    const { container } = render(<App />);
+
+    const controls = await screen.findAllByRole("combobox", { name: "Combat Casting context" });
+    expect(controls).toHaveLength(2);
+    fireEvent.change(controls[0], { target: { value: "pinned" } });
+    expect(within(screen.getByRole("group", { name: "Concentration skill" }))
+      .getByRole("strong").textContent).toBe("+10");
+    expect(container.querySelector(".casting-concentration strong")?.textContent).toBe("+10");
+    expect(controls.map((control) => (control as HTMLSelectElement).value)).toEqual(["pinned", "pinned"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage spells" }));
+    await screen.findByRole("tabpanel", { name: /Wizard/ });
+    const spellContext = screen.getByRole("combobox", { name: "Combat Casting context" });
+    expect((spellContext as HTMLSelectElement).value).toBe("pinned");
+    const concentrationLabel = screen.getByText("Concentration", { selector: ".stat small" });
+    expect(concentrationLabel.parentElement?.textContent).toContain("+10");
   });
 });

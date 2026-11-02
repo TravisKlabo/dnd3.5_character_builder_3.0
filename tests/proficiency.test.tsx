@@ -5,9 +5,11 @@ import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem, type StoreIt
 import { getArmorNonproficiencyPenalties, getAvailableFeats, getEquippedWeaponStats,
   getAvailableFeatWeaponChoices, getFeatWeaponSelectionWarnings,
   getAvailableFeatSkillChoices, getFeatSkillSelectionWarnings,
+  getAvailableFeatSpellSchoolChoices, getFeatSpellSchoolSelectionWarnings,
   getItemProficiencyWarning, getSkillCheckModifier, getSkillCheckPenalties,
   isArmorShieldProficient, isWeaponProficient, normalizeFeatSelections,
-  normalizeFeatWeaponSelections, normalizeFeatSkillSelections } from "../src/rules";
+  normalizeFeatWeaponSelections, normalizeFeatSkillSelections,
+  normalizeFeatSpellSchoolSelections } from "../src/rules";
 import { savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";
 import App from "../src/App";
@@ -384,6 +386,59 @@ describe("armor and shield proficiency", () => {
       ),
     ).toEqual({ "general-1": "Listen" });
     expect(getFeatSkillSelectionWarnings(duplicateTargetCharacter)).toHaveLength(2);
+  });
+
+  it("allows repeat Spell Focus choices only for different schools", () => {
+    const character = hero();
+    character.featSelections = { "general-1": "spell-focus" };
+    character.featSpellSchoolSelections = { "general-1": "Illusion" };
+
+    expect(getAvailableFeatSpellSchoolChoices(character, "human-1")).not.toContain("Illusion");
+    expect(getAvailableFeatSpellSchoolChoices(character, "human-1")).toContain("Abjuration");
+    expect(
+      getAvailableFeats(character, { fighterOnly: false }, "human-1")
+        .map((feat) => feat.id),
+    ).toContain("spell-focus");
+    expect(
+      normalizeFeatSelections(character, {
+        ...character.featSelections,
+        "human-1": "spell-focus",
+      }),
+    ).toEqual({ "general-1": "spell-focus", "human-1": "spell-focus" });
+
+    const duplicateTargetCharacter = {
+      ...character,
+      featSelections: {
+        ...character.featSelections,
+        "human-1": "spell-focus",
+      },
+      featSpellSchoolSelections: {
+        ...character.featSpellSchoolSelections,
+        "human-1": "Illusion" as const,
+      },
+    };
+    expect(
+      normalizeFeatSpellSchoolSelections(
+        duplicateTargetCharacter,
+        duplicateTargetCharacter.featSpellSchoolSelections ?? {},
+      ),
+    ).toEqual({ "general-1": "Illusion" });
+    expect(getFeatSpellSchoolSelectionWarnings(duplicateTargetCharacter)).toHaveLength(2);
+  });
+
+  it("lets a character choose and display a school for Spell Focus", () => {
+    render(<App />);
+    const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
+    if (!featSlot) throw new Error("Missing first feat slot.");
+    fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
+    fireEvent.click(within(featSlot).getByRole("option", { name: /^Spell Focus/ }));
+    fireEvent.change(
+      within(featSlot).getByRole("combobox", {
+        name: "General feat (level 1) spell school",
+      }),
+      { target: { value: "Illusion" } },
+    );
+    expect(screen.getByText("Spell Focus (Illusion)")).toBeDefined();
   });
 
   it("lets a character choose and display a skill for Skill Focus", () => {

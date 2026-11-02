@@ -396,6 +396,21 @@ describe("caster class subtabs", () => {
     expect(within(spellRow).getByText("DC 14")).toBeDefined();
   });
 
+  it("applies Spell Focus DC bonuses only to spells from the selected school", async () => {
+    const character = caster();
+    character.knownSpellsByClass = { wizard: ["Ghost Sound", "Daze"] };
+    character.knownSpells = ["Ghost Sound", "Daze"];
+    character.featSelections = { "general-1": "spell-focus" };
+    character.featSpellSchoolSelections = { "general-1": "Illusion" };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+    const illusionRow = within(panel).getByRole("row", { name: /Ghost Sound/ });
+    const enchantmentRow = within(panel).getByRole("row", { name: /Daze/ });
+    expect(within(illusionRow).getByText("DC 14")).toBeDefined();
+    expect(within(enchantmentRow).getByText("DC 13")).toBeDefined();
+  });
+
   it("shows Wizard 3 and Cleric 1 with separate abilities, levels, slots, DCs and lists", async () => {
     save(caster());
     render(<App />);
@@ -700,7 +715,8 @@ describe("caster class subtabs", () => {
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
       onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
       onCharacterUpdate={vi.fn()}
-      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
     expect(within(screen.getByRole("tablist", { name: "Spellcasting classes" })).getAllByRole("tab")).toHaveLength(1);
     expect(screen.getByRole("tab", { name: "Wizard · 3" })).toBeDefined();
     expect(screen.queryByRole("tab", { name: /Fighter/ })).toBeNull();
@@ -712,7 +728,8 @@ describe("caster class subtabs", () => {
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
       onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
       onCharacterUpdate={vi.fn()}
-      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
     expect(screen.getByText(/spellcasting begins at class level 4/)).toBeDefined();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText("CANTRIPS")).toBeNull();
@@ -724,7 +741,8 @@ describe("caster class subtabs", () => {
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
       onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
       onCharacterUpdate={vi.fn()}
-      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()} />);
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
     expect(screen.getByText("Spells Known", { exact: true })).toBeDefined();
     expect(screen.queryByRole("spinbutton")).toBeNull();
     expect(screen.queryByText("LEVEL 2 SPELLS")).toBeNull();

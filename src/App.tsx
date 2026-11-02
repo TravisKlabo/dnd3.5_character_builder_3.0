@@ -1,9 +1,9 @@
 import { useState, useMemo, lazy, Suspense } from "react";
-import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier } from "./domain";
+import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier, type MagicSchool } from "./domain";
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
 import { customItemsLoadFailed } from "./customItemsStorage";
 import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
-import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState } from "./rules";
+import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, type CombatCastingContext } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
 import { storeItems, addCustomStoreItems, type StoreItem } from "./data/equipmentCatalog";
@@ -41,6 +41,7 @@ export function App() {
   const [combatExpertiseAmount, setCombatExpertiseAmount] = useState(0);
   const [powerAttackAmount, setPowerAttackAmount] = useState(0);
   const [dodgeTargetSelected, setDodgeTargetSelected] = useState(false);
+  const [combatCastingContext, setCombatCastingContext] = useState<CombatCastingContext>();
   const [targetDamageReduction, setTargetDamageReduction] = useState("");
   const [selectedRangedAmmunitionKey, setSelectedRangedAmmunitionKey] = useState<string | undefined>();
   const [creationState, setCreationDraft] = useState<Character>(() =>
@@ -151,6 +152,10 @@ export function App() {
         getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
       ),
       ...getFeatSkillSelectionWarnings(
+        levelUpDraft.proposed,
+        getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+      ),
+      ...getFeatSpellSchoolSelectionWarnings(
         levelUpDraft.proposed,
         getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
       ),
@@ -272,10 +277,13 @@ export function App() {
       });
       const weaponSelections = { ...(current.featWeaponSelections ?? {}) };
       const skillSelections = { ...(current.featSkillSelections ?? {}) };
+      const spellSchoolSelections = { ...(current.featSpellSchoolSelections ?? {}) };
       if (current.featSelections?.[slotId] !== featId)
         delete weaponSelections[slotId];
       if (current.featSelections?.[slotId] !== featId)
         delete skillSelections[slotId];
+      if (current.featSelections?.[slotId] !== featId)
+        delete spellSchoolSelections[slotId];
       const featSelectionContext = { ...current, featSelections };
       const featWeaponSelections = normalizeFeatWeaponSelections(
         featSelectionContext,
@@ -285,11 +293,16 @@ export function App() {
         { ...featSelectionContext, featSkillSelections: skillSelections },
         skillSelections,
       );
+      const featSpellSchoolSelections = normalizeFeatSpellSchoolSelections(
+        { ...featSelectionContext, featSpellSchoolSelections: spellSchoolSelections },
+        spellSchoolSelections,
+      );
       return {
         ...current,
         featSelections,
         featWeaponSelections,
         featSkillSelections,
+        featSpellSchoolSelections,
         feats: Object.values(featSelections).filter(Boolean),
       };
     };
@@ -339,12 +352,32 @@ export function App() {
       });
     else setCharacter(update);
   };
+  const updateFeatSpellSchoolSelection = (slotId: string, school: MagicSchool | undefined) => {
+    const update = (current: Character) => {
+      const selections = { ...(current.featSpellSchoolSelections ?? {}) };
+      if (school) selections[slotId] = school;
+      else delete selections[slotId];
+      const featSpellSchoolSelections = normalizeFeatSpellSchoolSelections(
+        { ...current, featSpellSchoolSelections: selections },
+        selections,
+      );
+      return { ...current, featSpellSchoolSelections };
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+      });
+    else setCharacter(update);
+  };
   const resetCreationChoices = (draft: Character): Character => ({
     ...draft,
     feats: [],
     featSelections: {},
     featWeaponSelections: {},
     featSkillSelections: {},
+    featSpellSchoolSelections: {},
     skills: {},
     skillRanksByClass: {},
   });
@@ -770,6 +803,10 @@ export function App() {
           levelUpDraft.proposed,
           getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
         ),
+        ...getFeatSpellSchoolSelectionWarnings(
+          levelUpDraft.proposed,
+          getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+        ),
         ...getLevelUpSpellWarnings(
           levelUpDraft.original,
           levelUpDraft.proposed,
@@ -1088,6 +1125,8 @@ export function App() {
             onPowerAttackAmountChange={setPowerAttackAmount}
             dodgeTargetSelected={dodgeTargetSelected}
             onDodgeTargetSelectedChange={setDodgeTargetSelected}
+            combatCastingContext={combatCastingContext}
+            onCombatCastingContextChange={setCombatCastingContext}
             targetDamageReduction={targetDamageReduction}
             onTargetDamageReductionChange={setTargetDamageReduction}
             selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
@@ -1101,6 +1140,7 @@ export function App() {
             onFeatChange={updateFeatSelection}
             onFeatWeaponChange={updateFeatWeaponSelection}
             onFeatSkillChange={updateFeatSkillSelection}
+            onFeatSpellSchoolChange={updateFeatSpellSchoolSelection}
             onLanguagesChange={updateLanguages}
             allowFeatSelection={!creationLocked || levelUpMode}
             finalized={creationLocked && !levelUpMode}
@@ -1171,6 +1211,8 @@ export function App() {
               onCharacterUpdate={updateSpellcastingCharacter}
               onExpendedSpellSlotsChange={updateExpendedSpellSlots}
               onClericCastingChange={updateClericCasting}
+              combatCastingContext={combatCastingContext}
+              onCombatCastingContextChange={setCombatCastingContext}
               editable={!creationLocked}
             />
       )}

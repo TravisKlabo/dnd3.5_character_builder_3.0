@@ -1,4 +1,4 @@
-import { classDefinitions, dragonlancePrestigeClasses, type Character } from "./domain";
+import { classDefinitions, dragonlancePrestigeClasses, magicSchools, type Character } from "./domain";
 import { storeCategories, type StoreItem } from "./data/itemTypes";
 import { isClericDomainId } from "./data/clericDomains";
 import { combatEffectModifierKeys } from "./combatEffects";
@@ -15,6 +15,8 @@ const isMap = (value: unknown, check: (entry: unknown) => boolean) =>
 const isClassMap = (value: unknown, check: (entry: unknown) => boolean) =>
   isRecord(value) && Object.entries(value).every(([key, entry]) => Object.hasOwn(classDefinitions, key) && check(entry));
 const categories = new Set<string>(storeCategories);
+const magicSchoolSet = new Set<string>(magicSchools);
+const isMagicSchool = (value: unknown) => isString(value) && magicSchoolSet.has(value);
 
 function isCombatEffect(value: unknown) {
   if (!isRecord(value) || !isString(value.name) || !value.name.trim() || value.name.length > 80 ||
@@ -89,6 +91,7 @@ export function assertCharacter(value: unknown): asserts value is Character {
       !isMap(value.featSelections, isString) ||
       (value.featWeaponSelections !== undefined && !isMap(value.featWeaponSelections, isString)) ||
       (value.featSkillSelections !== undefined && !isMap(value.featSkillSelections, isString)) ||
+      (value.featSpellSchoolSelections !== undefined && !isMap(value.featSpellSchoolSelections, isMagicSchool)) ||
       !isMap(value.skills, isNumber) ||
       !isMap(value.skillRanksByClass, (entry) => isMap(entry, isNumber)) ||
       !isMap(value.equipment, isString) ||

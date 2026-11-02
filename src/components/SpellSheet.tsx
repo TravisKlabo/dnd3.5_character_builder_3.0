@@ -8,10 +8,13 @@ import { WizardSpellbook } from "./WizardSpellbook";
 import { ClericDomains, type ClericCastingUpdate } from "./ClericDomains";
 import { getClericDomainSlotCount } from "../clericDomains";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
-import { ContentSourceLabel } from "./shared";
+import { CombatCastingContextControl, ContentSourceLabel } from "./shared";
+import type { CombatCastingContext } from "../rules";
 
 type SpellSheetProps = {
   character: Character;
+  combatCastingContext?: CombatCastingContext;
+  onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
   levelUpOriginal?: Character;
   levelUpClassId?: ClassId;
   spellcastingClassId: ClassId;
@@ -78,7 +81,7 @@ export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">)
 }
 
 export function SpellSheet({
-  character, levelUpOriginal, spellcastingClassId,
+  character, levelUpOriginal, spellcastingClassId, combatCastingContext, onCombatCastingContextChange,
   onKnownSpellsChange, onSpellAcquisitionChange, onPreparedSpellsChange,
   onCharacterUpdate, onExpendedSpellSlotsChange,
   onClericCastingChange, editable,
@@ -125,7 +128,7 @@ export function SpellSheet({
     getEffectiveAbilityScore(character, castingAbility),
   );
   const arcaneFailure = getArcaneSpellFailure(character, spellcastingClassId);
-  const concentration = getSkillCheckModifier(character, "Concentration");
+  const concentration = getSkillCheckModifier(character, "Concentration", undefined, undefined, combatCastingContext);
   const levelLimit = (level: number) =>
     learningMode === "Spells Known"
       ? getKnownSpellLimit(character, spellcastingClass.id, classLevel, level)
@@ -204,10 +207,15 @@ export function SpellSheet({
         />
         <Stat label="Selection" value={learningMode} />
         <Stat label="Concentration" value={concentration === null ? "Unavailable" : formatModifier(concentration)}
-          title={getSkillTotalTooltip(character, "Concentration")} />
+          title={getSkillTotalTooltip(character, "Concentration", undefined, undefined, combatCastingContext)} />
         {arcaneFailure && <Stat label="Arcane Spell Failure"
           value={arcaneFailure.percent === null ? "Unknown" : `${arcaneFailure.percent}%`} title={arcaneFailure.detail} />}
       </div>
+      <CombatCastingContextControl
+        character={character}
+        context={combatCastingContext}
+        onChange={onCombatCastingContextChange}
+      />
       <div className="spell-class-summary">
         <p>{spellcastingClass.name} spells use {castingAbility.toUpperCase()} and only this class's levels.
           {learningMode === "Spellbook" ? " Record learned spells in Spellbook; choose today's copies and track slots in Daily Preparation." :

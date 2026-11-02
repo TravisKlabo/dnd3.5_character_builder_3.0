@@ -85,7 +85,9 @@ Caster characters have a compact Spellcasting panel with a Manage spells shortcu
 class-specific base caster levels and save DCs, and the existing Concentration
 skill modifier. DC chips appear only for levels with usable daily slots and a
 sufficient casting ability score. Concentration tooltips share the Skills
-breakdown; Combat Casting and other conditional effects remain manual.
+breakdown. A session-only Combat Casting context applies its +4 bonus to
+Concentration checks while casting defensively, grappled, or pinned; other
+conditional effects remain manual.
 
 Arcane spell failure appears for bard, sorcerer, and wizard casting, and on their
 spell sheets. Armor and shield percentages add (capped at 100%); mithral armor uses
@@ -496,6 +498,8 @@ save DC at each spell level:
 - Paladins and rangers explain that casting starts at class level 4. Their sheets
   use Wisdom, half class level as base caster level, and their actual first-
   through fourth-level spell access.
+- Spell Focus lets you select a different school each time you take the feat;
+  its +1 save DC bonus applies to matching school-specific spell DCs.
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity

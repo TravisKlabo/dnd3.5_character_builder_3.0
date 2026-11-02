@@ -1,10 +1,10 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier } from "../domain";
-import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getRangerCombatStyleStatus, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
-import { type SkillSynergyContext } from "../rules";
+import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool } from "../domain";
+import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponCompatibilityWarning, getEffectiveWeaponKey, getTowerShieldState, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRangerCombatStyleStatus, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
+import { type CombatCastingContext, type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getWeaponSizeHandling } from "../rules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
-import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat, ContentSourceLabel } from "./shared";
+import { Panel, Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, SavingThrowStat, RangedDistanceControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat, CombatCastingContextControl, ContentSourceLabel } from "./shared";
 import { LanguagePicker, FeatPicker } from "./pickers";
 import { CharacterNotes } from "./CharacterNotes";
 import { HitPointTracker } from "./HitPointTracker";
@@ -35,6 +35,7 @@ export function CharacterSheet({
   onFeatChange,
   onFeatWeaponChange,
   onFeatSkillChange,
+  onFeatSpellSchoolChange,
   onLanguagesChange,
   allowFeatSelection,
   finalized,
@@ -55,6 +56,8 @@ export function CharacterSheet({
   onPowerAttackAmountChange,
   dodgeTargetSelected,
   onDodgeTargetSelectedChange,
+  combatCastingContext,
+  onCombatCastingContextChange,
   targetDamageReduction,
   onTargetDamageReductionChange,
   selectedRangedAmmunitionKey,
@@ -69,6 +72,7 @@ export function CharacterSheet({
   onFeatChange: (slotId: string, featId: string) => void;
   onFeatWeaponChange: (slotId: string, weaponName: string) => void;
   onFeatSkillChange: (slotId: string, skill: string) => void;
+  onFeatSpellSchoolChange: (slotId: string, school: MagicSchool | undefined) => void;
   onLanguagesChange: (languages: string[]) => void;
   allowFeatSelection: boolean;
   finalized: boolean;
@@ -89,6 +93,8 @@ export function CharacterSheet({
   onPowerAttackAmountChange: (amount: number) => void;
   dodgeTargetSelected: boolean;
   onDodgeTargetSelectedChange: (selected: boolean) => void;
+  combatCastingContext?: CombatCastingContext;
+  onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
   targetDamageReduction: string;
   onTargetDamageReductionChange: (value: string) => void;
   selectedRangedAmmunitionKey?: string;
@@ -425,7 +431,12 @@ export function CharacterSheet({
         <SpecialAttackStats character={character} />
         <CombatMovementLine character={character} />
       </Panel>
-      <CastingSummary character={character} onOpenSpells={onOpenSpells} />
+      <CastingSummary
+        character={character}
+        onOpenSpells={onOpenSpells}
+        combatCastingContext={combatCastingContext}
+        onCombatCastingContextChange={onCombatCastingContextChange}
+      />
       <Panel title="Languages" className="languages-panel">
         <div className="languages-display">
           {finalized ? (
@@ -581,11 +592,15 @@ export function CharacterSheet({
             const selectedSynergyContext = synergyContexts.find(
               ({ context }) => context === skillSynergyCheckContexts[skill],
             )?.context;
+            const selectedCombatCastingContext = skill === "Concentration"
+              ? combatCastingContext
+              : undefined;
             const modifier = getSkillCheckModifier(
               character,
               skill,
               selectedSkillContext,
               selectedSynergyContext,
+              selectedCombatCastingContext,
             );
             const penalties = getSkillCheckPenalties(character, skill);
             return (
@@ -691,6 +706,13 @@ export function CharacterSheet({
                     </select>
                   </label>
                 )}
+                {skill === "Concentration" && (
+                  <CombatCastingContextControl
+                    character={character}
+                    context={selectedCombatCastingContext}
+                    onChange={onCombatCastingContextChange}
+                  />
+                )}
               </span>
               {!finalized && <span className="skill-racial">
                 {getRacialSkillBonus(character, skill)
@@ -741,6 +763,7 @@ export function CharacterSheet({
                 skill,
                 selectedSkillContext,
                 selectedSynergyContext,
+                selectedCombatCastingContext,
               )}>
                 {modifier === null ? null : formatModifier(modifier)}
               </strong>
@@ -759,21 +782,29 @@ export function CharacterSheet({
                   const feat = featCatalog.find((entry) => entry.id === featId);
                   const weapon = character.featWeaponSelections?.[slotId];
                   const skill = character.featSkillSelections?.[slotId];
+                  const spellSchool = character.featSpellSchoolSelections?.[slotId];
                   const requiresWeapon = featId === "exotic-weapon-proficiency" ||
                     featId === "weapon-focus" ||
                     featId === "weapon-specialization";
                   const requiresSkill = featId === "skill-focus";
+                  const requiresSpellSchool = featId === "spell-focus";
                   const weaponChoices = requiresWeapon
                     ? getAvailableFeatWeaponChoices(character, featId, slotId)
                     : [];
                   const skillChoices = requiresSkill
                     ? getAvailableFeatSkillChoices(character, slotId)
                     : [];
+                  const spellSchoolChoices = requiresSpellSchool
+                    ? getAvailableFeatSpellSchoolChoices(character, slotId)
+                    : [];
                   const validWeapon = weapon && weaponChoices.includes(weapon)
                     ? weapon
                     : undefined;
                   const validSkill = skill && skillChoices.includes(skill)
                     ? skill
+                    : undefined;
+                  const validSpellSchool = spellSchool && spellSchoolChoices.includes(spellSchool)
+                    ? spellSchool
                     : undefined;
                   const showLegacyWeaponChoice =
                     requiresWeapon &&
@@ -783,15 +814,24 @@ export function CharacterSheet({
                     requiresSkill &&
                     !validSkill &&
                     (!allowFeatSelection || Boolean(levelUpOriginal));
+                  const showLegacySpellSchoolChoice =
+                    requiresSpellSchool &&
+                    !validSpellSchool &&
+                    (!allowFeatSelection ||
+                      levelUpOriginal?.featSelections?.[slotId] === featId);
                   const featName = feat && requiresWeapon
                     ? `${feat.name} (${validWeapon || "choose weapon"})`
                     : feat && requiresSkill
                       ? `${feat.name} (${validSkill || "choose skill"})`
+                      : feat && requiresSpellSchool
+                        ? `${feat.name} (${validSpellSchool || "choose school"})`
                       : feat?.name;
                   const featDescription = feat && requiresWeapon
                     ? `${feat.description} ${validWeapon ? `Selected weapon: ${validWeapon}.` : "Weapon choice required."}`
                     : feat && requiresSkill
                       ? `${feat.description} ${validSkill ? `Selected skill: ${validSkill}.` : "Skill choice required."}`
+                      : feat && requiresSpellSchool
+                        ? `${feat.description} ${validSpellSchool ? `Selected school: ${validSpellSchool}.` : "School choice required."}`
                       : feat?.description;
                   return feat ? (
                     <div className="chosen-feat" key={slotId}>
@@ -854,6 +894,33 @@ export function CharacterSheet({
                           </select>
                         </label>
                       )}
+                      {showLegacySpellSchoolChoice && (
+                        <label className="feat-weapon-choice">
+                          <span>Choose school for {feat.name}</span>
+                          <select
+                            aria-label={`${slotId} spell school`}
+                            value=""
+                            disabled={spellSchoolChoices.length === 0}
+                            onChange={(event) => {
+                              const school = spellSchoolChoices.find(
+                                (choice) => choice === event.currentTarget.value,
+                              );
+                              onFeatSpellSchoolChange(slotId, school);
+                            }}
+                          >
+                            <option value="">
+                              {spellSchoolChoices.length
+                                ? "Choose a school..."
+                                : "No eligible school choices"}
+                            </option>
+                            {spellSchoolChoices.map((school) => (
+                              <option key={school} value={school}>
+                                {school}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                     </div>
                   ) : null;
                 })}
@@ -883,6 +950,10 @@ export function CharacterSheet({
                       ? getAvailableFeatSkillChoices(character, slot.id)
                       : [];
                   const selectedSkill = character.featSkillSelections?.[slot.id];
+                  const spellSchoolChoices = selected === "spell-focus"
+                    ? getAvailableFeatSpellSchoolChoices(character, slot.id)
+                    : [];
+                  const selectedSpellSchool = character.featSpellSchoolSelections?.[slot.id];
                   return (
                     <label key={slot.id}>
                       {slot.label}
@@ -942,6 +1013,37 @@ export function CharacterSheet({
                             {skillChoices.map((skill) => (
                               <option key={skill} value={skill}>
                                 {skill}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
+                      {selected === "spell-focus" ? (
+                        <div className="feat-weapon-choice">
+                          <span>School of magic</span>
+                          <select
+                            aria-label={`${slot.label} spell school`}
+                            value={
+                              selectedSpellSchool && spellSchoolChoices.includes(selectedSpellSchool)
+                                ? selectedSpellSchool
+                                : ""
+                            }
+                            disabled={spellSchoolChoices.length === 0}
+                            onChange={(event) => {
+                              const school = spellSchoolChoices.find(
+                                (choice) => choice === event.currentTarget.value,
+                              );
+                              onFeatSpellSchoolChange(slot.id, school);
+                            }}
+                          >
+                            <option value="">
+                              {spellSchoolChoices.length
+                                ? "Choose a school..."
+                                : "No eligible school choices"}
+                            </option>
+                            {spellSchoolChoices.map((school) => (
+                              <option key={school} value={school}>
+                                {school}
                               </option>
                             ))}
                           </select>

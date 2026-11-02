@@ -1,22 +1,30 @@
 import { type Character, classDefinitions } from "../domain";
 import { formatModifier, getArcaneSpellFailure, getCasterLevel, getDailySpellSlots,
-  getSkillCheckModifier, getSkillTotalTooltip, getSpellcastingAbility, getSpellSaveDC } from "../rules";
-import { Panel } from "./shared";
+  getSkillCheckModifier, getSkillTotalTooltip, getSpellcastingAbility, getSpellSaveDC,
+  type CombatCastingContext } from "../rules";
+import { CombatCastingContextControl, Panel } from "./shared";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
 
-export function CastingSummary({ character, onOpenSpells }: {
+export function CastingSummary({ character, onOpenSpells, combatCastingContext, onCombatCastingContextChange }: {
   character: Character;
   onOpenSpells: () => void;
+  combatCastingContext?: CombatCastingContext;
+  onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
 }) {
   const casters = character.classLevels.filter(({ classId }) => classDefinitions[classId].spellcasting);
   if (!casters.length) return null;
-  const concentration = getSkillCheckModifier(character, "Concentration");
+  const concentration = getSkillCheckModifier(character, "Concentration", undefined, undefined, combatCastingContext);
   return <Panel title="Spellcasting" className="casting-summary"
     headerActions={<button type="button" className="quiet-button" onClick={onOpenSpells}>Manage spells</button>}>
-    <div className="casting-concentration" title={`${getSkillTotalTooltip(character, "Concentration")}\nConcentration is a skill check, not a caster-level check. Combat Casting and other conditional bonuses are applied manually.`}>
+    <div className="casting-concentration" title={`${getSkillTotalTooltip(character, "Concentration", undefined, undefined, combatCastingContext)}\nConcentration is a skill check, not a caster-level check. Select a Combat Casting context to apply its +4 bonus; other conditional bonuses remain manual.`}>
       <span>Concentration <strong>{concentration === null ? "Unavailable" : formatModifier(concentration)}</strong></span>
       <small>CON + ranks + applicable modifiers</small>
     </div>
+    <CombatCastingContextControl
+      character={character}
+      context={combatCastingContext}
+      onChange={onCombatCastingContextChange}
+    />
     {casters.map(({ classId, level }) => {
       const failure = getArcaneSpellFailure(character, classId);
       const levels = Array.from({ length: 10 }, (_, spellLevel) => spellLevel)

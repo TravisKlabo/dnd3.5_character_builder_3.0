@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { cloneCharacter, initialCharacter, type ClassId, type PrestigeClassId } from "../src/domain";
 import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem, type StoreItem } from "../src/data/equipmentCatalog";
@@ -848,7 +848,10 @@ it("shows compact nonproficiency causes, adjusts initiative, and agrees on both 
   const { container } = render(<App />);
   await screen.findByRole("group", { name: "Ride skill" });
   expect(container.querySelector('[aria-label="Ride skill"] .skill-penalty')?.textContent).toBe("-5 armor (nonprof.), -2 shield (nonprof.)");
-  expect(container.querySelector(".combat-weapon-stat .attack-penalty")?.getAttribute("title")).toContain("Chainmail: -5");
+  await waitFor(() => {
+    expect(container.querySelector(".combat-weapon-stat .attack-penalty")?.getAttribute("title"))
+      .toContain("Chainmail: -5");
+  });
   const attacks = container.querySelector(".combat-weapon-row");
   if (!(attacks instanceof HTMLElement)) throw new Error("Missing weapon summary");
   expect(within(attacks).getByText("Attack -2")).toBeDefined();

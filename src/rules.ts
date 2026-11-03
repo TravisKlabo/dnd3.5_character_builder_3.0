@@ -3217,7 +3217,10 @@ export function equipInventoryItem(
     }
   }
   const currentEquipment = character.equipment ?? {};
-  if (Object.values(currentEquipment).includes(key)) return;
+  if (
+    Object.values(currentEquipment).includes(key) &&
+    !(item?.category === "Weapons" && currentEquipment["Main Weapon"] === key)
+  ) return;
   let slot = "Miscellaneous";
   const nextEquipment = { ...currentEquipment };
   const mainItem = findStoreItem(getInventoryEntryDetails(nextEquipment["Main Weapon"] ?? "").name);

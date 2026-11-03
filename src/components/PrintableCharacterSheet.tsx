@@ -116,7 +116,6 @@ export function PrintableCharacterSheet({ character }: Props) {
     const stats = getEquippedWeaponStats(character, key, 0, slot);
     return stats ? [{ slot, stats }] : [];
   });
-  const attackSlots = new Set(weaponAttacks.map(({ slot }) => slot));
   const spellcasterLevels = new Map<keyof typeof classDefinitions, number>();
   for (const level of character.classLevels) {
     if (!("prestigeClassId" in level) && classDefinitions[level.classId]?.spellcasting) {
@@ -316,7 +315,16 @@ export function PrintableCharacterSheet({ character }: Props) {
                 <table className="reference-attack-table">
                   <thead><tr><th>Weapon / Slot</th><th>Attack Bonus</th><th>Damage</th><th>Critical</th><th>Range / Reach</th></tr></thead>
                   <tbody>
-                    {weaponAttacks.map(({ slot, stats }) => {
+                    {weaponSlots.map((slot) => {
+                      const attack = weaponAttacks.find((candidate) => candidate.slot === slot);
+                      if (!attack) {
+                        return (
+                          <tr key={slot}>
+                            <th><span className="reference-attack-slot">{slot.replace(" Weapon", "")}</span></th><td /><td /><td /><td />
+                          </tr>
+                        );
+                      }
+                      const { stats } = attack;
                       const reachParts = stats.reach?.match(/^(\d+(?:\.\d+)?\s*ft\.?)(.*)$/i);
                       return (
                         <tr key={slot}>
@@ -354,11 +362,6 @@ export function PrintableCharacterSheet({ character }: Props) {
                         </tr>
                       );
                     })}
-                    {weaponSlots.filter((slot) => !attackSlots.has(slot)).map((slot) => (
-                      <tr key={slot}>
-                        <th><span className="reference-attack-slot">{slot.replace(" Weapon", "")}</span></th><td /><td /><td /><td />
-                      </tr>
-                    ))}
                   </tbody>
                 </table>
                 <PrintField label="Ammunition" value={ammunition.map(([key, quantity]) => `${getInventoryEntryDetails(key).name} x${quantity}`).join(", ")} />

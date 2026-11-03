@@ -126,8 +126,8 @@ describe("application workflows", () => {
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     render(<App />);
 
-    await user.click(within(screen.getByRole("navigation", { name: "Character sheets" }))
-      .getByRole("button", { name: "Print" }));
+    const sheetNavigation = await screen.findByRole("navigation", { name: "Character sheets" });
+    await user.click(within(sheetNavigation).getByRole("button", { name: "Print" }));
 
     expect(await screen.findByRole("region", { name: "Character record sheet, page 1" })).toBeDefined();
     expect(screen.getByRole("region", { name: "Character record sheet, page 2" })).toBeDefined();
@@ -196,7 +196,7 @@ describe("application workflows", () => {
       .toBe("Range");
     expect(longbowAttack?.lastElementChild?.querySelector(".reference-attack-distance-value")?.textContent)
       .toBeTruthy();
-    const protectionRows = [...pageOne.querySelectorAll(".reference-protection tbody tr")];
+    const protectionRows = [...pageOne.querySelectorAll<HTMLTableRowElement>(".reference-protection tbody tr")];
     expect(protectionRows).toHaveLength(4);
     expect(protectionRows[0].querySelector(".reference-protection-item")?.textContent)
       .toBe("Studded Leather");
@@ -215,8 +215,9 @@ describe("application workflows", () => {
       .every((box) => !box.textContent?.trim())).toBe(true);
     expect(document.querySelector(".reference-spell-save-mod .print-field-value")?.textContent)
       .toBe("+2");
-    expect(screen.queryByText("Magic Missile", { exact: true })).toBeNull();
-    expect(screen.queryByText("Shield", { exact: true })).toBeNull();
+    const spellTrackerText = document.querySelector(".reference-spell-tracker")?.textContent ?? "";
+    expect(spellTrackerText).not.toContain("Magic Missile");
+    expect(spellTrackerText).not.toContain("Shield");
     expect(document.querySelectorAll(".reference-worn-item-grid .reference-worn-item")).toHaveLength(12);
     expect(document.querySelector(".reference-worn-item.has-item")?.textContent)
       .toContain("Circlet of Insight");

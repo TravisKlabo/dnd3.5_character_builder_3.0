@@ -1,9 +1,9 @@
 import type { AbilityName, Character } from "./domain";
 import type { StoreItem } from "./data/itemTypes";
 
-const families: { name: string; ability: AbilityName; slot: string; category: StoreItem["category"]; weight: string; bonuses: number[] }[] = [
+const families: { name: string; ability: AbilityName; slot: string; category: StoreItem["category"]; weight: string; bonuses: number[]; includeBonusInName?: boolean }[] = [
   { name: "Belt of Giant Strength", ability: "str", slot: "Waist", category: "Waist", weight: "1 lb.", bonuses: [2, 4, 6] },
-  { name: "Gauntlets of Ogre Power", ability: "str", slot: "Hands", category: "Hands", weight: "4 lb.", bonuses: [2] },
+  { name: "Gauntlets of Ogre Power", ability: "str", slot: "Hands", category: "Hands", weight: "4 lb.", bonuses: [2], includeBonusInName: false },
   { name: "Gloves of Dexterity", ability: "dex", slot: "Hands", category: "Hands", weight: "—", bonuses: [2, 4, 6] },
   { name: "Periapt of Wisdom", ability: "wis", slot: "Neck", category: "Neck", weight: "—", bonuses: [2, 4, 6] },
   { name: "Cloak of Charisma", ability: "cha", slot: "Shoulders", category: "Shoulders", weight: "2 lb.", bonuses: [2, 4, 6] },
@@ -12,7 +12,7 @@ const families: { name: string; ability: AbilityName; slot: string; category: St
 ];
 
 export const abilityEquipmentItems = families.flatMap((family) => family.bonuses.map((bonus) => ({
-  name: `${family.name} +${bonus}`,
+  name: family.includeBonusInName === false ? family.name : `${family.name} +${bonus}`,
   category: family.category,
   weight: family.weight,
   price: bonus * bonus * 1000,
@@ -21,10 +21,17 @@ export const abilityEquipmentItems = families.flatMap((family) => family.bonuses
   bonus,
 })));
 
+export const abilityEquipmentNameAliases: Readonly<Record<string, string>> = {
+  "Gauntlets of Ogre Power +2": "Gauntlets of Ogre Power",
+};
+
 export function getAbilityEquipmentBonus(character: Character, ability: AbilityName) {
   const sources = abilityEquipmentItems.filter((item) =>
     item.ability === ability &&
-    (character.equipment[item.slot] ?? "").replace(/ \((Small|Medium|Large)\)$/, "") === item.name);
+    (() => {
+      const equippedName = (character.equipment[item.slot] ?? "").replace(/ \((Small|Medium|Large)\)$/, "");
+      return (abilityEquipmentNameAliases[equippedName] ?? equippedName) === item.name;
+    })());
   const bonus = Math.max(0, ...sources.map((item) => item.bonus));
   let applied = false;
   const detail = sources.map((item) => {

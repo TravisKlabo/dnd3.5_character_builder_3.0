@@ -33,7 +33,7 @@ unverified. The SRD spell catalog is cross-checked to the *Player's Handbook*
 (3.5); *Phantom Trap* remains broad-source-only because its specific 3.5 book
 source is unverified. These are book-level attributions; page-level citations
 and primary-source verification remain outstanding.
-| Printable/player-sheet generation | Deferred / out of scope | The app has an interactive character sheet | Printing and PDF generation are intentionally excluded from the current character-creation goal | [3.0 design](3.0-design.md) |
+| Printable/player-sheet generation | Implemented (bounded) | A data-bound, two-page Letter-portrait sheet follows the authorized character-record-sheet examples and prints identity, abilities, defenses, attacks, skills, gear, spells, traits, feats, languages, and carrying capacity; the Handwritten toggle defaults on and styles generated data except the Skills area, without changing fixed labels or layout | Hard requirement: the generated PDF is exactly two portrait Letter pages (8.5 × 11 inches each), with no extra page, clipping, or overflow. Longer character data must fit those fixed pages; empty or unsupported fields remain blank. Final PDF page-count and dense-content fit validation remains; experience points are not tracked. Printed calculations follow the existing bounded rules coverage | [PrintableCharacterSheet.tsx](../src/components/PrintableCharacterSheet.tsx), [app.test.tsx](../tests/app.test.tsx), [3.0 design](3.0-design.md) |
 
 ## Core class alignment restrictions
 
@@ -94,5 +94,5 @@ feat's area shapes manually; the catalog does not structure spell areas
    correction.
 3. Continue with spellcasting and combat edge cases, then assess optional
    Dragonlance content separately.
-4. Keep printable/player-sheet generation deferred until the creation rules are
-   sufficiently solid.
+4. Finish print-fit validation: confirm the generated PDF is exactly two portrait
+   Letter pages, with no clipping or spillover, including dense character data.

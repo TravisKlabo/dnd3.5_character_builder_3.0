@@ -2,7 +2,7 @@ export const storeCategories = [
   "Weapons", "Armor", "Shields", "Ammunition", "Adventuring Gear", "Tools & Kits",
   "Consumables", "Potions, Scrolls & Wands", "Rings & Magic Items", "Head", "Neck",
   "Shoulders", "Arms", "Hands", "Rings", "Waist", "Feet", "Body & Wondrous Items",
-  "Mounts & Vehicles", "Instruments",
+  "Eyes", "Body", "Torso", "Mounts & Vehicles", "Instruments",
 ] as const;
 
 export type StoreCategory = (typeof storeCategories)[number];

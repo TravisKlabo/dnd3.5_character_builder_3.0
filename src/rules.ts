@@ -297,12 +297,13 @@ export function getArmorClassValues(
   const equipment = character.equipment ?? {};
   const armorName = equipment.Armor ?? "";
   const shieldName = equipment.Shield ?? "";
-  const bracersName = Object.values(equipment).find((value) => /Bracers of Armor/.test(value)) ?? "";
+  const bracersName = (equipment.Arms ?? "").replace(/ \((Small|Medium|Large)\)$/, "");
+  const bracersItem = findStoreItem(bracersName, "Arms");
   const customArmor = findStoreItem(armorName, "Armor");
   const armorBaseName = customArmor?.custom ? undefined : armorNames.find((name) => armorName.includes(name));
   const shieldBaseName = shieldNames.find((name) => shieldName.includes(name));
-  const bracersArmorBonus = !armorBaseName && bracersName
-    ? Number(bracersName.match(/\+(\d+)/)?.[1] ?? 0)
+  const bracersArmorBonus = !armorBaseName && !customArmor && bracersItem && !bracersItem.custom
+    ? Number(bracersItem.name.match(/^Bracers of Armor \+([1-8])$/)?.[1] ?? 0)
     : 0;
   const armorDexterityBonus = armorBaseName
     ? armorMaximumDexterity[armorBaseName]
@@ -341,10 +342,21 @@ export function getArmorClassValues(
     (character.classFeatures ?? []).some((feature) => /\buncanny dodge\b/i.test(feature));
   const combatExpertiseBonus = getCombatExpertiseAmount(character, selectedCombatExpertiseAmount);
   const dodgeFeatBonus = getDodgeFeatBonus(character, dodgeTargetSelected);
+  const size = sizeModifier(character);
   return {
     normal: base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + activeArmorClass,
     touch: base + dexterity + deflection + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + activeArmorClass,
     flatFooted: base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + activeArmorClass,
+    components: {
+      base: 10,
+      armor: armorBonus,
+      shield: shieldBonus,
+      dexterity,
+      size,
+      naturalArmor: naturalArmorEnhancement,
+      deflection,
+      misc: racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + activeArmorClass,
+    },
     retainsDexterity,
     racialDodgeACBonus,
     combatExpertiseBonus,
@@ -878,7 +890,7 @@ export function getEncumbrance(character: Character) {
   };
 }
 
-function getWornArmor(character: Character) {
+export function getWornArmor(character: Character) {
   const name = character.equipment.Armor ?? "";
   const item = findStoreItem(name, "Armor");
   const baseName = item?.custom ? undefined : armorNames.find((base) => name.includes(base));
@@ -1234,7 +1246,7 @@ export function getWeaponCompatibilityWarning(
   return null;
 }
 
-function getEquipmentCheckPenalty(name: string, slot: "Armor" | "Shield") {
+export function getEquipmentCheckPenalty(name: string, slot: "Armor" | "Shield") {
   const item = findStoreItem(name, slot === "Armor" ? "Armor" : "Shields");
   const names = slot === "Armor" ? armorNames : shieldNames;
   const penalties = slot === "Armor" ? armorCheckPenalties : shieldCheckPenalties;
@@ -3204,8 +3216,10 @@ export function equipInventoryItem(
       window.alert(proficiencyWarning);
     }
   }
+  const currentEquipment = character.equipment ?? {};
+  if (Object.values(currentEquipment).includes(key)) return;
   let slot = "Miscellaneous";
-  const nextEquipment = { ...(character.equipment ?? {}) };
+  const nextEquipment = { ...currentEquipment };
   const mainItem = findStoreItem(getInventoryEntryDetails(nextEquipment["Main Weapon"] ?? "").name);
   const mainWeaponSize = nextEquipment["Main Weapon"]
     ? getWeaponSizeHandling(character, nextEquipment["Main Weapon"])
@@ -3230,12 +3244,25 @@ export function equipInventoryItem(
     if (!buckler) delete nextEquipment["Off Hand Weapon"];
   } else if (item?.category === "Armor") slot = "Armor";
   else if (item?.name.startsWith("Bracers of Armor")) slot = "Arms";
-  else if (item?.name.startsWith("Ring of ")) slot = nextEquipment["Rings 1"] ? "Rings 2" : "Rings 1";
-  else if (item?.name.startsWith("Headband of ")) slot = "Head";
+  else if (item?.category === "Rings" || item?.name.startsWith("Ring of ")) {
+    if (!nextEquipment["Rings 1"]) slot = "Rings 1";
+    else if (!nextEquipment["Rings 2"]) slot = "Rings 2";
+    else {
+      window.alert("Both ring slots are occupied. Unequip a ring before equipping another.");
+      return;
+    }
+  } else if (item?.name.startsWith("Headband of ")) slot = "Head";
   else if (item?.name.startsWith("Cloak of ")) slot = "Shoulders";
+  else if (item?.category === "Head") slot = "Head";
+  else if (item?.category === "Eyes") slot = "Eyes";
   else if (item?.category === "Neck") slot = "Neck";
+  else if (item?.category === "Shoulders") slot = "Shoulders";
+  else if (item?.category === "Arms") slot = "Arms";
   else if (item?.category === "Hands") slot = "Hands";
+  else if (item?.category === "Body") slot = "Body";
+  else if (item?.category === "Torso") slot = "Torso";
   else if (item?.category === "Waist") slot = "Waist";
+  else if (item?.category === "Feet") slot = "Feet";
   if (item?.category === "Weapons") {
     const traits = weaponTraits(item);
     const itemSize = getWeaponSizeHandling(character, key);
@@ -3270,6 +3297,12 @@ export function equipInventoryItem(
         : "Main Weapon";
     }
   }
+  if (
+    item?.category !== "Weapons" &&
+    nextEquipment[slot] &&
+    nextEquipment[slot] !== key &&
+    !window.confirm(`${slot} is occupied by ${nextEquipment[slot]}. Replace it with ${itemName}?`)
+  ) return;
   nextEquipment[slot] = key;
   onEquipmentChange(nextEquipment);
 }

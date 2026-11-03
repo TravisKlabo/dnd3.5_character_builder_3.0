@@ -64,13 +64,19 @@ describe("ability-enhancement equipment", () => {
 
   it("uses the highest enhancement for an ability rather than stacking belt and gauntlets", () => {
     const character = cloneCharacter(initialCharacter);
-    character.equipment = { Waist: "Belt of Giant Strength +4", Hands: "Gauntlets of Ogre Power +2" };
+    character.equipment = { Waist: "Belt of Giant Strength +4", Hands: "Gauntlets of Ogre Power" };
     expect(getEffectiveAbilityScore(character, "str")).toBe(14);
     expect(getAbilityEquipmentBonus(character, "str").detail.join("\n")).toContain("does not stack");
     character.equipment.Waist = "";
     expect(getEffectiveAbilityScore(character, "str")).toBe(12);
     character.equipment.Hands = "";
     expect(getEffectiveAbilityScore(character, "str")).toBe(10);
+  });
+
+  it("preserves the former Gauntlets of Ogre Power +2 equipment name", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.equipment.Hands = "Gauntlets of Ogre Power +2";
+    expect(getEffectiveAbilityScore(character, "str")).toBe(12);
   });
 
   it("ignores ownership, incorrect slots, unsupported bonuses and arbitrary custom names", () => {

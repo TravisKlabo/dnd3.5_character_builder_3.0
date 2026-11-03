@@ -63,12 +63,15 @@ export function EquipmentSheet({
   const { value: targetContext, onChange: onTargetContextChange } = useCombatTargetContext();
   const slots = [
     "Head",
+    "Eyes",
     "Neck",
     "Shoulders",
     "Arms",
     "Hands",
     "Rings 1",
     "Rings 2",
+    "Body",
+    "Torso",
     "Waist",
     "Feet",
     "Main Weapon",
@@ -91,7 +94,7 @@ export function EquipmentSheet({
       <div className="equipment-sheet-title">EQUIPMENT SLOTS</div>
       <div className="equipment-slot-grid">
         <div className="equipment-column">
-          {slots.slice(0, 8).map((slot) => (
+          {slots.slice(0, 9).map((slot) => (
             <EquipmentSlot
               key={slot}
               label={slot}
@@ -104,7 +107,7 @@ export function EquipmentSheet({
           EQUIP
         </div>
         <div className="equipment-column">
-          {slots.slice(8).map((slot) => (
+          {slots.slice(9).map((slot) => (
             <EquipmentSlot
               key={slot}
               label={slot}

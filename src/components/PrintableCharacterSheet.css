@@ -1,0 +1,238 @@
+.print-sheet-view {
+  display: grid;
+  gap: 18px;
+  color: #111;
+}
+
+.print-sheet-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid #b9bbb4;
+  background: #f8f7f2;
+}
+
+.print-sheet-view.print-handwritten .print-field-value,
+.print-sheet-view.print-handwritten .reference-sheet-page table:not(.reference-skill-table) tbody td,
+.print-sheet-view.print-handwritten .reference-inventory-row,
+.print-sheet-view.print-handwritten .reference-attack-item,
+.print-sheet-view.print-handwritten .reference-protection-item,
+.print-sheet-view.print-handwritten .reference-race-name,
+.print-sheet-view.print-handwritten .reference-feature-columns p:not(.reference-feature-blank),
+.print-sheet-view.print-handwritten .reference-feat-list p:not(.reference-feat-blank),
+.print-sheet-view.print-handwritten .reference-language-list span:not(.reference-language-blank) {
+  font-family: "Marck Script", cursive;
+}
+
+.print-sheet-actions p { margin: 0; color: #68736f; font-size: .85rem; }
+.print-sheet-pages { display: grid; justify-items: center; gap: 24px; }
+
+.reference-sheet-page {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: .06in;
+  width: min(100%, 8.5in);
+  aspect-ratio: 8.5 / 11;
+  overflow: hidden;
+  padding: .23in;
+  border: 1px solid #777;
+  background: #fff;
+  color: #111;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 7px;
+  line-height: 1.15;
+  box-shadow: 0 5px 18px #0002;
+}
+
+.reference-sheet-page * { box-sizing: border-box; }
+.reference-page-one-header { display: grid; grid-template-columns: 1.7fr .8fr; gap: .12in; align-items: end; }
+.reference-identity { display: grid; gap: .04in; }
+.reference-identity-row { display: grid; grid-template-columns: 1.25fr 1fr; gap: .1in; }
+.reference-identity-row:nth-child(2) { grid-template-columns: 1.45fr 1fr .8fr .8fr; }
+.reference-identity-details { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: .06in; }
+.print-field { display: grid; min-width: 0; gap: 1px; }
+.print-field-label { color: #111; font-size: .64em; font-weight: 700; line-height: 1.05; text-transform: uppercase; }
+.print-field-value { display: block; min-width: 0; min-height: .13in; overflow-wrap: anywhere; border-bottom: 1px solid #222; font-size: 1em; line-height: 1.2; }
+.reference-brand { text-align: center; }
+.reference-logo { position: relative; font-family: Georgia, "Times New Roman", serif; font-size: 1.8em; font-weight: 900; line-height: .8; letter-spacing: -.08em; }
+.reference-logo::before, .reference-logo::after { position: absolute; top: 45%; width: 18%; border-top: 2px solid #111; content: ""; }
+.reference-logo::before { left: 0; transform: rotate(-8deg); }
+.reference-logo::after { right: 0; transform: rotate(8deg); }
+.reference-sheet-name { margin-top: .06in; font-size: .85em; letter-spacing: .16em; }
+.reference-page-one-body { display: grid; min-height: 0; grid-template-columns: 1.32fr .92fr; gap: .1in; }
+.reference-page-one-main { display: grid; min-height: 0; grid-template-rows: 1.55fr .82fr 1.05fr 1fr; gap: .07in; }
+.reference-combat-summary { display: grid; min-height: 0; grid-template-columns: .92fr 1.08fr; gap: .07in; }
+.reference-ability-table, .reference-sheet-page table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.reference-sheet-page th, .reference-sheet-page td { padding: .025in .025in; border: 1px solid #111; text-align: center; vertical-align: middle; }
+.reference-sheet-page th { font-weight: 700; }
+.reference-sheet-page thead th { background: #111; color: #fff; font-size: .68em; text-transform: uppercase; }
+.reference-ability-table tbody th { width: 28%; background: #111; color: #fff; text-align: left; }
+.reference-ability-table tbody th b, .reference-ability-table tbody th small { display: block; }
+.reference-ability-table tbody th b { font-size: 1.15em; }
+.reference-ability-table tbody th small { color: #fff; font-size: .68em; font-weight: 400; }
+.reference-ability-table tbody td { height: .21in; background: #fff; font-size: .9em; }
+.reference-ability-table tbody td:nth-child(4), .reference-ability-table tbody td:nth-child(5) { background: #e4e4e4; }
+.reference-defense-grid { display: grid; min-width: 0; grid-template-rows: 1.1fr .9fr; gap: .05in; }
+.reference-vitals { display: grid; min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: .03in .06in; }
+.reference-vitals-primary { display: grid; min-width: 0; min-height: 0; grid-column: span 2; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: .03in .06in; }
+.reference-vitals-movement { display: grid; min-width: 0; min-height: 0; grid-column: 3; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: .03in; }
+.reference-vitals .print-field { border: 1px solid #111; padding: .02in; }
+.reference-vitals .print-field-value { min-height: .12in; border-bottom: 0; font-size: 1.05em; font-weight: 700; }
+.reference-ac-breakdown { display: grid; min-height: 0; grid-template-rows: auto 1fr auto; gap: .03in; }
+.reference-section-title, .print-section-title { display: flex; min-height: .17in; align-items: center; gap: .04in; margin: 0; padding: .025in .04in; background: #111; color: #fff; font-size: .78em; line-height: 1.05; letter-spacing: .05em; text-transform: uppercase; }
+.print-section-title::before { display: grid; width: .17in; height: .17in; flex: 0 0 .17in; place-items: center; border: 1px solid #fff; border-radius: 50%; content: "D&D"; font-family: Georgia, "Times New Roman", serif; font-size: .52em; letter-spacing: -.08em; }
+.reference-ac-components { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .02in; }
+.reference-ac-components .print-field { border: 1px solid #111; padding: .015in; text-align: center; }
+.reference-ac-components .print-field-value { min-height: .1in; border: 0; font-weight: 700; }
+.reference-save-attack-grid { display: grid; min-height: 0; grid-template-columns: minmax(0, 1.2fr) minmax(0, .55fr) minmax(0, .8fr); gap: .06in; }
+.reference-saves, .reference-conditions, .reference-attacks, .reference-protection, .reference-skills, .reference-possessions, .reference-spells, .reference-worn-items, .reference-features, .reference-feats, .reference-languages, .reference-money {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: .035in;
+}
+.reference-saves table, .reference-attack-table, .reference-protection table { font-size: .78em; }
+.reference-saves tbody tr { height: .45in; }
+.reference-saves tbody th { font-size: 10.92px; }
+.reference-saves tbody td { font-size: 21px; }
+.reference-bab-grapple { display: grid; min-width: 0; min-height: 0; grid-template-rows: auto repeat(3, minmax(0, 1fr)); gap: .035in; padding-bottom: .015in; }
+.reference-bab-grapple .print-field { min-height: 0; align-content: center; border: 1px solid #111; padding: .025in; text-align: center; }
+.reference-bab-grapple .print-field-value { min-height: 0; border: 0; font-weight: 700; }
+.reference-conditions .print-field { min-height: .465in; align-content: center; border: 1px solid #111; padding: .025in; }
+.reference-conditions .print-field-value { min-height: .26in; border: 0; font-size: .9em; }
+.reference-attacks { grid-template-rows: auto minmax(0, 1fr) auto; }
+.reference-attack-table, .reference-protection table { height: 100%; }
+.reference-attack-table tbody tr { height: .5625in; }
+.reference-attack-table tbody th { text-align: left; vertical-align: top; }
+.reference-attack-slot { display: block; font-size: .72em; font-weight: 700; text-transform: uppercase; }
+.reference-attack-item { display: block; }
+.reference-attack-damage-value, .reference-attack-damage-type { display: block; }
+.reference-attack-damage-type { font-size: .75em; }
+.reference-attack-distance { display: block; font-size: .75em; line-height: 1.05; }
+.reference-attack-distance-label { display: block; font-size: .85em; font-weight: 700; text-transform: uppercase; }
+.reference-attack-distance-value { display: block; font-size: 2.6em; line-height: 1.05; }
+.reference-attack-distance-note { display: block; font-size: .32em; font-weight: 400; line-height: 1; }
+.reference-attacks > .print-field { grid-template-columns: max-content minmax(0, 1fr); align-items: end; }
+.reference-protection table thead tr { height: .105in; }
+.reference-protection table tbody th { text-align: left; font-weight: 400; }
+.reference-protection { grid-template-rows: auto minmax(0, 1fr); }
+.reference-skills { grid-template-rows: auto minmax(0, 1fr); }
+.reference-skill-table { height: 100%; font-size: .68em; }
+.reference-skill-table tbody td { font-size: 11px; }
+.reference-skill-table th, .reference-skill-table td { padding: .012in .018in; }
+.reference-skill-table thead th:first-child { width: 65%; }
+.reference-skill-table thead th:nth-child(2) { width: 9%; }
+.reference-skill-table thead th:nth-child(n + 3) { width: 6.5%; }
+.reference-skill-table tbody th { font-size: 9.5px; text-align: left; font-weight: 400; white-space: nowrap; overflow: hidden; }
+.reference-trained-only-marker { margin-left: .006in; font-size: 1.44em; line-height: 1; vertical-align: baseline; }
+.reference-checkbox { display: inline-block; width: .07in; height: .07in; margin-right: .025in; border: 1px solid #111; vertical-align: middle; }
+.reference-checkbox.checked::after { display: block; content: "x"; font-family: Arial, sans-serif; font-size: .075in; line-height: .05in; text-align: center; }
+.reference-page-footer { display: grid; align-self: end; grid-template-columns: 1fr auto 1fr; align-items: center; color: #555; font-size: .62em; letter-spacing: .06em; }
+.reference-page-footer-page { grid-column: 2; text-align: center; }
+.reference-page-footer-legend { grid-column: 3; text-align: right; }
+.reference-page-one .print-field-value { font-size: 10.5px; }
+.reference-page-one .reference-attack-table tbody td.reference-attack-bonus { font-size: 21px; }
+.reference-page-one .reference-protection table tbody td.reference-protection-value { font-size: 21px; }
+.reference-page-one .reference-vitals .print-field-value { font-size: 21px; }
+.reference-page-one .reference-ac-components .print-field-value { font-size: 21px; }
+.reference-page-one .reference-bab-grapple .print-field-value { font-size: 21px; }
+.reference-page-one table:not(.reference-skill-table) tbody td { font-size: 10.5px; }
+.reference-page-one .reference-saves table tbody td { font-size: 21px; }
+.reference-page-one .reference-ability-table tbody td:nth-child(2), .reference-page-one .reference-ability-table tbody td:nth-child(3) { font-size: 21px; }
+.reference-page-one .reference-attack-item, .reference-page-one .reference-protection-item { font-size: 10.5px; }
+
+.reference-page-two { grid-template-rows: minmax(0, 1fr) auto; }
+.reference-page-two-grid {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: .9fr 2.85fr 4.25fr;
+  grid-template-rows: 2.6fr 1.7fr 1.6fr 1.3fr 1.3fr;
+  gap: .06in;
+}
+.reference-xp-sidebar { display: flex; grid-column: 1; grid-row: 1 / 5; flex-direction: column; gap: .04in; border: 1px solid #111; background: #e6e6e6; }
+.reference-xp { display: grid; align-content: start; grid-template-rows: auto auto auto; }
+.reference-xp .print-section-title, .reference-carrying .print-section-title { justify-content: center; min-height: .28in; text-align: center; }
+.reference-xp .print-field { min-height: .28in; margin: .04in; }
+.reference-xp .print-field-value { min-height: .18in; }
+.reference-carrying { display: grid; gap: .04in; margin-top: auto; padding-bottom: .04in; background: #fff; }
+.reference-carrying .print-field { padding: .03in; }
+.reference-carrying .print-field-value { min-height: .14in; }
+.reference-possessions { grid-column: 2; grid-row: 1 / 5; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.reference-possessions h3, .reference-feature-columns h3 { margin: .02in 0; font-size: .7em; text-transform: uppercase; }
+.reference-inventory-list { display: grid; min-height: 0; align-content: stretch; grid-auto-rows: minmax(.18in, 1fr); grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.reference-inventory-row { display: grid; min-height: .15in; grid-template-columns: minmax(0, 1fr) auto auto; gap: .04in; align-items: end; border-bottom: 1px solid #555; font-size: 1.5em; text-align: left; }
+.reference-inventory-row small { font-size: 1em; }
+.reference-inventory-blank { min-height: .18in; }
+.reference-empty-line { min-height: .2in; border-bottom: 1px solid #555; }
+.reference-possessions > .print-field { grid-template-columns: max-content minmax(0, 1fr); }
+.reference-spells { grid-column: 3; grid-row: 1; }
+.reference-spells { grid-template-rows: auto auto minmax(0, 1fr); }
+.reference-spell-summary { display: grid; grid-template-columns: 1fr 1fr; gap: .03in; }
+.reference-spell-save-mod, .reference-spell-failure { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto max-content; gap: .025in; align-items: center; padding: .025in; font-size: .72em; text-align: center; text-transform: uppercase; }
+.reference-spell-save-mod { background: #e5e5e5; }
+.reference-spell-save-mod .print-field-value { min-height: .15in; border: 0; font-size: 1em; font-weight: 700; }
+.reference-spell-failure { grid-template-columns: minmax(0, 1fr) auto max-content; background: #111; color: #fff; }
+.reference-spell-failure .print-field-value { min-width: .22in; min-height: .15in; border: 0; background: #fff; color: #111; font-size: 1em; font-weight: 700; }
+.reference-spell-summary .print-field-value { font-size: 3em; }
+.reference-spell-conditional { grid-column: 1 / -1; min-height: .56in; padding: .025in; border: 1px solid #111; font-size: .58em; text-align: left; text-transform: uppercase; }
+.reference-spell-level-grid { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .04in; }
+.reference-spell-tracker { width: 100%; height: 100%; border-collapse: separate; border-spacing: .012in .025in; table-layout: fixed; font-size: .72em; }
+.reference-spell-tracker th, .reference-spell-tracker td { padding: .005in; border: 0; text-align: center; vertical-align: middle; }
+.reference-spell-tracker thead th { background: transparent; color: #111; font-size: 1.2528em; line-height: 1.05; text-transform: uppercase; }
+.reference-spell-tracker thead th:nth-child(3), .reference-spell-tracker tbody th { width: 12%; }
+.reference-spell-tracker tbody th { font-size: 2.4em; }
+.reference-spell-tracker tbody tr { height: .2in; }
+.reference-spell-tracker-box { display: grid; width: min(100%, .28in); aspect-ratio: 1; min-width: 0; min-height: 0; justify-self: center; place-items: center; overflow-wrap: anywhere; border: 1px solid #111; font-size: 3.15em; line-height: 1; }
+.reference-feature-blank { min-height: .15in; }
+.reference-worn-items { grid-column: 1 / 4; grid-row: 5; grid-template-rows: auto minmax(0, 1fr); }
+.reference-worn-item-grid { display: grid; min-height: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: .04in; }
+.reference-worn-item { display: grid; min-width: 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); gap: .025in; padding: .045in; border: 1px solid #aaa; text-align: left; }
+.reference-worn-item.has-item { border-color: #777; border-left: 2px solid #777; background: #f1f1f1; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.reference-worn-item .print-field-label { font-size: .75em; letter-spacing: .04em; text-align: center; }
+.reference-worn-item .print-field-value { display: flex; min-height: 0; align-items: center; justify-content: center; align-self: stretch; overflow-wrap: anywhere; font-size: 1.5em; line-height: 1.15; text-align: center; }
+.reference-features { grid-column: 3; grid-row: 2; grid-template-rows: auto minmax(0, 1fr); }
+.reference-feature-columns { display: grid; min-height: 0; grid-template-columns: 1fr 1fr; gap: .08in; overflow: hidden; }
+.reference-feature-columns > div { display: grid; min-height: 0; grid-template-rows: auto; grid-auto-rows: minmax(0, 1fr); }
+.reference-feature-columns p, .reference-feat-list p { margin: 0; padding: .02in 0; border-bottom: 1px solid #777; font-size: .72em; line-height: 1.15; }
+.reference-feats { grid-column: 3; grid-row: 3; grid-template-rows: auto minmax(0, 1fr); }
+.reference-feat-list { display: grid; align-content: stretch; grid-auto-rows: minmax(.15in, 1fr); grid-template-columns: 1fr 1fr; column-gap: .12in; }
+.reference-feat-blank { min-height: 0; }
+.reference-feature-columns p, .reference-feat-list p { text-align: left; }
+.reference-feature-columns p, .reference-feat-list p:not(.reference-feat-blank) { font-size: 1.5em; }
+.reference-feature-columns p { padding-left: .03in; }
+.reference-feat-list p:not(.reference-feat-blank) { align-self: end; padding: .005in 0; padding-left: .03in; }
+.reference-feats-details { display: grid; min-width: 0; min-height: 0; grid-column: 3; grid-row: 4; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; gap: .02in; }
+.reference-language-list { display: grid; align-content: stretch; grid-auto-rows: minmax(.14in, 1fr); grid-template-columns: 1fr 1fr; gap: .035in .1in; }
+.reference-language-list span { min-height: .14in; border-bottom: 1px solid #777; font-size: 1.56em; }
+.reference-language-list .reference-language-blank { display: block; }
+.reference-money { grid-template-columns: auto 1fr 1fr; align-items: end; background: #e7e7e7; padding: .04in; }
+.reference-money .print-section-title { background: transparent; color: #111; justify-content: center; }
+.reference-money .print-section-title::before { display: none; }
+.reference-money .print-field-value { min-height: .22in; }
+.reference-feats-details .reference-money { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto; align-items: end; padding: .01in; }
+.reference-feats-details .reference-money .print-section-title { grid-column: 1 / -1; }
+.reference-feats-details .reference-money .print-section-title { grid-column: 1 / -1; }
+
+@media (max-width: 900px) {
+  .print-sheet-actions { align-items: stretch; flex-direction: column; }
+  .reference-sheet-page { width: 100%; }
+}
+
+@media print {
+  @page { size: letter portrait; margin: 0; }
+  html, body, #root { width: 8.5in !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .print-sheet-view, .print-sheet-view * { visibility: visible !important; }
+  .print-sheet-view { position: absolute !important; top: 0 !important; left: 0 !important; display: block !important; width: 8.5in !important; margin: 0 !important; padding: 0 !important; }
+  .print-sheet-actions { display: none !important; }
+  .print-sheet-pages { display: block !important; }
+  .reference-sheet-page { width: 8.5in !important; height: 11in !important; max-width: none !important; margin: 0 !important; padding: .23in !important; border: 0 !important; box-shadow: none !important; break-after: page; page-break-after: always; }
+  .reference-sheet-page:last-child { break-after: auto; page-break-after: auto; }
+  .reference-xp-sidebar, .reference-money { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .reference-section-title, .print-section-title, .reference-ability-table tbody th, .reference-sheet-page thead th, .reference-logo { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import App from "../src/App";
+import { PrintableCharacterSheet } from "../src/components/PrintableCharacterSheet";
 import { cloneCharacter, initialCharacter } from "../src/domain";
 import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem, type StoreItem } from "../src/data/equipmentCatalog";
 import { loadSpellCatalog } from "../src/data/spellCatalog";
@@ -83,15 +84,217 @@ describe("application workflows", () => {
     expect(screen.queryByRole("button", { name: "Increase height" })).toBeNull();
   });
 
-  it("opens setup for new characters and has no print or PDF controls", async () => {
+  it("offers a printable preview for new characters without opening print automatically", async () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Create Character" })).toBeDefined();
     expect(screen.queryByPlaceholderText("Background, goals, allies, and other details.")).toBeNull();
     expect(screen.getByRole("heading", { name: "Character Notes" })).toBeDefined();
-    expect(screen.queryByRole("button", { name: /print|pdf/i })).toBeNull();
+    const sheetTabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    expect(sheetTabs.getByRole("button", { name: "Print" })).toBeDefined();
+    const tabButtons = sheetTabs.getAllByRole("button");
+    expect(tabButtons[tabButtons.length - 1].textContent).toBe("Print");
+    expect(screen.queryByRole("button", { name: "Print / Save as PDF" })).toBeNull();
     expect(screen.getByRole("button", { name: "Save" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Export" })).toBeDefined();
     expect(screen.getByLabelText("Import character JSON")).toBeDefined();
+  });
+
+  it("opens the data-bound, two-page printable character sheet", async () => {
+    const user = userEvent.setup();
+    const character = savedHero();
+    character.name = "Print Regression";
+    character.classLevels = [
+      { classId: "wizard", level: 1 },
+      { classId: "cleric", level: 2 },
+    ];
+    character.abilities = { ...character.abilities, dex: 8, int: 18, wis: 14 };
+    character.knownSpells = ["Magic Missile"];
+    character.knownSpellsByClass = { wizard: ["Magic Missile"] };
+    character.preparedSpells = ["Shield"];
+    character.preparedSpellsByClass = { wizard: ["Shield"] };
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      "Ranged Weapon": "Longbow (Medium)",
+      Armor: "Studded Leather (Medium)",
+      Shield: "Buckler (Medium)",
+      Currency: "12 gp",
+      Miscellaneous: "Crossbow Bolts",
+      Head: "Circlet of Insight",
+      "Rings 1": "Ring of Protection +1",
+    };
+    character.inventory = { "Rope (50 ft.)": 1 };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    await user.click(within(screen.getByRole("navigation", { name: "Character sheets" }))
+      .getByRole("button", { name: "Print" }));
+
+    expect(await screen.findByRole("region", { name: "Character record sheet, page 1" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Character record sheet, page 2" })).toBeDefined();
+    const savingThrows = screen.getByRole("region", { name: "Character record sheet, page 1" })
+      .querySelector(".reference-saves");
+    expect(savingThrows?.textContent).toContain("Fort");
+    expect(savingThrows?.textContent).toContain("Ref");
+    expect(savingThrows?.textContent).toContain("Will");
+    expect(savingThrows?.querySelector("table")?.textContent).not.toContain("+");
+    const pageOne = screen.getByRole("region", { name: "Character record sheet, page 1" });
+    expect(pageOne.querySelector(".reference-vitals")?.textContent).toContain("Touch AC");
+    expect(pageOne.querySelector(".reference-vitals")?.textContent).toContain("Flat-Footed AC");
+    expect(pageOne.querySelector(".reference-ac-breakdown")?.textContent).not.toContain("Touch");
+    expect(pageOne.querySelector(".reference-ac-breakdown")?.textContent).not.toContain("Flat-Footed");
+    const abilityTable = pageOne.querySelector(".reference-ability-table");
+    const dexterityRow = [...(abilityTable?.querySelectorAll("tbody tr") ?? [])]
+      .find((row) => row.querySelector("th b")?.textContent === "DEX");
+    expect(dexterityRow?.querySelector("td:nth-child(3)")?.textContent).toBe("-1");
+    const abilityModifiers = [...(abilityTable?.querySelectorAll("tbody td:nth-child(3)") ?? [])];
+    expect(abilityModifiers.some((cell) => cell.textContent?.includes("+"))).toBe(false);
+    const acComponents = pageOne.querySelector(".reference-ac-components");
+    expect(acComponents?.textContent).not.toContain("+");
+    const dexterityAc = [...(acComponents?.querySelectorAll(".print-field") ?? [])]
+      .find((field) => field.querySelector(".print-field-label")?.textContent === "DEX");
+    expect(dexterityAc?.querySelector(".print-field-value")?.textContent).toBe("-1");
+    const movementModes = [...pageOne.querySelectorAll(".reference-vitals-movement .print-field-label")]
+      .map((label) => label.textContent);
+    expect(movementModes).toEqual(["Fly", "Climb", "Swim", "Burrow"]);
+    const speed = [...pageOne.querySelectorAll(".reference-vitals-primary .print-field")]
+      .find((field) => field.querySelector(".print-field-label")?.textContent === "Speed");
+    expect(speed?.querySelector(".print-field-value")?.textContent).toMatch(/^\d+$/);
+    const combatStats = pageOne.querySelector(".reference-bab-grapple");
+    expect(combatStats?.querySelectorAll(".print-field")).toHaveLength(3);
+    expect(combatStats?.textContent).toContain("Base Attack Bonus");
+    expect(combatStats?.textContent).toContain("Grapple");
+    expect(combatStats?.textContent).toContain("Level");
+    const combatNotes = pageOne.querySelector(".reference-conditions");
+    const combatNoteValues = [...(combatNotes?.querySelectorAll(".print-field-value") ?? [])];
+    expect(combatNoteValues).toHaveLength(3);
+    expect(combatNoteValues.every((value) => !value.textContent?.trim())).toBe(true);
+    expect(combatNotes?.textContent).toContain("Wounds / Current HP");
+    expect(combatNotes?.textContent).toContain("Nonlethal Damage");
+    expect(combatNotes?.textContent).toContain("Temporary HP");
+    expect(screen.getByText("Print Regression")).toBeDefined();
+    expect(screen.getByText("Longsword", { exact: false })).toBeDefined();
+    expect(pageOne.querySelector(".reference-attack-table thead th:last-child")?.textContent)
+      .toBe("Range / Reach");
+    const attackRows = [...pageOne.querySelectorAll(".reference-attack-table tbody tr")];
+    expect(attackRows.map((row) => row.querySelector(".reference-attack-slot")?.textContent))
+      .toEqual(["Main", "Off Hand", "Ranged"]);
+    const longswordAttack = attackRows
+      .find((row) => row.querySelector("th")?.textContent?.includes("Longsword"));
+    expect(longswordAttack?.querySelector(".reference-attack-item")?.textContent)
+      .toBe("Longsword");
+    expect(longswordAttack?.querySelector(".reference-attack-damage-value")?.textContent)
+      .toBeTruthy();
+    expect(longswordAttack?.querySelector(".reference-attack-damage-type")?.textContent)
+      .toBeTruthy();
+    expect(longswordAttack?.lastElementChild?.querySelector(".reference-attack-distance-label")?.textContent)
+      .toBe("Reach");
+    expect(longswordAttack?.lastElementChild?.querySelector(".reference-attack-distance-value")?.textContent)
+      .toBe("5 ft.");
+    const longbowAttack = attackRows
+      .find((row) => row.querySelector("th")?.textContent?.includes("Longbow"));
+    expect(longbowAttack?.lastElementChild?.querySelector(".reference-attack-distance-label")?.textContent)
+      .toBe("Range");
+    expect(longbowAttack?.lastElementChild?.querySelector(".reference-attack-distance-value")?.textContent)
+      .toBeTruthy();
+    const protectionRows = [...pageOne.querySelectorAll(".reference-protection tbody tr")];
+    expect(protectionRows).toHaveLength(4);
+    expect(protectionRows[0].querySelector(".reference-protection-item")?.textContent)
+      .toBe("Studded Leather");
+    expect(protectionRows[1].querySelector(".reference-protection-item")?.textContent)
+      .toBe("Buckler");
+    expect(protectionRows[0].cells[3].textContent).toBe("5");
+    expect(protectionRows[0].cells[4].textContent).toBe("-1");
+    expect(protectionRows[1].cells[4].textContent).toBe("-1");
+    expect(screen.getByText("12 gp")).toBeDefined();
+    expect(screen.getAllByText("Spell Save DC", { exact: true })).toHaveLength(2);
+    expect(screen.getByText("Arcane Spell Failure")).toBeDefined();
+    expect(screen.getByText("Conditional Modifiers")).toBeDefined();
+    expect(screen.queryByText("Spell List 2")).toBeNull();
+    expect(document.querySelectorAll(".reference-spell-tracker tbody tr")).toHaveLength(10);
+    expect([...document.querySelectorAll(".reference-spell-tracker tbody tr td:first-child .reference-spell-tracker-box")]
+      .every((box) => !box.textContent?.trim())).toBe(true);
+    expect(document.querySelector(".reference-spell-save-mod .print-field-value")?.textContent)
+      .toBe("+2");
+    expect(screen.queryByText("Magic Missile", { exact: true })).toBeNull();
+    expect(screen.queryByText("Shield", { exact: true })).toBeNull();
+    expect(document.querySelectorAll(".reference-worn-item-grid .reference-worn-item")).toHaveLength(12);
+    expect(document.querySelector(".reference-worn-item.has-item")?.textContent)
+      .toContain("Circlet of Insight");
+    expect(document.querySelectorAll(".reference-inventory-list .reference-inventory-row")).toHaveLength(28);
+    const sidebar = document.querySelector(".reference-xp-sidebar");
+    const feats = document.querySelector(".reference-feats");
+    const featsDetails = document.querySelector(".reference-feats-details");
+    expect(sidebar?.querySelector(".reference-languages")).toBeNull();
+    expect(sidebar?.querySelector(".reference-money")).toBeNull();
+    expect(feats?.nextElementSibling).toBe(featsDetails);
+    expect(featsDetails?.querySelector(".reference-languages")).not.toBeNull();
+    expect(featsDetails?.querySelector(".reference-money")).not.toBeNull();
+    expect([...(featsDetails?.querySelectorAll(":scope > section") ?? [])].map((section) => section.className))
+      .toEqual(["reference-languages", "reference-money"]);
+    expect(screen.getByText("Ring of Protection +1")).toBeDefined();
+    const featureColumns = document.querySelectorAll(".reference-feature-columns > div");
+    expect(featureColumns).toHaveLength(2);
+    featureColumns.forEach((column) => expect(column.querySelectorAll("p").length).toBeGreaterThanOrEqual(10));
+    expect(document.querySelectorAll(".reference-feat-list > p")).toHaveLength(14);
+    expect(document.querySelectorAll(".reference-language-list > span")).toHaveLength(10);
+    const handwrittenSwitch = screen.getByRole("switch", { name: "Handwritten" });
+    expect(handwrittenSwitch.getAttribute("aria-checked")).toBe("true");
+    expect(document.querySelector(".print-sheet-view")?.classList.contains("print-handwritten")).toBe(true);
+    expect(screen.getByText("Print Regression").closest(".print-field-value")).not.toBeNull();
+    expect(screen.getByText("Character Name").closest(".print-field-value")).toBeNull();
+    await user.click(handwrittenSwitch);
+    expect(handwrittenSwitch.getAttribute("aria-checked")).toBe("false");
+    expect(document.querySelector(".print-sheet-view")?.classList.contains("print-handwritten")).toBe(false);
+    expect(within(screen.getByRole("region", { name: "Character record sheet, page 1" }))
+      .queryByText("Crossbow Bolts", { exact: true })).toBeNull();
+    expect(screen.queryAllByText(/^____ \/ \d+$/)).toHaveLength(0);
+    expect(within(screen.getByRole("region", { name: "Character record sheet, page 1" }))
+      .getByText("Hit Points").closest(".print-field")?.querySelector(".print-field-value")?.textContent)
+      .toMatch(/^\d+$/);
+    expect(document.querySelectorAll(".reference-sheet-page")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Print / Save as PDF" })).toBeDefined();
+  });
+
+  it("shows known-spell limits for spontaneous casters on the printable sheet", () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "sorcerer", level: 1 }];
+    render(<PrintableCharacterSheet character={character} />);
+
+    const knownSpellValues = [...document.querySelectorAll(".reference-spell-tracker tbody tr td:first-child .reference-spell-tracker-box")]
+      .map((box) => box.textContent?.trim());
+    expect(knownSpellValues.slice(0, 2)).toEqual(["4", "2"]);
+    expect(knownSpellValues.slice(2).every((value) => !value)).toBe(true);
+  });
+
+  it("shows positive skill modifiers without plus signs and keeps negative signs", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.abilities = { ...character.abilities, dex: 8, int: 12 };
+    render(<PrintableCharacterSheet character={character} />);
+
+    const skillTable = document.querySelector(".reference-skill-table");
+    const skillRows = [...(skillTable?.querySelectorAll<HTMLTableRowElement>("tbody tr") ?? [])];
+    const appraiseRow = skillRows
+      .find((row) => row.querySelector("th")?.textContent?.trim() === "Appraise");
+    const balanceRow = skillRows
+      .find((row) => row.querySelector("th")?.textContent?.trim() === "Balance");
+    expect(appraiseRow?.cells[2].textContent).toBe("1");
+    expect(appraiseRow?.cells[3].textContent).toBe("1");
+    expect(appraiseRow?.cells[5].textContent).toBe("0");
+    expect(balanceRow?.cells[2].textContent).toBe("-1");
+    expect(skillTable?.textContent).not.toContain("+");
+  });
+
+  it("marks skills that cannot be used untrained without marking limited-use skills", () => {
+    render(<PrintableCharacterSheet character={cloneCharacter(initialCharacter)} />);
+
+    const skillRows = [...document.querySelectorAll<HTMLTableRowElement>(".reference-skill-table tbody tr")];
+    const decipherScript = skillRows.find((row) => row.querySelector("th")?.textContent?.trim() === "Decipher Script*");
+    const handleAnimal = skillRows.find((row) => row.querySelector("th")?.textContent?.trim() === "Handle Animal");
+    expect(decipherScript?.querySelector(".reference-trained-only-marker")?.getAttribute("title"))
+      .toBe("Cannot be used untrained");
+    expect(handleAnimal?.querySelector(".reference-trained-only-marker")).toBeNull();
+    expect(document.querySelector(".reference-page-one .reference-page-footer")?.textContent)
+      .toContain("* = trained only");
   });
 
   it("reopens a saved setup draft in editable creation mode", async () => {

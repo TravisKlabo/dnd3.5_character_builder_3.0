@@ -21,6 +21,11 @@ const ForgePanel = lazy(() => import("./components/ForgePanel").then((module) =>
 const WandsScrollPanel = lazy(() => import("./components/WandsScrollPanel").then((module) => ({ default: module.WandsScrollPanel })));
 const SpellSheets = lazy(() => import("./components/SpellSheet").then((module) => ({ default: module.SpellSheets })));
 const CreationPanel = lazy(() => import("./components/CreationPanel").then((module) => ({ default: module.CreationPanel })));
+const PrintableCharacterSheet = lazy(() =>
+  import("./components/PrintableCharacterSheet").then((module) => ({
+    default: module.PrintableCharacterSheet,
+  })),
+);
 const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItemsWarning"));
 const characterExportMetadataKey = "__dnd35CharacterBuilder";
 
@@ -1199,6 +1204,7 @@ export function App() {
           ["forge", "Forge"],
           ["crafting", "Wands & Scrolls"],
           ...(hasSpellcasting ? [["spells", "Spells"]] : []),
+          ["print", "Print"],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -1288,6 +1294,11 @@ export function App() {
             onCharacterHeightChange={(height) => setCharacter((current) => ({ ...current, height }))}
           />
         </>
+      )}
+      {visibleSheet === "print" && (
+        <Suspense fallback={<section className="panel status-message" role="status">Preparing printable character sheet...</section>}>
+          <PrintableCharacterSheet character={displayedCharacter} />
+        </Suspense>
       )}
       {visibleSheet === "equipment" && (
         <EquipmentSheet

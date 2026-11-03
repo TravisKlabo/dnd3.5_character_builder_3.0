@@ -5,9 +5,24 @@ Dragonlance options, spells, equipment, the store, the forge, custom items, and
 JSON import/export retain their familiar appearance. Targeted, tested corrections
 to inherited rules calculations are documented below.
 
-All application printing, PDF actions, preview dialogs, print URL modes, and
-print-only styles have been removed. Browser/operating-system commands are outside
-the application's control. Custom-item dialogs remain available.
+## Printable sheet
+
+- Rebuilds the authorized examples as a data-bound layout, not as background images.
+- Hard print requirement: exactly two portrait Letter pages (8.5 × 11 inches),
+  with no extra page, clipping, or overflow. Dense character data must fit those
+  pages. Browser preview containers fit; generated-PDF page-count and dense-data
+  validation are still pending.
+- The Handwritten toggle defaults on and changes generated character data to
+  Marck Script. Fixed labels, layout, and the Skills area stay in their original
+  style.
+- Page two provides 28 inventory rows above a full-width 6×2 grid for the 12
+  modeled worn-item slots.
+- Feats, racial traits/class features, gear, and first-page details use about
+  8 pt for legibility. The top Hit Points field shows maximum HP; Combat Notes
+  keeps blank, outlined write-in fields for current HP, nonlethal damage, and
+  temporary HP. The Movement column has blank write-in boxes for fly, climb,
+  swim, and burrow speeds; feet are implied in the Speed field. The Attack
+  table reports range and calculated reach per weapon in one column.
 
 ## Requirements and development
 
@@ -29,7 +44,7 @@ npm run benchmark
 and a production build. The build fails if initial JavaScript exceeds 478,500
 uncompressed bytes. Tests cover draft isolation, progression, combat calculations,
 catalog matching and invalidation, persistence, malformed imports, lazy loading,
-screen navigation, custom items, and the absence of printing APIs/styles.
+screen navigation, custom items, and printable-sheet integration and data binding.
 
 The catalog benchmark compares the old per-lookup sorting algorithm with the new
 index, checks equivalent results for every catalog entry and decorated variant,

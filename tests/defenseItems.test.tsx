@@ -55,6 +55,22 @@ describe("equipped defensive magic items", () => {
     expect(getArmorClassValues(character)).toMatchObject({ normal: 13, touch: 10, flatFooted: 13 });
   });
 
+  it("applies bracers only from Arms and does not stack them with worn armor", () => {
+    const character = hero();
+    const baseArmorClass = getArmorClassValues(character).normal;
+
+    character.equipment = { Head: "Bracers of Armor +8" };
+    expect(getArmorClassValues(character).normal).toBe(baseArmorClass);
+
+    character.equipment = { Arms: "Bracers of Armor +8" };
+    expect(getArmorClassValues(character).normal).toBe(baseArmorClass + 8);
+
+    character.equipment = { Arms: "Bracers of Armor +8", Armor: "Chain Shirt" };
+    const withArmor = getArmorClassValues(character).normal;
+    character.equipment = { Armor: "Chain Shirt" };
+    expect(withArmor).toBe(getArmorClassValues(character).normal);
+  });
+
   it.each([1, 2, 3, 4, 5])("adds +%s resistance to each save without changing base or abilities", (bonus) => {
     const character = hero();
     character.equipment.Shoulders = `Cloak of Resistance +${bonus}`;
@@ -75,7 +91,7 @@ describe("equipped defensive magic items", () => {
     };
     expect(getArmorClassValues(character)).toMatchObject({ normal: 13, touch: 13, flatFooted: 10 });
     expect(getSavingThrow(character, "will").total).toBe(1);
-    const name = "Cloak of Resistance +4";
+    const name = "Cloak of Resistance +4 replica";
     addCustomStoreItems([{ name, category: "Shoulders", price: 1, weight: "1 lb.", custom: true }]);
     try {
       character.equipment.Shoulders = name;
@@ -93,6 +109,89 @@ describe("equipped defensive magic items", () => {
     const update = vi.fn();
     equipInventoryItem(hero(), name, update);
     expect(update).toHaveBeenCalledWith({ [slot]: name });
+  });
+
+  it("equips items into all twelve worn-item slots without replacing other slots", () => {
+    const torsoItem = {
+      name: "Test Torso Item",
+      category: "Torso" as const,
+      price: 1,
+      weight: "—",
+      custom: true,
+    };
+    addCustomStoreItems([torsoItem]);
+    try {
+      const character = hero();
+      character.equipment = {};
+      const expected = [
+        ["Headband of Intellect +2", "Head"],
+        ["Goggles of Night", "Eyes"],
+        ["Amulet of Natural Armor +1", "Neck"],
+        ["Cloak of Resistance +1", "Shoulders"],
+        ["Bracers of Armor +1", "Arms"],
+        ["Gloves of Dexterity +2", "Hands"],
+        ["Ring of Protection +1", "Rings 1"],
+        ["Ring of Feather Falling", "Rings 2"],
+        ["Robe of Useful Items", "Body"],
+        ["Test Torso Item", "Torso"],
+        ["Belt of Giant Strength +2", "Waist"],
+        ["Boots of Elvenkind", "Feet"],
+      ] as const;
+
+      for (const [name] of expected) {
+        equipInventoryItem(character, name, (equipment) => {
+          character.equipment = equipment;
+        });
+      }
+
+      expect(character.equipment).toEqual(Object.fromEntries(expected.map(([name, slot]) => [slot, name])));
+    } finally {
+      deleteCustomStoreItem(torsoItem.name);
+    }
+  });
+
+  it.each(["Pearl of Power (1st)", "Necklace of Fireballs I"])(
+    "keeps slotless wondrous item %s out of worn slots",
+    (name) => {
+      const character = hero();
+      character.equipment = {};
+      const update = vi.fn();
+
+      equipInventoryItem(character, name, update);
+
+      expect(update).toHaveBeenCalledWith({ Miscellaneous: name });
+    },
+  );
+
+  it("does not silently replace an occupied miscellaneous slot", () => {
+    const character = hero();
+    character.equipment = { Miscellaneous: "Pearl of Power (1st)" };
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const update = vi.fn();
+
+    equipInventoryItem(character, "Bag of Holding", update);
+
+    expect(confirm).toHaveBeenCalledWith(
+      "Miscellaneous is occupied by Pearl of Power (1st). Replace it with Bag of Holding?",
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("does not replace either ring when both ring slots are occupied", () => {
+    const character = hero();
+    character.equipment = {
+      "Rings 1": "Ring of Protection +1",
+      "Rings 2": "Ring of Feather Falling",
+    };
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const update = vi.fn();
+
+    equipInventoryItem(character, "Ring of Acid Resistance", update);
+
+    expect(alert).toHaveBeenCalledWith(
+      "Both ring slots are occupied. Unequip a ring before equipping another.",
+    );
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("updates both AC surfaces and save breakdowns, persists equipment without derived totals, and removes bonuses on unequip", async () => {
@@ -113,6 +212,9 @@ describe("equipped defensive magic items", () => {
     expect(will.title).toContain("Cloak of Resistance +3");
     fireEvent.click(screen.getByRole("button", { name: "Equipment" }));
     await screen.findByText("EQUIPMENT SLOTS");
+    expect(screen.getByRole("textbox", { name: "Eyes equipment" })).toBeDefined();
+    expect(screen.getByRole("textbox", { name: "Body equipment" })).toBeDefined();
+    expect(screen.getByRole("textbox", { name: "Torso equipment" })).toBeDefined();
     expect(screen.getByText("Touch 15")).toBeDefined();
     fireEvent.change(screen.getByRole("textbox", { name: "Neck equipment" }), { target: { value: "" } });
     expect(screen.getByText("Flat-footed 12")).toBeDefined();

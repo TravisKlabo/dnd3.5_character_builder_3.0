@@ -1318,7 +1318,7 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Armored Mobility":
     "Crown Knights treat heavy armor as medium and reduce its armor check penalty by 1; Lily Knights treat heavy armor as medium.",
   "Aura of Courage":
-    "While conscious, become immune to fear; allies within 10 feet gain +4 on saves against fear.",
+    "Paladins and Knights of the Crown are immune to fear while conscious; their allies within 10 feet gain +4 morale on saves against fear. Knights of the Sword and their allies within 10 feet instead gain +4 morale on saves against fear, without immunity.",
   "Crown of Knighthood":
     "Add Charisma as a morale bonus on saves and +4 on compulsion saves. Once per day, gain heroic valor's +4 attack, damage, and save bonuses plus 15 temporary HP for 10 minutes.",
   "Smite Evil (1/day)":
@@ -1330,15 +1330,15 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Aura of Good":
     "The aura's strength equals Knight of the Sword or Rose levels plus cleric/mystic levels, and for a Rose Knight also Knight of the Sword levels.",
   "Turn Undead":
-    "Turn undead using the effective cleric level specified by the prestige-class feature; apply daily uses and level stacking manually.",
+    "Paladins turn undead as clerics three levels lower. Knights of the Sword turn as clerics one level lower; if also a cleric, add Knight of the Sword levels - 1 to cleric levels and gain no additional daily attempts. For a Knight of the Rose, effective cleric level equals cleric levels + Knight of the Sword levels + Knight of the Rose level - 3. Attempts per day equal 3 + Charisma modifier; 5 ranks in Knowledge (religion) add +2 on turning checks. Track uses and resolve effects manually.",
   "Soul of Knighthood":
-    "At 10th level, weapons count as holy for overcoming certain evil outsiders' damage reduction; once per day, gain holy aura for 10 rounds.",
+    "At 10th level, your weapons count as holy for overcoming certain evil outsiders' damage reduction. Once per day, you gain a self-only holy aura for 10 rounds.",
   "Rallying Cry":
-    "As a free action, up to three times per day, allies within 60 feet gain +1 morale on their next attack and +5 feet speed on their next action.",
+    "As a free action, up to three times per day, allies within 60 feet who can hear you gain +1 morale on their next attack and +5 feet speed on their next action.",
   "Detect Evil":
     "Detect evil at will as the spell.",
   "Inspire Courage +2 (2/day)":
-    "Twice per day, allies who hear the Knight speak gain +2 morale on attacks, weapon damage, and saves against fear and charm; the effect lasts while speaking and 5 rounds after.",
+    "Twice per day, allies who hear the Knight speak gain +2 morale on attacks, weapon damage, and saves against fear and charm; the effect lasts while speaking and 5 rounds after. While speaking, the Knight can fight but cannot cast spells or activate spell-completion or command-word items.",
   "Inspire Courage +3 (3/day)":
     "As Inspire Courage +2, with a +3 bonus and three uses per day.",
   "Inspire Courage +4 (4/day)":
@@ -1356,15 +1356,15 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Divine Grace":
     "Add positive Charisma modifier to all saving throws; this does not stack with a similar ability.",
   "Inspire Greatness":
-    "Inspire one willing ally within 30 feet (and one more per three Knight of the Rose levels beyond 4th), granting two d10 bonus Hit Dice, +2 competence on attacks, and +1 competence on Fortitude saves.",
+    "At Knight of the Rose level 4, inspire yourself or one willing target within 30 feet; each three Rose levels beyond 4th adds one target. Each target gains two d10 bonus Hit Dice with their Constitution modifier applied, +2 competence on attacks, and +1 competence on Fortitude saves while hearing you speak and for 5 rounds after. Each use expends an Inspire Courage use.",
   "Wisdom of the Measure":
-    "Twice per day, a DC 14 Knowledge (nobility and royalty) check can provide information equivalent to augury.",
+    "Twice per day, a successful DC 14 Knowledge (nobility and royalty) check provides augury-equivalent guidance from a cleric of your level, expressed as a historical anecdote, proverb, or law of the Measure.",
   "Final Stand":
     "Once per day, nearby allies gain 2d10 temporary hit points for rounds equal to the number of affected creatures.",
   "Knighthood’s Flower":
-    "Immune to compulsion effects (except harmless ones); once per day, gain foresight for 100 minutes, affecting only yourself.",
+    "Immune to compulsion effects (except harmless ones). Once per day, gain self-only foresight for 100 minutes; you cannot be surprised or caught flat-footed and gain +2 insight bonuses to AC and Reflex saves.",
   "Sneak Attack +1d6":
-    "Deal +1d6 precision damage when the target is denied Dexterity to AC or is flanked; apply normal sneak-attack restrictions.",
+    "Deal +1d6 sneak-attack damage when the target is denied Dexterity to AC or is flanked. Extra damage is not multiplied on a critical hit; ranged sneak attacks require the target to be within 30 feet. This stacks with sneak attack from other sources and retains the normal target and visibility restrictions.",
   "Sneak Attack +2d6":
     "The Knight of the Lily's sneak attack increases to +2d6; it stacks with sneak attack from other sources.",
   "Sneak Attack +3d6":
@@ -1378,7 +1378,7 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Unbreakable Will (+4)":
     "Become immune to fear and gain +4 morale on saves against mind-affecting magic.",
   "One Thought":
-    "At 10th level, if a Knight of the Lily within 100 feet is not surprised or flat-footed, you are not either; you cannot be flanked unless all such knights are flanked.",
+    "At Knight of the Lily level 10, you are not surprised or flat-footed if any other Knight of the Lily within 100 feet (of any level) is not. You are not considered flanked unless every other Knight of the Lily within 100 feet is also flanked; these benefits apply only to the 10th-level Knight.",
   "Detect Good":
     "Detect good at will as the spell.",
   "Smite Good (1/day)":

@@ -1837,6 +1837,7 @@ describe("character rules preserved from 2.0", () => {
     expect(getClassFeatureDisplay(proposed)).toContainEqual({
       source: "Knight of the Crown 1",
       ability: "Strength of Honor (1/day)",
+      isPrestigeClass: true,
     });
 
     proposed.skills["Knowledge (religion)"] = 3;

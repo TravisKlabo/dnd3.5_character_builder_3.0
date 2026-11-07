@@ -3384,7 +3384,9 @@ const recordedClassFeatureNames = new Set([
 ]);
 let definedClassFeatureNames: Set<string> | undefined;
 
-export function getClassFeatureDisplay(character: Character) {
+export function getClassFeatureDisplay(
+  character: Character,
+): { source: string; ability: string; isPrestigeClass?: boolean }[] {
   if (!isClassFeatureProgressionLoaded()) {
     throw new Error(
       "Class progression data must be loaded before displaying class features.",
@@ -3413,6 +3415,7 @@ export function getClassFeatureDisplay(character: Character) {
         progression.features.map((feature) => ({
           source: `${definition.name} ${progression.level}`,
           ability: feature,
+          ...(isPrestigeClass ? { isPrestigeClass: true } : {}),
         })),
       );
   });

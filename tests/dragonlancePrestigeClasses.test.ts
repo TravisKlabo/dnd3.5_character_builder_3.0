@@ -171,6 +171,136 @@ describe("Dragonlance prestige-class rules", () => {
     ]);
   });
 
+  it("displays Knight of the Rose features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "cleric", prestigeClassId: "knight-of-the-rose", level },
+      ];
+      return getClassFeatureDisplay(character);
+    };
+
+    expect(featuresAtLevel(1).map(({ ability }) => ability)).toEqual([
+      "Rallying Cry",
+      "Detect Evil",
+      "Aura of Good",
+    ]);
+    const tenthLevelFeatures = featuresAtLevel(10);
+    expect(tenthLevelFeatures.map(({ ability }) => ability)).toEqual([
+      "Rallying Cry",
+      "Detect Evil",
+      "Aura of Good",
+      "Inspire Courage +2 (2/day)",
+      "Leadership Bonus +1",
+      "Divine Grace",
+      "Inspire Greatness",
+      "Turn Undead",
+      "Inspire Courage +3 (3/day)",
+      "Wisdom of the Measure",
+      "Leadership Bonus +2",
+      "Inspire Courage +4 (4/day)",
+      "Final Stand",
+      "Knighthood’s Flower",
+    ]);
+    expect(
+      tenthLevelFeatures.find(({ ability }) => ability === "Inspire Greatness"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
+  it("displays Knight of the Sword features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "cleric", prestigeClassId: "knight-of-the-sword", level },
+      ];
+      return getClassFeatureDisplay(character);
+    };
+
+    expect(featuresAtLevel(1).map(({ ability }) => ability)).toEqual([
+      "Smite Evil (1/day)",
+      "Aura of Good",
+    ]);
+    expect(featuresAtLevel(2).map(({ ability }) => ability)).toEqual([
+      "Smite Evil (1/day)",
+      "Aura of Good",
+      "Turn Undead",
+    ]);
+    expect(featuresAtLevel(3).map(({ ability }) => ability)).toEqual([
+      "Smite Evil (1/day)",
+      "Aura of Good",
+      "Turn Undead",
+      "Aura of Courage",
+    ]);
+    expect(featuresAtLevel(5).map(({ ability }) => ability)).toContain(
+      "Smite Evil (2/day)",
+    );
+    const tenthLevelFeatures = featuresAtLevel(10);
+    expect(tenthLevelFeatures.map(({ ability }) => ability)).toEqual([
+      "Smite Evil (1/day)",
+      "Aura of Good",
+      "Turn Undead",
+      "Aura of Courage",
+      "Smite Evil (2/day)",
+      "Soul of Knighthood",
+      "Smite Evil (3/day)",
+    ]);
+    expect(
+      tenthLevelFeatures.find(({ ability }) => ability === "Soul of Knighthood"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
+  it("displays Knight of the Lily features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "fighter", prestigeClassId: "knight-of-the-lily", level },
+      ];
+      return getClassFeatureDisplay(character);
+    };
+
+    expect(featuresAtLevel(1).map(({ ability }) => ability)).toEqual([
+      "Sneak Attack +1d6",
+    ]);
+    expect(featuresAtLevel(3).map(({ ability }) => ability)).toEqual([
+      "Sneak Attack +1d6",
+      "Demoralize",
+      "Fight to the Death",
+    ]);
+    expect(featuresAtLevel(4).map(({ ability }) => ability)).toEqual([
+      "Sneak Attack +1d6",
+      "Demoralize",
+      "Fight to the Death",
+      "Sneak Attack +2d6",
+      "Unbreakable Will (+2)",
+    ]);
+    expect(featuresAtLevel(6).map(({ ability }) => ability)).toContain(
+      "Armored Mobility",
+    );
+    expect(featuresAtLevel(7).map(({ ability }) => ability)).toContain(
+      "Sneak Attack +3d6",
+    );
+    expect(featuresAtLevel(8).map(({ ability }) => ability)).toContain(
+      "Unbreakable Will (+4)",
+    );
+
+    const tenthLevelFeatures = featuresAtLevel(10);
+    expect(tenthLevelFeatures.map(({ ability }) => ability)).toEqual([
+      "Sneak Attack +1d6",
+      "Demoralize",
+      "Fight to the Death",
+      "Sneak Attack +2d6",
+      "Unbreakable Will (+2)",
+      "Armored Mobility",
+      "Sneak Attack +3d6",
+      "Unbreakable Will (+4)",
+      "One Thought",
+      "Sneak Attack +4d6",
+    ]);
+    expect(
+      tenthLevelFeatures.find(({ ability }) => ability === "One Thought"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("limits Wizard of High Sorcery advancement to wizard spellcasting", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [

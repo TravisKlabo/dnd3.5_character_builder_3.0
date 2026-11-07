@@ -305,6 +305,7 @@ export function CharacterSheet({
         ).map((ability) => ({
           source: dragonlancePrestigeClasses[character.prestigeClass!].name,
           ability,
+          isPrestigeClass: true,
         }))
       : []),
   ];
@@ -1312,14 +1313,20 @@ export function CharacterSheet({
           <div className="abilities-column">
             <h3>Special Abilities</h3>
             <div className="special-abilities-list">
-              {specialAbilities.map(({ source, ability }, index) => {
+              {specialAbilities.map((specialAbility, index) => {
+                const { source, ability } = specialAbility;
                 const skillSynergy = getClassFeatureSkillSynergy(
                   character,
                   ability,
                 );
-                const featureDescription =
-                  classFeatureDescriptions[ability] ??
-                  prestigeClassFeatureDescriptions[ability];
+                const isPrestigeClass =
+                  "isPrestigeClass" in specialAbility &&
+                  specialAbility.isPrestigeClass;
+                const featureDescription = isPrestigeClass
+                  ? prestigeClassFeatureDescriptions[ability] ??
+                    classFeatureDescriptions[ability]
+                  : classFeatureDescriptions[ability] ??
+                    prestigeClassFeatureDescriptions[ability];
                 return (
                   <div
                     className="special-ability"

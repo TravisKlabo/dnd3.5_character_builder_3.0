@@ -1,6 +1,7 @@
 # Rules Coverage Matrix
 
-**Reviewed:** 2026-10-28  
+**Reviewed:** 2026-11-07
+
 **Baseline:** Core D&D 3.5 rules represented by the project’s documented SRD scope.
 
 This is a qualitative implementation snapshot, not a certification of the ruleset.
@@ -38,6 +39,28 @@ unverified. The SRD spell catalog is cross-checked to the *Player's Handbook*
 source is unverified. These are book-level attributions; page-level citations
 and primary-source verification remain outstanding.
 | Printable/player-sheet generation | Implemented (bounded) | A data-bound, two-page Letter-portrait sheet follows the authorized character-record-sheet examples and prints identity, abilities, defenses, attacks, skills, gear, spells, traits, feats, languages, and carrying capacity; the Handwritten toggle defaults on and styles generated data except the Skills area, without changing fixed labels or layout | Hard requirement: the generated PDF is exactly two portrait Letter pages (8.5 × 11 inches each), with no extra page, clipping, or overflow. Longer character data must fit those fixed pages; empty or unsupported fields remain blank. Final PDF page-count and dense-content fit validation remains; experience points are not tracked. Printed calculations follow the existing bounded rules coverage | [PrintableCharacterSheet.tsx](../src/components/PrintableCharacterSheet.tsx), [app.test.tsx](../tests/app.test.tsx), [3.0 design](3.0-design.md) |
+
+## Dragonlance race audit
+
+The existing Dragonlance race profiles were checked against *Dragonlance
+Campaign Setting* (3.5), Chapter 1, “Races of Krynn” (pp. 11–43): Kender;
+Qualinesti, Silvanesti, Kagonesti, Dargonesti, and Dimernesti elves; Hill,
+Mountain, Dark, and Gully Dwarves; Baaz and Kapak Draconians; Irda; Minotaurs;
+and the Dragonlance Half-Elf Elvensight variant. Focused regressions cover
+source-backed ability adjustments, languages, skill/save bonuses, racial Hit
+Dice, level adjustments, and proficiencies where modeled.
+
+The audit corrected inherited Qualinesti/Silvanesti weapon proficiencies and
+secret-door reminders, dwarf-variant weapon familiarity, and Baaz/Kapak racial
+weapon and armor proficiencies (plus Baaz shield proficiency). The sourcebook
+has additional race options not represented in the selectable catalog, such as
+centaurs and half-ogres. Generic Draconian and Deep Dwarf remain unselectable
+placeholders; transformations, natural attacks, death throes, and limited-use
+spell-like abilities remain manual.
+
+Evidence: [race definitions](../src/domain.ts), [race rules](../src/rules.ts),
+[rules tests](../tests/rules.test.ts), and
+[proficiency tests](../tests/proficiency.test.tsx).
 
 ## Core class alignment restrictions
 
@@ -91,8 +114,9 @@ feat's area shapes manually; the catalog does not structure spell areas
 
 ## Recommended audit order
 
-1. Continue the source-indexed audit of core creation rules, especially
-   contextual racial traits and remaining feat prerequisites.
+1. Continue the source-indexed audit of core creation rules, focusing on
+   remaining feat prerequisites and contextual traits outside the audited
+   Dragonlance race profiles.
 2. Verify remaining class restrictions against the SRD; record the source,
    implementation location, status, and a focused regression test for each
    correction.

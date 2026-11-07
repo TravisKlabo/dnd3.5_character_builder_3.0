@@ -129,9 +129,60 @@ describe("armor and shield proficiency", () => {
       ]) {
         expect(getItemProficiencyWarning(kagonesti, item(weapon))).toBeNull();
       }
+      expect(isWeaponProficient(kagonesti, item("Longsword"))).toBe(false);
 
       kagonesti.ruleset = "core-35-srd";
       expect(getItemProficiencyWarning(kagonesti, item("Short Sword"))).toContain("not proficient");
+    });
+
+    it("inherits standard elf weapon proficiencies for Qualinesti and Silvanesti", () => {
+      for (const race of ["Qualinesti Elf", "Silvanesti Elf"]) {
+        const character = hero();
+        character.race = race;
+        character.ruleset = "dragonlance-user-pack";
+        for (const weapon of [
+          "Longsword",
+          "Rapier",
+          "Longbow",
+          "Composite Longbow",
+          "Shortbow",
+          "Composite Shortbow",
+        ]) {
+          expect(isWeaponProficient(character, item(weapon)), `${race}: ${weapon}`).toBe(true);
+        }
+
+        character.ruleset = "core-35-srd";
+        expect(isWeaponProficient(character, item("Longsword"))).toBe(false);
+      }
+    });
+
+    it("preserves dwarf weapon familiarity for Dragonlance dwarf variants", () => {
+      for (const race of ["Hill Dwarf", "Mountain Dwarf", "Dark Dwarf"]) {
+        const character = hero("fighter");
+        character.race = race;
+        character.ruleset = "dragonlance-user-pack";
+        expect(isWeaponProficient(character, item("Dwarven Waraxe")), race).toBe(true);
+        expect(isWeaponProficient(character, item("Dwarven Urgrosh")), race).toBe(true);
+      }
+    });
+
+    it("applies Baaz and Kapak racial simple-weapon and armor proficiencies", () => {
+      const baaz = hero();
+      baaz.race = "Baaz Draconian";
+      baaz.ruleset = "dragonlance-monster-classes";
+      expect(isWeaponProficient(baaz, item("Spear"))).toBe(true);
+      expect(isWeaponProficient(baaz, item("Longsword"))).toBe(true);
+      expect(isArmorShieldProficient(baaz, item("Chain Shirt"))).toBe(true);
+      expect(isArmorShieldProficient(baaz, item("Heavy Steel Shield"))).toBe(true);
+
+      const kapak = hero();
+      kapak.race = "Kapak Draconian";
+      kapak.ruleset = "dragonlance-monster-classes";
+      expect(isWeaponProficient(kapak, item("Spear"))).toBe(true);
+      expect(isWeaponProficient(kapak, item("Short Sword"))).toBe(true);
+      expect(isWeaponProficient(kapak, item("Shortbow"))).toBe(true);
+      expect(isArmorShieldProficient(kapak, item("Chain Shirt"))).toBe(true);
+      expect(isArmorShieldProficient(kapak, item("Heavy Steel Shield"))).toBe(false);
     });
 
     it("grants sea elves their source-listed trident, longspear, and net proficiencies", () => {

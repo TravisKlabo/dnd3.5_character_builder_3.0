@@ -1918,6 +1918,10 @@ function finesseShieldPenalty(character: Character) {
 
 export function getArmorShieldProficiencies(character: Character, excludingSlot?: string) {
   const proficiencies = new Set(getChosenFeats(character, excludingSlot));
+  const race = getRaceDefinitionForCharacter(character);
+  for (const proficiency of race?.racialArmorProficiencies ?? [])
+    proficiencies.add(`armor-proficiency-${proficiency}`);
+  if (race?.racialShieldProficiency) proficiencies.add("shield-proficiency");
   for (const { classId } of getBaseClassLevels(character)) {
     if (["fighter", "paladin", "cleric"].includes(classId)) proficiencies.add("armor-proficiency-heavy");
     if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger"].includes(classId)) {
@@ -2440,6 +2444,7 @@ export function getBaseEquipmentName(name: string) {
 const elfWeaponNames = new Set([
   "Longsword", "Rapier", "Longbow", "Composite Longbow", "Shortbow", "Composite Shortbow",
 ]);
+const elfWeaponRaceIds = new Set(["elf", "qualinesti-elf", "silvanesti-elf"]);
 const bardWeaponNames = new Set([
   "Longsword", "Rapier", "Sap", "Short Sword", "Shortbow", "Whip",
 ]);
@@ -2473,7 +2478,7 @@ function getWeaponProficiencyCategory(character: Character, item: StoreItem) {
   if (item.category !== "Weapons") return undefined;
   const baseName = getBaseEquipmentName(item.name);
   const race = getRaceDefinitionForCharacter(character);
-  if (race?.id === "elf" && elfWeaponNames.has(baseName)) return "Martial";
+  if (elfWeaponRaceIds.has(race?.id ?? "") && elfWeaponNames.has(baseName)) return "Martial";
 
   let proficiency = item.custom
     ? item.proficiency
@@ -2483,7 +2488,8 @@ function getWeaponProficiencyCategory(character: Character, item: StoreItem) {
         ? "Martial"
         : "Exotic";
   if (
-    (race?.id === "dwarf" && ["Dwarven Waraxe", "Dwarven Urgrosh"].includes(baseName)) ||
+    (["dwarf", "hill-dwarf", "mountain-dwarf", "dark-dwarf"].includes(race?.id ?? "") &&
+      ["Dwarven Waraxe", "Dwarven Urgrosh"].includes(baseName)) ||
     (race?.id === "gnome" && baseName === "Gnome Hooked Hammer")
   ) {
     proficiency = "Martial";
@@ -2539,7 +2545,8 @@ export function isWeaponProficient(
   return true;
   const baseName = getBaseEquipmentName(item.name);
   const race = getRaceDefinitionForCharacter(character);
-  if (race?.id === "elf" && elfWeaponNames.has(baseName)) return true;
+  if (race?.racialSimpleWeaponProficiency && proficiency === "Simple") return true;
+  if (elfWeaponRaceIds.has(race?.id ?? "") && elfWeaponNames.has(baseName)) return true;
   if (race?.racialWeaponProficiencies?.includes(baseName)) return true;
   if (hasPrestigeClassWeaponProficiency(character, proficiency, baseName)) return true;
   const prestigeWeaponProficiency = character.classLevels.some((entry) => {

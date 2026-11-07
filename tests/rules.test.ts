@@ -1093,6 +1093,8 @@ describe("character rules preserved from 2.0", () => {
     expect(getRacialSkillBonus(minotaur, "Intimidate")).toBe(2);
     expect(getRacialSkillBonus(minotaur, "Swim")).toBe(2);
     expect(getRacialSkillBonus(minotaur, "Use Rope")).toBe(2);
+    expect(raceDefinitions.minotaur.traits?.[0])
+      .toContain("secondary attack: –5, half Str mod");
     expect(getAvailableBonusLanguages(minotaur, "dragonlance-monster-classes"))
       .toEqual(["Kalinese", "Nordmaarian", "Ogre", "Saifhum"]);
 
@@ -1137,6 +1139,8 @@ describe("character rules preserved from 2.0", () => {
     const kapak = changeRace(dragonlanceCharacter, "Kapak Draconian");
     expect(kapak.abilities).toMatchObject({ dex: 12, con: 12, int: 8, wis: 8 });
     expect(getEffectiveCharacterLevel(kapak)).toBe(5);
+    expect(raceDefinitions["kapak-draconian"].traits)
+      .toContain("Low metabolism: needs one-tenth normal food and water");
     expect(getBaseAttackBonus(kapak)).toBe(3);
     expect(saves.map((save) => getBaseSave(kapak, save))).toEqual([5, 3, 3]);
     expect(getRacialLanguages(kapak)).toEqual(["Common"]);
@@ -1155,11 +1159,15 @@ describe("character rules preserved from 2.0", () => {
     expect(getRacialSkillBonus(qualinesti, "Sense Motive")).toBe(1);
     expect(getRacialSkillBonus(qualinesti, "Listen")).toBe(2);
     expect(getSavingThrow(qualinesti, "will", ["enchantment"]).total).toBe(2);
+    expect(getRaceDefinitionForCharacter(qualinesti)?.traits)
+      .toContain("Search for secret/concealed doors within 5 ft.");
 
     const silvanesti = changeRace(dragonlanceCharacter, "Silvanesti Elf");
     expect(silvanesti.abilities).toMatchObject({ str: 10, dex: 12, con: 8, int: 12, cha: 8 });
     expect(getRacialSkillBonus(silvanesti, "Knowledge (arcana)")).toBe(1);
     expect(getRacialSkillBonus(silvanesti, "Spellcraft")).toBe(1);
+    expect(getRaceDefinitionForCharacter(silvanesti)?.traits)
+      .toContain("Search for secret/concealed doors within 5 ft.");
 
     const coreHalfElf = cloneCharacter(initialCharacter);
     coreHalfElf.race = "Half-elf";
@@ -1285,6 +1293,10 @@ describe("character rules preserved from 2.0", () => {
     expect(getSavingThrow(dimernesti, "fortitude", ["sleep"]).immune).toBe(true);
     expect(formatRaceDetails(raceDefinitions["dargonesti-elf"]))
       .toContain("Swim 30 ft.; Level adjustment +1");
+    expect(raceDefinitions["dargonesti-elf"].traits)
+      .toContain("Porpoise form 3/day, aquatic environments only; indefinite; no HP restored");
+    expect(raceDefinitions["dimernesti-elf"].traits)
+      .toContain("Surface sensitivity: –1 attacks/saves/checks after >24h out of water; 1h underwater per 24h mitigates");
   });
 
   it("uses core racial language slots and bonus-language lists", () => {

@@ -163,6 +163,9 @@ export interface RaceDefinition {
   racialDodgeACBonuses?: Partial<Record<CombatTargetType, number>>
   racialNaturalArmorBonus?: number
   racialWeaponProficiencies?: string[]
+  racialSimpleWeaponProficiency?: boolean
+  racialArmorProficiencies?: ('light' | 'medium' | 'heavy')[]
+  racialShieldProficiency?: boolean
   levelAdjustment?: number
   size?: 'Fine' | 'Diminutive' | 'Tiny' | 'Small' | 'Medium' | 'Large' | 'Huge' | 'Gargantuan' | 'Colossal'
   speed?: number
@@ -441,6 +444,9 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     racialImmunities: ['sleep'],
     racialNaturalArmorBonus: 2,
     racialWeaponProficiencies: ['Longsword'],
+    racialSimpleWeaponProficiency: true,
+    racialArmorProficiencies: ['light'],
+    racialShieldProficiency: true,
     traits: [
       'Dragon type: darkvision 60 ft., low-light vision, immune to sleep and paralysis',
       'Natural attacks: two claws (1d4) and bite (1d4)',
@@ -473,6 +479,8 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     racialImmunities: ['sleep'],
     racialNaturalArmorBonus: 2,
     racialWeaponProficiencies: ['Short Sword', 'Shortbow'],
+    racialSimpleWeaponProficiency: true,
+    racialArmorProficiencies: ['light'],
     traits: [
       'Dragon type: darkvision 60 ft., low-light vision, immune to sleep and paralysis',
       'Natural attack: bite (1d4)',
@@ -480,13 +488,50 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
       'Immune to disease; Run bonus feat; glide without falling damage, up to 4 feet horizontally per foot descended',
       'Inspired by Dragons: +1 morale on attacks and saves under a dragon commander; low metabolism; spell resistance 11 + class level',
       'Female healing saliva heals 2d6 once per creature every 4 hours; male poison saliva (Fortitude DC 11 + Constitution modifier) deals 1d6 Dexterity damage initially and secondarily',
+      'Low metabolism: needs one-tenth normal food and water',
       'Bonus proficiencies: simple weapons, short sword, shortbow, and light armor; sneak attack +1d6',
       'Automatic language Common; bonus languages Goblin, Nerakese, and Ogre; favored class Rogue',
       'First racial Hit Die has maximum hit points; racial Hit Dice grant one feat based on total Hit Dice',
     ],
   },
-  'qualinesti-elf': { id: 'qualinesti-elf', name: 'Qualinesti Elf', source: 'dragonlance-user-pack', size: 'Medium', abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2, Diplomacy: 1, 'Sense Motive': 1 }, racialSituationalSaveBonuses: { enchantment: 2 }, racialImmunities: ['sleep'], traits: ['Elvensight (low-light vision and darkvision 30 ft.)', 'Immune to magical sleep', 'Elven weapon proficiencies'] },
-  'silvanesti-elf': { id: 'silvanesti-elf', name: 'Silvanesti Elf', source: 'dragonlance-user-pack', size: 'Medium', abilityModifiers: { dex: 2, con: -2, int: 2, cha: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2, 'Knowledge (arcana)': 1, Spellcraft: 1 }, racialSituationalSaveBonuses: { enchantment: 2 }, racialImmunities: ['sleep'], traits: ['Elvensight (low-light vision and darkvision 30 ft.)', 'Immune to magical sleep', 'Elven weapon proficiencies'] },
+  'qualinesti-elf': {
+    id: 'qualinesti-elf',
+    name: 'Qualinesti Elf',
+    source: 'dragonlance-user-pack',
+    size: 'Medium',
+    abilityModifiers: { dex: 2, con: -2 },
+    racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2, Diplomacy: 1, 'Sense Motive': 1 },
+    racialSituationalSaveBonuses: { enchantment: 2 },
+    racialImmunities: ['sleep'],
+    traits: [
+      'Elvensight (low-light vision and darkvision 30 ft.)',
+      'Immune to magical sleep',
+      'Elven weapon proficiencies',
+      'Search for secret/concealed doors within 5 ft.',
+    ],
+  },
+  'silvanesti-elf': {
+    id: 'silvanesti-elf',
+    name: 'Silvanesti Elf',
+    source: 'dragonlance-user-pack',
+    size: 'Medium',
+    abilityModifiers: { dex: 2, con: -2, int: 2, cha: -2 },
+    racialSkillBonuses: {
+      Listen: 2,
+      Search: 2,
+      Spot: 2,
+      'Knowledge (arcana)': 1,
+      Spellcraft: 1,
+    },
+    racialSituationalSaveBonuses: { enchantment: 2 },
+    racialImmunities: ['sleep'],
+    traits: [
+      'Elvensight (low-light vision and darkvision 30 ft.)',
+      'Immune to magical sleep',
+      'Elven weapon proficiencies',
+      'Search for secret/concealed doors within 5 ft.',
+    ],
+  },
   'kagonesti-elf': {
     id: 'kagonesti-elf',
     name: 'Kagonesti Elf',
@@ -545,8 +590,8 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
       'Elvensight (low-light vision and darkvision 60 ft.)',
       'Free Martial Weapon Proficiency (trident, longspear) and Exotic Weapon Proficiency (net)',
       'Listen, Search, and Spot +2; Seasense +2 to notice water conditions and intuit depth',
-      'Alternate form: porpoise 3/day',
-      'Surface sensitivity: –2 to attacks, saves, and checks after 24 hours out of water',
+      'Porpoise form 3/day, aquatic environments only; indefinite; no HP restored',
+      'Surface sensitivity: –2 attacks/saves/checks after >24h out of water; 1h underwater per 24h mitigates',
       'Favored class: Fighter',
     ],
   },
@@ -570,8 +615,8 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
       'Elvensight (low-light vision and darkvision 30 ft.)',
       'Free Martial Weapon Proficiency (trident, longspear) and Exotic Weapon Proficiency (net)',
       'Listen, Search, and Spot +2; Seasense +2 to notice water conditions and intuit depth',
-      'Alternate form: sea otter 3/day',
-      'Surface sensitivity: –1 to attacks, saves, and checks after 24 hours out of water',
+      'Medium sea otter form 3/day; indefinite; no HP restored',
+      'Surface sensitivity: –1 attacks/saves/checks after >24h out of water; 1h underwater per 24h mitigates',
       'Favored class: Barbarian',
     ],
   },
@@ -597,7 +642,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     ],
   },
   'deep-dwarf': { id: 'deep-dwarf', name: 'Deep Dwarf', source: 'dragonlance-user-pack', selectable: false, size: 'Medium', abilityModifiers: { con: 2, cha: -2 }, traits: ['Legacy generic placeholder; use Dark Dwarf for the sourcebook-specific dwarf variant.'] },
-  minotaur: { id: 'minotaur', name: 'Minotaur', source: 'dragonlance-user-pack', levelAdjustment: 2, size: 'Medium', speed: 30, abilityModifiers: { str: 4, dex: -2, int: -2, cha: -2 }, racialSkillBonuses: { Intimidate: 2, Swim: 2, 'Use Rope': 2 }, racialNaturalArmorBonus: 2, traits: ['Gore (1d6; 2d6 on a charge)', 'Scent may be selected as a feat', 'Favored class: Fighter'] },
+  minotaur: { id: 'minotaur', name: 'Minotaur', source: 'dragonlance-user-pack', levelAdjustment: 2, size: 'Medium', speed: 30, abilityModifiers: { str: 4, dex: -2, int: -2, cha: -2 }, racialSkillBonuses: { Intimidate: 2, Swim: 2, 'Use Rope': 2 }, racialNaturalArmorBonus: 2, traits: ['Gore: 1d6 + Str mod; charge 2d6 + 1.5× Str mod; secondary attack: –5, half Str mod', 'Scent may be selected as a feat', 'Favored class: Fighter'] },
   irda: { id: 'irda', name: 'Irda', source: 'dragonlance-user-pack', levelAdjustment: 2, size: 'Medium', speed: 30, abilityModifiers: { con: -2, int: 2, cha: 2 }, racialSpellLikeAbilities: [
     { name: 'Dancing Lights', usesPerDay: 1, casterLevel: 'character', spellLevel: 0, school: 'evocation' },
     { name: 'Detect Magic', usesPerDay: 1, casterLevel: 'character', spellLevel: 0, school: 'divination' },

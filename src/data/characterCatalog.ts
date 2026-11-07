@@ -1320,7 +1320,7 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Aura of Courage":
     "Paladins and Knights of the Crown are immune to fear while conscious; their allies within 10 feet gain +4 morale on saves against fear. Knights of the Sword and their allies within 10 feet instead gain +4 morale on saves against fear, without immunity.",
   "Crown of Knighthood":
-    "Add Charisma as a morale bonus on saves and +4 on compulsion saves. Once per day, gain heroic valor's +4 attack, damage, and save bonuses plus 15 temporary HP for 10 minutes.",
+    "At 10th level, add your Charisma modifier as a morale bonus on all saves. Saves against compulsion also gain an additional +4 bonus, replacing the separate Honorable Will ability. Once per day, gain heroic valor's +4 morale bonuses on attacks, weapon damage, and saves, plus 15 temporary hit points for 10 minutes.",
   "Smite Evil (1/day)":
     "Once per day, add positive Charisma to one melee attack and deal extra damage equal to Knight of the Sword level; a failed alignment match still expends the use.",
   "Smite Evil (2/day)":

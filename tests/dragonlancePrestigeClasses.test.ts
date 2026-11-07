@@ -104,6 +104,61 @@ describe("Dragonlance prestige-class rules", () => {
     expect(getKnownSpellLimit(sorcerer, "sorcerer", 5, 3)).toBeGreaterThan(0);
   });
 
+  it("displays Knight of the Crown features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "fighter", prestigeClassId: "knight-of-the-crown", level },
+      ];
+      return getClassFeatureDisplay(character);
+    };
+
+    expect(featuresAtLevel(1).map(({ ability }) => ability)).toEqual([
+      "Strength of Honor (1/day)",
+      "Knightly Courage",
+    ]);
+    expect(featuresAtLevel(4).map(({ ability }) => ability)).toEqual([
+      "Strength of Honor (1/day)",
+      "Knightly Courage",
+      "Heroic Initiative +1",
+      "Fight to the Death",
+      "Honorable Will",
+      "Strength of Honor (2/day)",
+    ]);
+    expect(featuresAtLevel(7).map(({ ability }) => ability)).toEqual([
+      "Strength of Honor (1/day)",
+      "Knightly Courage",
+      "Heroic Initiative +1",
+      "Fight to the Death",
+      "Honorable Will",
+      "Strength of Honor (2/day)",
+      "Heroic Initiative +2",
+      "Might of Honor",
+      "Armored Mobility",
+      "Strength of Honor (3/day)",
+    ]);
+    const tenthLevelFeatures = featuresAtLevel(10);
+    expect(tenthLevelFeatures.map(({ ability }) => ability)).toEqual([
+      "Strength of Honor (1/day)",
+      "Knightly Courage",
+      "Heroic Initiative +1",
+      "Fight to the Death",
+      "Honorable Will",
+      "Strength of Honor (2/day)",
+      "Heroic Initiative +2",
+      "Might of Honor",
+      "Armored Mobility",
+      "Strength of Honor (3/day)",
+      "Heroic Initiative +3",
+      "Aura of Courage",
+      "Crown of Knighthood",
+      "Strength of Honor (4/day)",
+    ]);
+    expect(
+      tenthLevelFeatures.find(({ ability }) => ability === "Crown of Knighthood"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("displays Knight of the Thorn features at their sourcebook levels", () => {
     const character = cloneCharacter(initialCharacter);
     const featuresAtLevel = (level: number) => {

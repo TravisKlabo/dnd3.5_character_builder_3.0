@@ -1056,6 +1056,14 @@ export const featCatalog: FeatDefinition[] = ([
     fighterBonus: true,
   },
   {
+    id: "ride-by-attack",
+    name: "Ride-By Attack",
+    description:
+      "After a mounted charge, continue straight up to twice your mounted speed; neither you nor your mount provokes from the target. Track movement manually.",
+    prerequisites: { feats: ["mounted-combat"], skills: { Ride: 1 } },
+    fighterBonus: true,
+  },
+  {
     id: "run",
     name: "Run",
     description: "Move five times your normal speed when running.",
@@ -1169,6 +1177,17 @@ export const featCatalog: FeatDefinition[] = ([
     name: "Greater Spell Penetration",
     description: "+2 more on checks vs. spell resistance.",
     prerequisites: { feats: ["spell-penetration"] },
+  },
+  {
+    id: "spirited-charge",
+    name: "Spirited Charge",
+    description:
+      "On a mounted charge, deal double melee damage or triple with a lance; apply manually.",
+    prerequisites: {
+      feats: ["mounted-combat", "ride-by-attack"],
+      skills: { Ride: 1 },
+    },
+    fighterBonus: true,
   },
   {
     id: "spring-attack",

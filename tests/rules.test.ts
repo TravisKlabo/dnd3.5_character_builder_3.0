@@ -2125,6 +2125,46 @@ describe("character rules preserved from 2.0", () => {
     expect(availableIds(true)).toContain("mounted-archery");
   });
 
+  it("enforces the Ride-By Attack and Spirited Charge prerequisite chain", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 4 }];
+    const rideByAttack = featCatalog.find((feat) => feat.id === "ride-by-attack");
+    const spiritedCharge = featCatalog.find((feat) => feat.id === "spirited-charge");
+    const slots = getFeatSlots(character);
+    const thirdLevelGeneral = slots.find((slot) => slot.id === "general-3");
+    const secondLevelFighter = slots.find((slot) => slot.id === "fighter-2");
+    const fourthLevelFighter = slots.find((slot) => slot.id === "fighter-4");
+    if (
+      !rideByAttack ||
+      !spiritedCharge ||
+      !thirdLevelGeneral ||
+      !secondLevelFighter ||
+      !fourthLevelFighter
+    )
+      throw new Error("Missing mounted feat progression fixture.");
+
+    const availableIds = (slot: NonNullable<typeof thirdLevelGeneral>) =>
+      getAvailableFeats(character, slot, slot.id).map((feat) => feat.id);
+
+    expect(rideByAttack.fighterBonus).toBe(true);
+    expect(spiritedCharge.fighterBonus).toBe(true);
+    expect(featQualifies(character, rideByAttack, thirdLevelGeneral)).toBe(false);
+    expect(featQualifies(character, spiritedCharge, thirdLevelGeneral)).toBe(false);
+
+    character.skills.Ride = 1;
+    expect(featQualifies(character, rideByAttack, thirdLevelGeneral)).toBe(false);
+    character.featSelections = { "general-1": "mounted-combat" };
+    expect(featQualifies(character, rideByAttack, thirdLevelGeneral)).toBe(true);
+    expect(availableIds(thirdLevelGeneral)).toContain("ride-by-attack");
+    expect(featQualifies(character, spiritedCharge, thirdLevelGeneral)).toBe(false);
+
+    character.featSelections["fighter-2"] = "ride-by-attack";
+    expect(featQualifies(character, spiritedCharge, thirdLevelGeneral)).toBe(true);
+    expect(availableIds(thirdLevelGeneral)).toContain("spirited-charge");
+    expect(featQualifies(character, spiritedCharge, fourthLevelFighter)).toBe(true);
+    expect(availableIds(fourthLevelFighter)).toContain("spirited-charge");
+  });
+
   it("checks all direct prerequisites in Great Cleave and Greater Two-Weapon Fighting chains", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [{ classId: "fighter", level: 11 }];

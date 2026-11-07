@@ -5,7 +5,10 @@ import {
   initialCharacter,
 } from "../src/domain";
 import {
+  getCasterLevel,
+  getDailySpellSlots,
   getEffectiveSpellcastingClassLevel,
+  getKnownSpellLimit,
   getPrestigeClassEligibilityErrors,
   getPrestigeClassLevelUpSelectionErrors,
   getPrestigeSpellcastingClassOptions,
@@ -43,6 +46,61 @@ describe("Dragonlance prestige-class rules", () => {
 
     expect(getEffectiveSpellcastingClassLevel(character, "wizard")).toBe(7);
     expect(getEffectiveSpellcastingClassLevel(character, "cleric")).toBe(4);
+  });
+
+  it("matches the sourcebook spellcasting advancement for all five progressing prestige classes", () => {
+    const progressions = [
+      { classId: "cleric", prestigeClassId: "knight-of-the-sword", expectedLevel: 5 },
+      { classId: "cleric", prestigeClassId: "knight-of-the-rose", expectedLevel: 5 },
+      { classId: "cleric", prestigeClassId: "knight-of-the-skull", expectedLevel: 4 },
+      { classId: "wizard", prestigeClassId: "knight-of-the-thorn", expectedLevel: 5 },
+      { classId: "wizard", prestigeClassId: "wizard-of-high-sorcery", expectedLevel: 5 },
+    ] as const;
+
+    for (const progression of progressions) {
+      const character = cloneCharacter(initialCharacter);
+      character.classLevels = [
+        { classId: progression.classId, level: 4 },
+        {
+          classId: progression.classId,
+          prestigeClassId: progression.prestigeClassId,
+          level: 1,
+        },
+      ];
+
+      expect(
+        getEffectiveSpellcastingClassLevel(character, progression.classId),
+      ).toBe(progression.expectedLevel);
+      expect(
+        getCasterLevel(progression.classId, 4, character),
+      ).toBe(progression.expectedLevel);
+    }
+  });
+
+  it("applies prestige spellcasting advancement to slots and spells known", () => {
+    const cleric = cloneCharacter(initialCharacter);
+    cleric.abilities.wis = 16;
+    cleric.classLevels = [
+      { classId: "cleric", level: 4 },
+      { classId: "cleric", prestigeClassId: "knight-of-the-sword", level: 1 },
+    ];
+    expect(getDailySpellSlots(cleric, "cleric", 4, 3)).toBeGreaterThan(0);
+
+    const wizard = cloneCharacter(initialCharacter);
+    wizard.abilities.int = 16;
+    wizard.classLevels = [
+      { classId: "wizard", level: 4 },
+      { classId: "wizard", prestigeClassId: "knight-of-the-thorn", level: 1 },
+    ];
+    expect(getDailySpellSlots(wizard, "wizard", 4, 3)).toBeGreaterThan(0);
+
+    const sorcerer = cloneCharacter(initialCharacter);
+    sorcerer.abilities.cha = 16;
+    sorcerer.classLevels = [
+      { classId: "sorcerer", level: 5 },
+      { classId: "sorcerer", prestigeClassId: "knight-of-the-thorn", level: 1 },
+    ];
+    expect(getKnownSpellLimit(sorcerer, "sorcerer", 5, 3)).toBeGreaterThan(0);
   });
 
   it("limits Wizard of High Sorcery advancement to wizard spellcasting", () => {

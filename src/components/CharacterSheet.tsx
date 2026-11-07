@@ -165,7 +165,7 @@ export function CharacterSheet({
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   onCharacterFeatureChange: (
-    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies">>,
+    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses">>,
   ) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
@@ -261,6 +261,7 @@ export function CharacterSheet({
   ).values()];
   const movement = getMovement(character);
   const characterRace = getRaceDefinitionForCharacter(character) ?? raceDefinitions.human;
+  const racialSpellLikeAbilities = getRacialSpellLikeAbilities(character);
   const specialAbilities = [
     ...(characterRace.traits ?? []).map((ability) => ({
       source: characterRace.name,
@@ -270,7 +271,7 @@ export function CharacterSheet({
       source: characterRace.name,
       ability,
     })),
-    ...getRacialSpellLikeAbilities(character).map((ability) => ({
+    ...racialSpellLikeAbilities.map((ability) => ({
       source: characterRace.name,
       ability: `${ability.name} (${ability.usesPerDay}/day; caster level ${ability.casterLevel}${ability.savingThrow ? `; ${ability.savingThrow} DC ${ability.saveDC}${ability.racialSaveDcBonus ? ` (+${ability.racialSaveDcBonus} racial ${ability.school} bonus)` : ""}` : ""}${ability.notes ? `; ${ability.notes}` : ""})`,
     })),
@@ -1346,6 +1347,43 @@ export function CharacterSheet({
                 );
               })}
             </div>
+            {racialSpellLikeAbilities.length > 0 && (
+              <div
+                className="special-abilities-list"
+                role="group"
+                aria-label="Racial spell-like ability uses"
+              >
+                {racialSpellLikeAbilities.map((ability) => {
+                  const key = `${characterRace.id}:${ability.name}`;
+                  const uses = character.racialSpellLikeUses?.filter((usedKey) => usedKey === key).length ?? 0;
+                  return (
+                    <div className="special-ability" key={key}>
+                      <span>{ability.name}: {uses}/{ability.usesPerDay} used</span>
+                      <button
+                        type="button"
+                        disabled={!finalized || uses >= ability.usesPerDay}
+                        onClick={() => onCharacterFeatureChange({
+                          racialSpellLikeUses: [...(character.racialSpellLikeUses ?? []), key],
+                        })}
+                      >
+                        Use {ability.name}
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="quiet-button"
+                  disabled={!finalized ||
+                    !character.racialSpellLikeUses?.length}
+                  onClick={() => onCharacterFeatureChange({
+                    racialSpellLikeUses: [],
+                  })}
+                >
+                  Reset racial daily uses
+                </button>
+              </div>
+            )}
             {!creationMode && getBaseClassLevel(character, "ranger") > 0 && (
               <RangerFavoredEnemies
                 character={character}

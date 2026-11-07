@@ -565,11 +565,43 @@ it("shows Gnome racial spell-like abilities and the applicable save DC", async (
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
   render(<App />);
 
-  expect((await screen.findByText(/Speak with Animals/)).textContent)
+  expect((await screen.findByText(/Burrowing mammals only/)).textContent)
     .toContain("Burrowing mammals only; duration 1 minute.");
-  expect((await screen.findByText(/Ghost Sound/)).textContent)
+  expect((await screen.findByText(/Will disbelief DC 13/)).textContent)
     .toContain("Will disbelief DC 13 (+1 racial illusion bonus)");
   expect(screen.queryByText("Spell-like abilities (1/day)")).toBeNull();
+});
+
+it("tracks and resets daily racial spell-like ability uses", async () => {
+  vi.spyOn(window, "alert").mockImplementation(() => {});
+  const character = cloneCharacter(initialCharacter);
+  character.race = "Gnome";
+  character.abilities.cha = 14;
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+  render(<App />);
+
+  const tracker = await screen.findByRole("group", {
+    name: "Racial spell-like ability uses",
+  });
+  const useAbility = within(tracker).getByRole("button", {
+    name: "Use Speak with Animals",
+  });
+  expect(within(tracker).getByText("Speak with Animals: 0/1 used")).toBeTruthy();
+  fireEvent.click(useAbility);
+
+  expect(await within(tracker).findByText("Speak with Animals: 1/1 used")).toBeTruthy();
+  expect(within(tracker).getByRole<HTMLButtonElement>("button", {
+    name: "Use Speak with Animals",
+  }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(readStoredCharacter().racialSpellLikeUses).toEqual(["gnome:Speak with Animals"]);
+
+  fireEvent.click(within(tracker).getByRole("button", {
+    name: "Reset racial daily uses",
+  }));
+  expect(await within(tracker).findByText("Speak with Animals: 0/1 used")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(readStoredCharacter().racialSpellLikeUses).toEqual([]);
 });
 
 it("shows the Elf secret-door Search trigger", async () => {

@@ -34,13 +34,27 @@ describe("character persistence", () => {
       subtype: "Elf",
       bonusTargetLevel: 1,
     }];
+    character.race = "Gnome";
     character.shieldBlindingUsesByItem = {
       "Blinding +1 Heavy Steel Shield (Medium)": 1,
     };
+    character.racialSpellLikeUses = ["gnome:Speak with Animals"];
     character.equipment["Rings 1"] = "Ring of Force Shield";
     character.forceShieldActive = true;
     saveCharacter(character);
     expect(loadSavedCharacter()).toEqual({ character, saved: true, setupDraft: false });
+  });
+
+  it("validates saved racial spell-like ability uses", () => {
+    const character = cloneCharacter(initialCharacter);
+    expect(parseCharacter({
+      ...character,
+      racialSpellLikeUses: ["gnome:Speak with Animals"],
+    }).racialSpellLikeUses).toEqual(["gnome:Speak with Animals"]);
+    expect(() => parseCharacter({
+      ...character,
+      racialSpellLikeUses: [1],
+    })).toThrow();
   });
 
   it("round-trips whether a saved character is still in setup", () => {

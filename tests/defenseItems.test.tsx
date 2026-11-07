@@ -381,4 +381,15 @@ describe("equipped defensive magic items", () => {
       "Will3012",
     ]);
   });
+
+  it("prints racial spell-like ability uses already spent", () => {
+    const character = hero();
+    character.race = "Gnome";
+    character.abilities.cha = 14;
+    character.racialSpellLikeUses = ["gnome:Speak with Animals"];
+    render(<PrintableCharacterSheet character={character} />);
+
+    expect(screen.getByText(/Speak with Animals \(1\/1 used;/)).toBeDefined();
+    expect(screen.getByText(/Dancing Lights \(0\/1 used;/)).toBeDefined();
+  });
 });

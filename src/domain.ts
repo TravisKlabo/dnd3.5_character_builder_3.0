@@ -333,6 +333,7 @@ export interface Character {
   clericDomainExpended?: number[]
   mysticDomain?: ClericDomainId
   expendedSpellSlotsByClass?: Partial<Record<ClassId, Record<string, number[]>>>
+  racialSpellLikeUses?: string[]
   equipment: Record<string, string>
   mainWeaponGrip?: 'one-handed' | 'two-handed'
   doubleWeaponMode?: boolean

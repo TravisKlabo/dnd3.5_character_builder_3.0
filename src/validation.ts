@@ -242,7 +242,8 @@ export function assertCharacter(value: unknown): asserts value is Character {
       (value.hasMedallionOfFaith !== undefined &&
         typeof value.hasMedallionOfFaith !== "boolean") ||
       !["feats", "knownSpells", "preparedSpells", "languages"].every((key) => isStringList(value[key])) ||
-      (value.speakLanguages !== undefined && !isStringList(value.speakLanguages)) ||
+      !["speakLanguages", "classFeatures", "racialSpellLikeUses"].every((key) =>
+        value[key] === undefined || isStringList(value[key])) ||
       !isMap(value.featSelections, isString) ||
       (value.featWeaponSelections !== undefined && !isMap(value.featWeaponSelections, isString)) ||
       (value.featSkillSelections !== undefined && !isMap(value.featSkillSelections, isString)) ||
@@ -307,7 +308,6 @@ export function assertCharacter(value: unknown): asserts value is Character {
               value.knightOfTheCrownState.strengthOfHonorUsesUsed > 4)) ||
           (value.knightOfTheCrownState.crownOfKnighthoodUsed !== undefined &&
             typeof value.knightOfTheCrownState.crownOfKnighthoodUsed !== "boolean"))) ||
-      (value.classFeatures !== undefined && !isStringList(value.classFeatures)) ||
       (value.knownSpellClasses !== undefined &&
         !isMap(value.knownSpellClasses, (entry) => isString(entry) && Object.hasOwn(classDefinitions, entry))) ||
       !["knownSpellsByClass", "preparedSpellsByClass"].every((key) =>

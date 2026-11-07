@@ -508,9 +508,11 @@ export function PrintableCharacterSheet({ character }: Props) {
   const racialAbilities = [
     ...(race.traits ?? []),
     ...(race.specialAbilities ?? []),
-    ...getRacialSpellLikeAbilities(character).map((ability) =>
-      `${ability.name} (${ability.usesPerDay}/day; caster level ${ability.casterLevel}${ability.savingThrow ? `; ${ability.savingThrow} DC ${ability.saveDC}` : ""})`,
-    ),
+    ...getRacialSpellLikeAbilities(character).map((ability) => {
+      const key = `${race.id}:${ability.name}`;
+      const uses = character.racialSpellLikeUses?.filter((usedKey) => usedKey === key).length ?? 0;
+      return `${ability.name} (${uses}/${ability.usesPerDay} used; caster level ${ability.casterLevel}${ability.savingThrow ? `; ${ability.savingThrow} DC ${ability.saveDC}` : ""})`;
+    }),
   ];
   const classFeatures = getClassFeatureDisplay(character);
   const feats = Object.entries(character.featSelections ?? [])

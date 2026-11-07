@@ -2084,6 +2084,47 @@ describe("character rules preserved from 2.0", () => {
     expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
   });
 
+  it("offers Mounted Combat after one Ride rank, including as a fighter bonus feat", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 2 }];
+    const mountedCombat = featCatalog.find((feat) => feat.id === "mounted-combat");
+    if (!mountedCombat) throw new Error("Missing Mounted Combat fixture.");
+
+    const availableIds = (fighterOnly: boolean) =>
+      getAvailableFeats(character, { fighterOnly }).map((feat) => feat.id);
+
+    expect(mountedCombat.prerequisites?.skills).toEqual({ Ride: 1 });
+    expect(mountedCombat.fighterBonus).toBe(true);
+    expect(featQualifies(character, mountedCombat, { fighterOnly: false })).toBe(false);
+    expect(availableIds(false)).not.toContain("mounted-combat");
+    expect(availableIds(true)).not.toContain("mounted-combat");
+
+    character.skills.Ride = 1;
+    expect(featQualifies(character, mountedCombat, { fighterOnly: false })).toBe(true);
+    expect(availableIds(false)).toContain("mounted-combat");
+    expect(availableIds(true)).toContain("mounted-combat");
+  });
+
+  it("requires Mounted Combat and one Ride rank for Mounted Archery", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 2 }];
+    const mountedArchery = featCatalog.find((feat) => feat.id === "mounted-archery");
+    if (!mountedArchery) throw new Error("Missing Mounted Archery fixture.");
+
+    const availableIds = (fighterOnly: boolean) =>
+      getAvailableFeats(character, { fighterOnly }).map((feat) => feat.id);
+
+    expect(featQualifies(character, mountedArchery, { fighterOnly: false })).toBe(false);
+    character.skills.Ride = 1;
+    expect(featQualifies(character, mountedArchery, { fighterOnly: false })).toBe(false);
+    expect(availableIds(true)).not.toContain("mounted-archery");
+
+    character.featSelections = { "general-1": "mounted-combat" };
+    expect(featQualifies(character, mountedArchery, { fighterOnly: false })).toBe(true);
+    expect(availableIds(false)).toContain("mounted-archery");
+    expect(availableIds(true)).toContain("mounted-archery");
+  });
+
   it("checks all direct prerequisites in Great Cleave and Greater Two-Weapon Fighting chains", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [{ classId: "fighter", level: 11 }];

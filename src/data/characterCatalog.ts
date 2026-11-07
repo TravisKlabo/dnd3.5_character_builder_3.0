@@ -991,6 +991,22 @@ export const featCatalog: FeatDefinition[] = ([
     fighterBonus: true,
   },
   {
+    id: "mounted-archery",
+    name: "Mounted Archery",
+    description:
+      "Halve ranged-attack penalties while mounted: -2 during a mount's double move and -4 during a run; apply manually.",
+    prerequisites: { feats: ["mounted-combat"], skills: { Ride: 1 } },
+    fighterBonus: true,
+  },
+  {
+    id: "mounted-combat",
+    name: "Mounted Combat",
+    description:
+      "Once per round when your mount is hit, attempt a Ride check to negate the hit if the check exceeds the attack roll.",
+    prerequisites: { skills: { Ride: 1 } },
+    fighterBonus: true,
+  },
+  {
     id: "negotiator",
     name: "Negotiator",
     description: "+2 bonus on Diplomacy and Sense Motive checks.",

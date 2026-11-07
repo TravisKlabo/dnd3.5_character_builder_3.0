@@ -13,6 +13,10 @@ coverage.
 Barbarian Fast Movement is applied to land speed when armor and load qualify;
 Rage effects and other non-automatic Barbarian features are explained on the
 character sheet and tracked manually.
+Mounted Combat is selectable with its Ride 1-rank prerequisite; its once-per-round
+Ride check to negate a hit on a mount remains manual. Mounted Archery is selectable
+with Ride 1 and Mounted Combat prerequisites; its reduced mounted ranged-attack
+penalties remain manual.
 
 | Area | Status | Implemented and verified | Known gaps / boundaries | Evidence |
 |---|---|---|---|---|

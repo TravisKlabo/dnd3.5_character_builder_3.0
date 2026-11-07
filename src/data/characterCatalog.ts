@@ -1416,15 +1416,15 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Cosmic Understanding":
     "Automatically add commune as a 5th-level arcane spell to the spellbook or spells known; for sorcerers, it does not count against the spells-known limit. Once per day, gain an insight bonus equal to wizard or sorcerer caster level on one attack roll, opposed ability or skill check, saving throw, or AC against one attack, even if flat-footed.",
   "Legion Knowledge":
-    "Make a special check (character level + Intelligence modifier) for information; failure by 5 or more gives false information.",
+    "Make a Legion Knowledge check with a bonus equal to character level + Intelligence modifier for relevant local, historical, distant, or recent-event information. You cannot take 10 or 20; the DM sets the DC using the class table. Failing by 5 or more produces false second- or third-hand information.",
   "Favored Enemy (1st)":
-    "Choose a listed foe opposed to the Legion of Steel; gain +2 on specified social/sensory/survival checks and damage, and reduce saves against your special abilities by 1.",
+    "Choose one foe opposing the Legion of Steel: chromatic dragons, draconians, dragonspawn, goblins, Knights of Solamnia, Knights of Neraka, or minotaurs. Gain +2 on Bluff, Listen, Sense Motive, Spot, Survival, and weapon damage against it; it takes -1 on saves against spells, spell-like, supernatural, or extraordinary abilities you use. If a Ranger favored-enemy category includes this specific foe, the bonuses stack.",
   "Favored Enemy (2nd)":
-    "Choose a second listed foe; increase the bonus against one selected favored enemy by +2.",
+    "At 3rd level, select a second listed foe and increase the bonus against one selected favored enemy by +2; you may increase the bonus against the new foe.",
   Reputation:
-    "Gain +4 circumstance on Bluff and Diplomacy with working-class or poor people.",
+    "At 2nd level, gain a +4 circumstance bonus on Bluff and Diplomacy checks when dealing with working-class or poor individuals.",
   Apprentice:
-    "May gain an apprentice cohort using Leadership rules, but this feature does not grant followers.",
+    "At 3rd level, you may take an apprentice cohort using Leadership rules; this feature does not grant followers.",
   "Enhanced Specialization":
     "Cast spells from your order's specialist school at +1 caster level and gain +1 on saves against its spells; choose one additional prohibited school under the order rules.",
   "Item of Power":

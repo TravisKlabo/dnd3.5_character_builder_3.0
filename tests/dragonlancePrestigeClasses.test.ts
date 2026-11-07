@@ -159,6 +159,37 @@ describe("Dragonlance prestige-class rules", () => {
     ).toMatchObject({ isPrestigeClass: true });
   });
 
+  it("displays Steel Legionnaire features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "fighter", prestigeClassId: "steel-legionnaire", level },
+      ];
+      return getClassFeatureDisplay(character);
+    };
+
+    expect(featuresAtLevel(1).map(({ ability }) => ability)).toEqual([
+      "Legion Knowledge",
+      "Favored Enemy (1st)",
+    ]);
+    expect(featuresAtLevel(2).map(({ ability }) => ability)).toEqual([
+      "Legion Knowledge",
+      "Favored Enemy (1st)",
+      "Reputation",
+    ]);
+    const thirdLevelFeatures = featuresAtLevel(3);
+    expect(thirdLevelFeatures.map(({ ability }) => ability)).toEqual([
+      "Legion Knowledge",
+      "Favored Enemy (1st)",
+      "Reputation",
+      "Apprentice",
+      "Favored Enemy (2nd)",
+    ]);
+    expect(
+      thirdLevelFeatures.find(({ ability }) => ability === "Legion Knowledge"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("displays Knight of the Thorn features at their sourcebook levels", () => {
     const character = cloneCharacter(initialCharacter);
     const featuresAtLevel = (level: number) => {

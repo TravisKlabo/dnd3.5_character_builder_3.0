@@ -190,6 +190,59 @@ describe("Dragonlance prestige-class rules", () => {
     ).toMatchObject({ isPrestigeClass: true });
   });
 
+  it("displays Dragon Rider features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "fighter", prestigeClassId: "dragon-rider", level },
+      ];
+      return getClassFeatureDisplay(character).map(({ ability }) => ability);
+    };
+
+    expect(featuresAtLevel(1)).toEqual(["Dragon Cohort", "Mounted Attack"]);
+    expect(featuresAtLevel(2)).toEqual([
+      "Dragon Cohort",
+      "Mounted Attack",
+      "Dragon Feat",
+    ]);
+    expect(featuresAtLevel(3)).toEqual([
+      "Dragon Cohort",
+      "Mounted Attack",
+      "Dragon Feat",
+      "Empathic Communication",
+    ]);
+    expect(featuresAtLevel(4)).toHaveLength(4);
+    expect(featuresAtLevel(5)).toHaveLength(5);
+    expect(featuresAtLevel(6)).toHaveLength(6);
+    expect(featuresAtLevel(6)).toContain("Inspire Fear");
+    expect(featuresAtLevel(7)).toHaveLength(7);
+    expect(featuresAtLevel(7)).toContain("Directed Attacks");
+    expect(featuresAtLevel(8)).toHaveLength(8);
+    expect(featuresAtLevel(8)).toContain("Defensive Tactics");
+    expect(featuresAtLevel(9)).toHaveLength(9);
+    const tenthLevelFeatures = featuresAtLevel(10);
+    expect(tenthLevelFeatures).toEqual([
+      "Dragon Cohort",
+      "Mounted Attack",
+      "Dragon Feat",
+      "Empathic Communication",
+      "Dragon Feat",
+      "Inspire Fear",
+      "Directed Attacks",
+      "Defensive Tactics",
+      "Dragon Feat",
+      "Defensive Teamwork",
+    ]);
+    expect(
+      tenthLevelFeatures.filter((ability) => ability === "Dragon Feat"),
+    ).toHaveLength(3);
+    expect(
+      getClassFeatureDisplay(character).find(
+        ({ ability }) => ability === "Dragon Cohort",
+      ),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("displays Knight of the Thorn features at their sourcebook levels", () => {
     const character = cloneCharacter(initialCharacter);
     const featuresAtLevel = (level: number) => {

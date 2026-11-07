@@ -160,21 +160,21 @@ export const prestigeClassFeatureDescriptions: Record<string, string> = {
   "5th Order Secret":
     "Choose an order secret not previously selected; record its selection manually.",
   "Dragon Cohort":
-    "Designate a previously ridden dragon as your cohort using Leadership; its adjusted ECL is 3 lower, and it must meet alignment, age, size, carrying-load, training, lair, and treasure requirements. Dragon Rider features work only while riding this mount.",
+    "At level 1, use Leadership to attract one previously ridden dragon as your cohort. Subtract 3 from its ECL, but its adjusted ECL cannot exceed your total level and it must fit your Leadership score. It cannot oppose your alignment, must be old and large enough to carry you aloft, and needs at least seven days of training, a suitable lair, and a hoard (typically 1,000 gp per dragon Hit Die). You can have only one cohort at a time; Dragon Rider features function only while riding your preferred mount.",
   "Mounted Attack":
-    "While riding your preferred dragon cohort, attack in the same round as it without a Ride check.",
+    "While riding your preferred dragon cohort, you can attack in the same round as it without a Ride check.",
   "Dragon Feat":
-    "At levels 2, 5, and 9, grant your dragon cohort an eligible bonus feat after one week of training; this feature works only while riding your preferred mount.",
+    "At levels 2, 5, and 9, grant your dragon cohort a bonus feat from Cleave, Flyby Attack, Hover, Improved Initiative, Improved Sunder, Power Attack, Quicken Spell-Like Ability, Snatch, Strafing Breath, Weapon Focus, or Wingover. It does not count against the dragon's normal feat capacity, but prerequisites apply; each feat requires one week of training.",
   "Empathic Communication":
-    "While riding your preferred mount, communicate information and instructions nonverbally while you and the dragon can see one another.",
+    "Starting at level 3, nonverbally convey information and instructions to your preferred mount while you are both within sight.",
   "Inspire Fear":
-    "While riding your preferred mount, add Dragon Rider levels to its Hit Dice for frightful-presence DC and calculate its range as one age category larger.",
+    "Starting at level 6, add your Dragon Rider levels to your cohort's Hit Dice when determining its frightful-presence DC; calculate its range as if it were one age category older.",
   "Directed Attacks":
-    "While riding your preferred mount, direct it as a full-round action to gain a +4 circumstance bonus on attack rolls; this does not provoke an attack of opportunity.",
+    "Starting at level 7, direct your dragon cohort as a full-round action that does not provoke an attack of opportunity; it gains a +4 circumstance bonus on its attack rolls.",
   "Defensive Tactics":
-    "While mounted, neither you nor your dragon cohort can be flanked.",
+    "At level 8, neither you nor your dragon cohort can be flanked while you are in the saddle.",
   "Defensive Teamwork":
-    "At 10th level, while riding your preferred mount, you and the dragon each gain a +2 circumstance bonus to AC and +1 circumstance bonus on Reflex saves.",
+    "At level 10, while riding your preferred mount, you and the dragon each gain a +2 circumstance bonus to AC and a +1 circumstance bonus on Reflex saves.",
   "Extreme Focus":
     "Once per inquisitor level per day, add Concentration ranks to one Intelligence- or Wisdom-based skill check.",
   "Trap Sense +1":

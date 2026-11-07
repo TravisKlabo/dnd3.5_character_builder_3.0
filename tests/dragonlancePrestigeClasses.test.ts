@@ -9,6 +9,7 @@ import {
   getDailySpellSlots,
   getEffectiveSpellcastingClassLevel,
   getKnownSpellLimit,
+  getClassFeatureDisplay,
   getPrestigeClassEligibilityErrors,
   getPrestigeClassLevelUpSelectionErrors,
   getPrestigeSpellcastingClassOptions,
@@ -101,6 +102,37 @@ describe("Dragonlance prestige-class rules", () => {
       { classId: "sorcerer", prestigeClassId: "knight-of-the-thorn", level: 1 },
     ];
     expect(getKnownSpellLimit(sorcerer, "sorcerer", 5, 3)).toBeGreaterThan(0);
+  });
+
+  it("displays Knight of the Thorn features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "wizard", prestigeClassId: "knight-of-the-thorn", level },
+      ];
+      return getClassFeatureDisplay(character).map(({ ability }) => ability);
+    };
+
+    expect(featuresAtLevel(1)).toEqual(["Diviner", "Read Omens"]);
+    expect(featuresAtLevel(5)).toEqual([
+      "Diviner",
+      "Read Omens",
+      "Armored Spellcasting (5%)",
+      "Aura of Terror",
+      "Weapon Touch",
+      "Armored Spellcasting (10%)",
+    ]);
+    expect(featuresAtLevel(10)).toEqual([
+      "Diviner",
+      "Read Omens",
+      "Armored Spellcasting (5%)",
+      "Aura of Terror",
+      "Weapon Touch",
+      "Armored Spellcasting (10%)",
+      "Read Portents",
+      "Armored Spellcasting (20%)",
+      "Cosmic Understanding",
+    ]);
   });
 
   it("limits Wizard of High Sorcery advancement to wizard spellcasting", () => {

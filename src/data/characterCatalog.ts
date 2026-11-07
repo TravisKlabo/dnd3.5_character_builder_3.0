@@ -1398,9 +1398,9 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Favor of the Dark Queen":
     "At 10th level, a touched melee weapon is unholy for damage-reduction purposes and deals +1d6 unholy damage to good creatures.",
   Diviner:
-    "Cast divination spells at +1 caster level; wizards and sorcerers also gain diviner specialist benefits without losing access to other schools.",
+    "Cast all divination spells at +1 caster level. Wizards and sorcerers also gain one extra divination spell per spell level per day (or spell known at each level) and +2 on Spellcraft checks to learn divination spells, without losing access to other schools; existing wizard specialization is retained.",
   "Read Omens":
-    "Add augury as a 2nd-level arcane spell; a sorcerer's spell-known limit is not reduced.",
+    "Automatically add augury as a 2nd-level arcane spell to the spellbook or spells known; for sorcerers, it does not count against the spells-known limit.",
   "Armored Spellcasting (5%)":
     "Reduce arcane spell failure from armor by 5 percentage points.",
   "Armored Spellcasting (10%)":
@@ -1408,13 +1408,13 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Armored Spellcasting (20%)":
     "Reduce arcane spell failure from armor by 20 percentage points.",
   "Aura of Terror":
-    "Creatures within 10 feet must save (DC 10 + Knight of the Thorn level + Charisma modifier) or become shaken; a successful save grants immunity for one day.",
+    "Creatures within 10 feet must succeed at a Will save (DC 10 + Knight of the Thorn level + Charisma modifier) or become shaken; a successful save grants immunity for one day.",
   "Weapon Touch":
-    "Deliver a touch spell through a melee weapon attack; on a hit, deal weapon damage and spell effects, while a miss discharges the spell.",
+    "Deliver a touch spell with a normal melee attack, not a melee touch attack. A hit deals weapon damage and the spell's effect; a miss discharges the spell unless it allows multiple touches. Casting and attacking in the same round is a full-round action and allows only a 5-foot step between them.",
   "Read Portents":
-    "Add divination as a 4th-level arcane spell; a sorcerer's spell-known limit is not reduced.",
+    "Automatically add divination as a 4th-level arcane spell to the spellbook or spells known; for sorcerers, it does not count against the spells-known limit.",
   "Cosmic Understanding":
-    "Add commune as a 5th-level arcane spell; once per day, gain an insight bonus equal to wizard or sorcerer caster level on one roll or against one attack.",
+    "Automatically add commune as a 5th-level arcane spell to the spellbook or spells known; for sorcerers, it does not count against the spells-known limit. Once per day, gain an insight bonus equal to wizard or sorcerer caster level on one attack roll, opposed ability or skill check, saving throw, or AC against one attack, even if flat-footed.",
   "Legion Knowledge":
     "Make a special check (character level + Intelligence modifier) for information; failure by 5 or more gives false information.",
   "Favored Enemy (1st)":

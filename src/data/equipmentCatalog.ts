@@ -2,9 +2,11 @@ import { customStoreItemsStorageKey, loadCustomStoreItems } from "../customItems
 import { parseCustomItems } from "../validation";
 import { useSyncExternalStore } from "react";
 import { abilityEquipmentItems, abilityEquipmentNameAliases } from "../abilityEquipment";
+import { registerEquipmentCatalog } from "./equipmentItemRegistry";
 
 import { type StoreCategory, type StoreItem } from "./itemTypes";
 export type { StoreCategory, StoreItem } from "./itemTypes";
+export { findStoreItem } from "./equipmentItemRegistry";
 
 export const storeItems: StoreItem[] = [
   {
@@ -203,366 +205,12 @@ storeItems.push(
   { name: "Ring of Djinni Calling", category: "Rings", price: 125000, weight: "—", description: "Calls a specific djinni to serve the wearer for up to 1 hour per day." },
 );
 
-export const armorBonuses: Record<string, number> = {
-  "Padded Armor": 1,
-  "Leather Armor": 2,
-  "Studded Leather": 3,
-  "Hide Armor": 3,
-  "Scale Mail": 4,
-  Chainmail: 5,
-  "Splint Mail": 6,
-  "Half-Plate": 7,
-  "Full Plate": 8,
-  "Chain Shirt": 4,
-  Breastplate: 5,
-  "Mithral Chain Shirt": 4,
-  "Mithral Breastplate": 5,
-  "Mithral Full Plate": 8,
-};
-
-export const armorMaximumDexterity: Record<string, number> = {
-  "Padded Armor": 8,
-  "Leather Armor": 6,
-  "Studded Leather": 5,
-  "Hide Armor": 4,
-  "Scale Mail": 3,
-  Chainmail: 2,
-  "Splint Mail": 0,
-  "Half-Plate": 0,
-  "Full Plate": 1,
-  "Chain Shirt": 4,
-  Breastplate: 3,
-  "Mithral Chain Shirt": 6,
-  "Mithral Breastplate": 5,
-  "Mithral Full Plate": 3,
-};
-
-export const armorCheckPenalties: Record<string, number> = {
-  "Padded Armor": 0,
-  "Leather Armor": 0,
-  "Studded Leather": -1,
-  "Hide Armor": -3,
-  "Scale Mail": -4,
-  Chainmail: -5,
-  "Splint Mail": -6,
-  "Half-Plate": -7,
-  "Full Plate": -6,
-  "Chain Shirt": -2,
-  Breastplate: -4,
-  "Mithral Chain Shirt": 0,
-  "Mithral Breastplate": -1,
-  "Mithral Full Plate": -3,
-};
-
-export const armorClasses: Record<string, "Light" | "Medium" | "Heavy"> = {
-  "Padded Armor": "Light",
-  "Leather Armor": "Light",
-  "Studded Leather": "Light",
-  "Chain Shirt": "Light",
-  "Mithral Chain Shirt": "Light",
-  "Hide Armor": "Medium",
-  "Scale Mail": "Medium",
-  Chainmail: "Medium",
-  Breastplate: "Medium",
-  "Mithral Breastplate": "Medium",
-  "Splint Mail": "Heavy",
-  "Half-Plate": "Heavy",
-  "Full Plate": "Heavy",
-  "Mithral Full Plate": "Heavy",
-};
-
-export const shieldBonuses: Record<string, number> = {
-  Buckler: 1,
-  "Light Wooden Shield": 1,
-  "Light Steel Shield": 1,
-  "Heavy Wooden Shield": 2,
-  "Heavy Steel Shield": 2,
-  "Tower Shield": 4,
-};
-
-export const shieldCheckPenalties: Record<string, number> = {
-  Buckler: -1,
-  "Light Wooden Shield": -1,
-  "Light Steel Shield": -1,
-  "Heavy Wooden Shield": -2,
-  "Heavy Steel Shield": -2,
-  "Tower Shield": -10,
-};
-
 if (typeof window !== "undefined") {
   storeItems.push(...loadCustomStoreItems());
 }
 
-export const weaponDamageBySize: Record<string, { smaller: string; larger: string }> = {
-  "1d2": { smaller: "1", larger: "1d3" },
-  "1d3": { smaller: "1d2", larger: "1d4" },
-  "1d4": { smaller: "1d3", larger: "1d6" },
-  "1d6": { smaller: "1d4", larger: "1d8" },
-  "1d8": { smaller: "1d6", larger: "2d6" },
-  "1d10": { smaller: "1d8", larger: "2d8" },
-  "1d12": { smaller: "1d10", larger: "3d6" },
-  "2d4": { smaller: "1d4", larger: "2d6" },
-  "2d6": { smaller: "1d8", larger: "3d6" },
-};
+export * from "./equipmentRuleData";
 
-export type WeaponProfile = {
-  damage: string;
-  crit: string;
-  offHandDamage?: string;
-  offHandCrit?: string;
-  offHandDamageType?: string;
-  mainEndLabel?: string;
-  offHandEndLabel?: string;
-};
-
-export const weaponProfiles: Record<string, WeaponProfile> = {
-  Club: { damage: "1d6", crit: "x2" },
-  "Short Sword": { damage: "1d6", crit: "19–20/x2" },
-  "Heavy Mace": { damage: "1d8", crit: "x2" },
-  "Dwarven Waraxe": { damage: "1d10", crit: "x3" },
-  Longsword: { damage: "1d8", crit: "19–20/x2" },
-  Dagger: { damage: "1d4", crit: "19–20/x2" },
-  Handaxe: { damage: "1d6", crit: "x3" },
-  Greatsword: { damage: "2d6", crit: "19–20/x2" },
-  Shortbow: { damage: "1d6", crit: "x3" },
-  Longbow: { damage: "1d8", crit: "x3" },
-  Rapier: { damage: "1d6", crit: "18–20/x2" },
-  Javelin: { damage: "1d6", crit: "x2" },
-  Trident: { damage: "1d8", crit: "x2" },
-  Net: { damage: "—", crit: "—" },
-  Whip: { damage: "1d3", crit: "x2" },
-  Kukri: { damage: "1d4", crit: "18–20/x2" },
-  Kama: { damage: "1d6", crit: "x2" },
-  Sickle: { damage: "1d6", crit: "x2" },
-  Scimitar: { damage: "1d6", crit: "18–20/x2" },
-  Battleaxe: { damage: "1d8", crit: "x3" },
-  Greataxe: { damage: "1d12", crit: "x3" },
-  Warhammer: { damage: "1d8", crit: "x3" },
-  Mace: { damage: "1d8", crit: "x2" },
-  "Light Mace": { damage: "1d6", crit: "x2" },
-  "Light Hammer": { damage: "1d4", crit: "x2" },
-  Spear: { damage: "1d8", crit: "x3" },
-  Glaive: { damage: "1d10", crit: "x3" },
-  Halberd: { damage: "1d10", crit: "x3" },
-  Guisarme: { damage: "2d4", crit: "x3" },
-  Longspear: { damage: "1d8", crit: "x3" },
-  "Spiked Chain": { damage: "2d4", crit: "x2" },
-  Falchion: { damage: "2d4", crit: "18–20/x2" },
-  Lance: { damage: "1d8", crit: "x3" },
-  Morningstar: { damage: "1d8", crit: "x2" },
-  Quarterstaff: { damage: "1d6", crit: "x2" },
-  "Dwarven Urgrosh": {
-    damage: "1d8", crit: "x3", offHandDamage: "1d6", offHandCrit: "x3",
-    offHandDamageType: "piercing", mainEndLabel: "axe head", offHandEndLabel: "spear point",
-  },
-  "Gnome Hooked Hammer": {
-    damage: "1d8", crit: "x3", offHandDamage: "1d6", offHandCrit: "x4",
-    offHandDamageType: "piercing", mainEndLabel: "hammer head", offHandEndLabel: "hooked head",
-  },
-  "Orc Double Axe": { damage: "1d8", crit: "x3" },
-  "Dire Flail": { damage: "1d8", crit: "x2" },
-  "Two-Bladed Sword": { damage: "1d8", crit: "19–20/x2" },
-  "Light Crossbow": { damage: "1d8", crit: "19–20/x2" },
-  "Heavy Crossbow": { damage: "1d10", crit: "19–20/x2" },
-  "Repeating Crossbow": { damage: "1d8", crit: "19–20/x2" },
-  "Hand Crossbow": { damage: "1d4", crit: "19–20/x2" },
-  "Repeating Heavy Crossbow": { damage: "1d10", crit: "19–20/x2" },
-  "Repeating Light Crossbow": { damage: "1d8", crit: "19–20/x2" },
-  "Composite Shortbow": { damage: "1d6", crit: "x3" },
-  "Composite Longbow": { damage: "1d8", crit: "x3" },
-  Sap: { damage: "1d6", crit: "x2" },
-  Nunchaku: { damage: "1d6", crit: "x2" },
-  Sai: { damage: "1d4", crit: "x2" },
-  Siangham: { damage: "1d6", crit: "x2" },
-  Dart: { damage: "1d4", crit: "x2" },
-  Shuriken: { damage: "1d2", crit: "x2" },
-  Sling: { damage: "1d4", crit: "x2" },
-};
-
-export const weaponDamageTypes: Record<string, string> = {
-  Longsword: "slashing",
-  Dagger: "piercing or slashing",
-  Handaxe: "slashing",
-  Greatsword: "slashing",
-  Shortbow: "piercing",
-  Longbow: "piercing",
-  Rapier: "piercing",
-  Javelin: "piercing",
-  Trident: "piercing",
-  Net: "—",
-  Whip: "slashing",
-  Kukri: "slashing",
-  Kama: "slashing",
-  Sickle: "slashing",
-  Scimitar: "slashing",
-  Battleaxe: "slashing",
-  Greataxe: "slashing",
-  Warhammer: "bludgeoning",
-  Mace: "bludgeoning",
-  "Light Mace": "bludgeoning",
-  "Light Hammer": "bludgeoning",
-  Spear: "piercing",
-  Longspear: "piercing",
-  Glaive: "slashing",
-  Halberd: "slashing",
-  Guisarme: "slashing",
-  "Spiked Chain": "piercing",
-  Falchion: "slashing",
-  Lance: "piercing",
-  Morningstar: "bludgeoning or piercing",
-  Quarterstaff: "bludgeoning",
-  "Dwarven Urgrosh": "slashing",
-  "Gnome Hooked Hammer": "bludgeoning",
-  "Orc Double Axe": "slashing",
-  "Dire Flail": "bludgeoning",
-  "Two-Bladed Sword": "slashing",
-  "Light Crossbow": "piercing",
-  "Heavy Crossbow": "piercing",
-  "Repeating Crossbow": "piercing",
-  "Hand Crossbow": "piercing",
-  Sap: "bludgeoning",
-  Nunchaku: "bludgeoning",
-  Sai: "piercing",
-  Siangham: "piercing",
-  Dart: "piercing",
-  Shuriken: "piercing",
-  Sling: "bludgeoning",
-};
-
-export const armorSpellFailure: Record<string, number> = {
-  "Padded Armor": 5, "Leather Armor": 10, "Studded Leather": 15,
-  "Chain Shirt": 20, "Hide Armor": 20, "Scale Mail": 25, Chainmail: 30,
-  Breastplate: 25, "Splint Mail": 40, "Half-Plate": 40, "Full Plate": 35,
-  "Mithral Chain Shirt": 10, "Mithral Breastplate": 15, "Mithral Full Plate": 25,
-};
-
-export const shieldSpellFailure: Record<string, number> = {
-  Buckler: 5, "Light Wooden Shield": 5, "Light Steel Shield": 5,
-  "Heavy Wooden Shield": 15, "Heavy Steel Shield": 15, "Tower Shield": 50,
-};
-
-export const weaponRangeIncrements: Record<string, number> = {
-  Club: 10, Dagger: 10, "Throwing Axe": 10, "Light Hammer": 20,
-  Spear: 20, "Short Spear": 20, Shortspear: 20, Trident: 10,
-  Dart: 20, Javelin: 30, Shuriken: 10, Net: 10, Bolas: 10,
-  Sling: 50, Shortbow: 60, "Composite Shortbow": 70,
-  Longbow: 100, "Composite Longbow": 110,
-  "Light Crossbow": 80, "Heavy Crossbow": 120, "Hand Crossbow": 30,
-  "Repeating Crossbow": 80, "Repeating Light Crossbow": 80, "Repeating Heavy Crossbow": 120,
-};
-
-export const reachWeaponNames = new Set([
-  "Glaive", "Guisarme", "Lance", "Longspear", "Long Spear", "Ranseur", "Spiked Chain",
-]);
-
-export const rangedWeaponNames = new Set([
-  "Shortbow",
-  "Longbow",
-  "Light Crossbow",
-  "Heavy Crossbow",
-  "Repeating Crossbow",
-  "Hand Crossbow",
-  "Sling",
-  "Dart",
-  "Javelin",
-  "Shuriken",
-]);
-
-export const lightOffHandWeaponNames = new Set([
-  "Short Sword",
-  "Unarmed Strike",
-  "Dagger",
-  "Handaxe",
-  "Kukri",
-  "Kama",
-  "Sickle",
-  "Light Mace",
-  "Light Hammer",
-  "Sap",
-  "Nunchaku",
-  "Sai",
-  "Siangham",
-  "Shuriken",
-  "Dart",
-]);
-
-export const twoHandedWeaponNames = new Set([
-  "Quarterstaff",
-  "Dwarven Urgrosh",
-  "Gnome Hooked Hammer",
-  "Orc Double Axe",
-  "Dire Flail",
-  "Two-Bladed Sword",
-  "Spear",
-  "Heavy Flail",
-  "Greatsword",
-  "Greataxe",
-  "Glaive",
-  "Halberd",
-  "Guisarme",
-  "Longspear",
-  "Long Spear",
-  "Ranseur",
-  "Spiked Chain",
-  "Falchion",
-  "Lance",
-  "Shortbow",
-  "Longbow",
-  "Composite Shortbow",
-  "Composite Longbow",
-  "Light Crossbow",
-  "Heavy Crossbow",
-  "Repeating Crossbow",
-  "Repeating Light Crossbow",
-  "Repeating Heavy Crossbow",
-]);
-
-export const simpleWeaponNames = new Set([
-  "Club",
-  "Dagger",
-  "Light Mace",
-  "Heavy Mace",
-  "Mace",
-  "Light Hammer",
-  "Morningstar",
-  "Quarterstaff",
-  "Sickle",
-  "Short Spear",
-  "Shortspear",
-  "Spear",
-  "Light Crossbow",
-  "Heavy Crossbow",
-  "Sling",
-  "Javelin",
-  "Dart",
-  "Unarmed Strike",
-]);
-
-export const martialWeaponNames = new Set([
-  "Battleaxe",
-  "Flail",
-  "Heavy Flail",
-  "Short Sword",
-  "Longsword",
-  "Rapier",
-  "Greatsword",
-  "Shortbow",
-  "Composite Shortbow",
-  "Longbow",
-  "Composite Longbow",
-  "Handaxe",
-  "Trident",
-  "Kukri",
-  "Glaive",
-  "Halberd",
-  "Guisarme",
-  "Falchion",
-  "Lance",
-  "Scimitar",
-  "Warhammer",
-]);
-
-export const martialWeaponClasses = new Set(["barbarian", "fighter", "paladin", "ranger"]);
 
 storeItems.push(
   ...[
@@ -1314,9 +962,6 @@ export const forgeShieldProperties = [
 ];
 
 let revision = 0;
-let indexedRevision = -1;
-let sortedItems: StoreItem[] = [];
-const itemsByName = new Map<string, StoreItem>();
 const catalogItemAliases = new Map<string, string>([
   ["Drum of Panic", "Drums of Panic"],
   ["Pearl of Power (1st)", "Pearl of Power, 1st-level"],
@@ -1330,6 +975,7 @@ const catalogItemAliases = new Map<string, string>([
   ["Ring of Minor Energy Resistance", "Ring of Energy Resistance (Minor)"],
   ...Object.entries(abilityEquipmentNameAliases),
 ]);
+registerEquipmentCatalog(storeItems, catalogItemAliases);
 const listeners = new Set<() => void>();
 
 function updateCatalog(items: StoreItem[]) {
@@ -1338,6 +984,7 @@ function updateCatalog(items: StoreItem[]) {
     JSON.stringify(items.filter((item) => item.custom)),
   );
   storeItems.splice(0, storeItems.length, ...items);
+  registerEquipmentCatalog(storeItems, catalogItemAliases);
   revision += 1;
   listeners.forEach((listener) => listener());
 }
@@ -1356,20 +1003,6 @@ export function addCustomStoreItems(items: StoreItem[]) {
 
 export function deleteCustomStoreItem(name: string) {
   updateCatalog(storeItems.filter((item) => !item.custom || item.name !== name));
-}
-
-export function findStoreItem(name: string, category?: StoreCategory) {
-  if (indexedRevision !== revision) {
-    sortedItems = [...storeItems].sort((left, right) => right.name.length - left.name.length);
-    itemsByName.clear();
-    for (const item of storeItems) {
-      if (!itemsByName.has(item.name)) itemsByName.set(item.name, item);
-    }
-    indexedRevision = revision;
-  }
-  const exact = itemsByName.get(name) ?? itemsByName.get(catalogItemAliases.get(name) ?? "");
-  if (exact && (!category || exact.category === category)) return exact;
-  return sortedItems.find((item) => (!category || item.category === category) && name.includes(item.name));
 }
 
 function subscribe(listener: () => void) {

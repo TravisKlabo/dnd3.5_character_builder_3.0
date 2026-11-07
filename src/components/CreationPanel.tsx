@@ -1,5 +1,6 @@
 import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
+import "../data/equipmentCatalog";
 import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
 import { formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";

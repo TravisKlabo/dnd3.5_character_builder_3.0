@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type Character, type ClassId, abilityModifier, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, raceDefinitions, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
+import "../data/equipmentCatalog";
 import { abilities, featCatalog, skills } from "../data/characterCatalog";
 import {
   formatModifier,

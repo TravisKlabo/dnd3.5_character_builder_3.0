@@ -1,5 +1,6 @@
 import { type Character, type ClassId, type DragonlanceMoonConjunction, type DragonlanceMoonId, type DragonlanceMoonPhase, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
+import "../data/equipmentCatalog";
 import { getBaseClassLevels, getEffectiveSpellcastingClassLevel, hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getKnownSpellReplacementLevelLimit, getWizardSpellbookSpells, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier, getHighSorceryMoonModifier } from "../rules";
 import { formatSpellDuration, formatSpellSchool } from "../spellFormatting";
 import {

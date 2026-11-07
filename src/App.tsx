@@ -1,12 +1,12 @@
 import { useState, useMemo, lazy, Suspense } from "react";
 import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, type PrestigeClassId, initialCharacter, classDefinitions, dragonlancePrestigeClasses, beginLevelUp, beginPrestigeLevelUp, type AbilityName, rollHitDie, isValidHitDieRoll, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, abilityModifier, type MagicSchool, type SkillRankSourceId, getTotalHitDice } from "./domain";
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
-import { customItemsLoadFailed } from "./customItemsStorage";
+import { customItemsLoadFailed, loadCustomStoreItems } from "./customItemsStorage";
 import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
 import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getLevelUpSkillSourceId, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getPrestigeClassEligibilityErrors, getPrestigeClassLevelUpSelectionErrors, getPrestigeSpellcastingClassOptions, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, getBaseAttackBonus, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getAvailableSkillCountForSource, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, getSpentSkillPointsForSource, getSpeakLanguageRankCount, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getAnimatedShieldState, getForceShieldState, getBlindingShieldState, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, type CombatAttackMode, type CombatCastingContext } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
-import { storeItems, addCustomStoreItems, type StoreItem } from "./data/equipmentCatalog";
+import type { StoreItem } from "./data/itemTypes";
 import { ScreenBoundary } from "./components/ScreenBoundary";
 import { ClassFeatureProgressionBoundary } from "./components/ClassFeatureProgressionBoundary";
 import "./App.css";
@@ -36,6 +36,7 @@ const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItems
 const HighSorceryChoices = lazy(() => import("./components/HighSorceryChoices").then((module) => ({ default: module.HighSorceryChoices })));
 const RangerFavoredEnemies = lazy(() => import("./components/RangerFavoredEnemies").then((module) => ({ default: module.RangerFavoredEnemies })));
 const characterExportMetadataKey = "__dnd35CharacterBuilder";
+loadCustomStoreItems();
 
 const customItemKey = (item: StoreItem) =>
   `${item.category}\0${item.name.trim().toLowerCase()}`;
@@ -1304,7 +1305,7 @@ export function App() {
     }
   };
   const exportCharacter = () => {
-    const customItems = [...storeItems.filter((item) => item.custom)];
+    const customItems = [...loadCustomStoreItems()];
     for (const item of displayedCharacter.customItems ?? []) {
       if (!customItems.some((existing) =>
         existing.category === item.category &&
@@ -1350,20 +1351,23 @@ export function App() {
       }
       const imported = parseCharacter(characterData);
       const importedCustomItems = (imported.customItems ?? []).filter(isCustomStoreItem);
-      const newCustomItems: StoreItem[] = [];
-      for (const item of importedCustomItems) {
-        const key = customItemKey(item);
-        const existing = storeItems.find((candidate) => customItemKey(candidate) === key) ??
-          newCustomItems.find((candidate) => customItemKey(candidate) === key);
-        if (existing) {
-          if (!storeItemsMatch(existing, item)) {
-            throw new Error(`An imported item named "${item.name}" conflicts with an existing ${item.category} item.`);
+      if (importedCustomItems.length) {
+        const { storeItems, addCustomStoreItems } = await import("./data/equipmentCatalog");
+        const newCustomItems: StoreItem[] = [];
+        for (const item of importedCustomItems) {
+          const key = customItemKey(item);
+          const existing = storeItems.find((candidate) => customItemKey(candidate) === key) ??
+            newCustomItems.find((candidate) => customItemKey(candidate) === key);
+          if (existing) {
+            if (!storeItemsMatch(existing, item)) {
+              throw new Error(`An imported item named "${item.name}" conflicts with an existing ${item.category} item.`);
+            }
+            continue;
           }
-          continue;
+          newCustomItems.push(item);
         }
-        newCustomItems.push(item);
+        if (newCustomItems.length) addCustomStoreItems(newCustomItems);
       }
-      if (newCustomItems.length) addCustomStoreItems(newCustomItems);
       setCharacter(cloneCharacter(imported));
       setCreationDraft(cloneCharacter(imported));
       setCreationLocked(!setupDraft);

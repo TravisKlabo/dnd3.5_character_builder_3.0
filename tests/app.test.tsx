@@ -2566,7 +2566,7 @@ describe("application workflows", () => {
     Object.defineProperty(file, "text", { value: async () => "null" });
     fireEvent.change(input, { target: { files: [file] } });
     expect((await screen.findByRole("alert")).textContent).toContain("Unable to import");
-    expect(screen.getByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
   });
 
   it("rejects invalid custom-item imports without partially changing character or catalog data", async () => {
@@ -2648,7 +2648,7 @@ describe("application workflows", () => {
       fireEvent.change(input, { target: { files: [file] } });
       expect((await screen.findByRole("alert")).textContent).toContain("conflicts with an existing");
       expect(alert).not.toHaveBeenCalled();
-      expect(screen.getByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
+      expect(await screen.findByRole("heading", { name: "Regression Hero (Player)" })).toBeDefined();
       expect(window.localStorage.getItem(savedCharacterStorageKey)).toBe(originalCharacterStorage);
       expect(window.localStorage.getItem(customStoreItemsStorageKey)).toBe(originalCatalogStorage);
       expect(readStoredCharacter()).toEqual(original);

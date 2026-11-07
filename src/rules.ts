@@ -6,7 +6,9 @@ import {
   prestigeClassFeatureProgression,
 } from "./data/classFeatureProgression";
 import { spellProgressions, bardKnownProgression, sorcererKnownProgression, mysticKnownProgression } from "./data/spellProgression";
-import { armorBonuses, findStoreItem, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, type StoreItem, storeItems, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentCatalog";
+import { armorBonuses, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentRuleData";
+import { findStoreItem, getStoreItems } from "./data/equipmentItemRegistry";
+import type { StoreItem } from "./data/itemTypes";
 import { findSpellByName, getClassSpells, normalizeSpellName } from "./data/spellCatalog";
 import {
   getActiveMysticDomain,
@@ -3794,7 +3796,7 @@ export function getAvailableFeatWeaponChoices(
       .reduce((total, entry) => total + entry.level, 0) < 4
   )
     return [];
-  const weaponItems = [...storeItems, ...(character.customItems ?? [])]
+  const weaponItems = [...getStoreItems(), ...(character.customItems ?? [])]
     .filter((item) => item.category === "Weapons");
   const weaponsByType = new Map<string, StoreItem>();
   weaponItems.forEach((item) => {

@@ -1500,15 +1500,15 @@ export const classFeatureDescriptions: Record<string, string> = {
   "The Forlorn Hope":
     "Allies within 30 feet fight while disabled or dying through -10 HP; stopping requires a Fortitude save or they die.",
   "Oration: Enthralling Discourse":
-    "With 8 Diplomacy ranks, enthrall a crowd within 90 feet using a Diplomacy check; hearing, language, and concentration requirements apply.",
+    "Oration is usable once per day per zealot level; if you are deaf, you have a 20% chance to fail, and the use is still expended. With 8 Diplomacy ranks, spend one use to enthrall a crowd within 90 feet that can see, hear, and understand you. Each target can resist with a Will save against your Diplomacy check result. The crowd listens while you speak and concentrate, up to 2 rounds per zealot level; otherwise, this follows the enthrall spell.",
   "Oration: Compelling Argument":
-    "With 9 Diplomacy ranks, use a suggestion-like effect on one creature already enthralled or confused.",
+    "With 9 Diplomacy ranks, use suggestion on one creature already enthralled or confused (Will DC 10 + zealot level + Charisma modifier). The suggestion does not expend an Oration use; the enthralling or confusion does.",
   "Oration: Condemning Tirade":
-    "With 13 Diplomacy ranks, force a Will save or leave one creature shaken for 10 minutes per zealot level.",
+    "With 13 Diplomacy ranks, spend an Oration use to force one creature's Will save (DC 10 + zealot level + Charisma modifier); on failure, it is shaken for 10 minutes per zealot level.",
   "Oration: Verbal Obfuscation":
-    "With 16 Diplomacy ranks, force a Will save or confuse one creature for 1 minute per zealot level.",
+    "With 16 Diplomacy ranks, spend an Oration use to force a Will save (DC 12 + zealot level + Charisma modifier) or confuse one creature for 1 minute per zealot level.",
   "Oration: Inflammatory Oratory":
-    "With 18 Diplomacy ranks, inspire crushing despair, good hope, or rage in an enthralled crowd while maintaining the discourse.",
+    "With 18 Diplomacy ranks, after enthralling a crowd, inspire crushing despair, good hope, or rage in it. Each target can resist with a Will save against your Diplomacy check result; the effect lasts while you maintain the discourse.",
   "Righteous Indignation (1/day)":
     "Once per day, add Charisma modifier to one saving throw.",
   "Righteous Indignation (2/day)":
@@ -1526,13 +1526,13 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Resist Enchantment +5":
     "Gain +5 on saves against enchantment spells and effects.",
   "Gather Followers":
-    "Gain Leadership, attracting followers according to its rules.",
+    "At level 3, gain the Leadership feat and attract followers according to its rules.",
   "Gather Followers +1":
-    "Gain +1 to Leadership score.",
+    "At level 5, gain +1 to your Leadership score.",
   "Gather Followers +2":
-    "Gain +2 to Leadership score.",
+    "At level 7, gain +2 to your Leadership score.",
   "Gather Followers +3":
-    "Gain +3 to Leadership score.",
+    "At level 9, gain +3 to your Leadership score.",
   "Martyr’s Luck":
     "At 10th level, reroll a failed attack, save, skill, ability, or level check 1 + Charisma modifier times per day.",
   "Honor-bound":

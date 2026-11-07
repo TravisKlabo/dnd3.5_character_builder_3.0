@@ -311,6 +311,45 @@ describe("Dragonlance prestige-class rules", () => {
     ).toMatchObject({ isPrestigeClass: true });
   });
 
+  it("displays Righteous Zealot features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [
+      {
+        classId: "bard",
+        prestigeClassId: "righteous-zealot",
+        level: 10,
+      },
+    ];
+    const tenthLevelFeatures = getClassFeatureDisplay(character);
+    const featuresByLevel = Array.from({ length: 10 }, (_, index) =>
+      tenthLevelFeatures
+        .filter(({ source }) => source === `Righteous Zealot ${index + 1}`)
+        .map(({ ability }) => ability),
+    );
+
+    expect(featuresByLevel).toEqual([
+      ["Oration: Enthralling Discourse", "Righteous Indignation (1/day)"],
+      ["Oration: Compelling Argument", "Resist Enchantment +1"],
+      ["Gather Followers"],
+      ["Righteous Indignation (2/day)", "Resist Enchantment +2"],
+      ["Oration: Condemning Tirade", "Gather Followers +1"],
+      ["Resist Enchantment +3"],
+      ["Righteous Indignation (3/day)", "Gather Followers +2"],
+      ["Oration: Verbal Obfuscation", "Resist Enchantment +4"],
+      ["Gather Followers +3"],
+      [
+        "Oration: Inflammatory Oratory",
+        "Resist Enchantment +5",
+        "Martyr’s Luck",
+      ],
+    ]);
+    expect(
+      tenthLevelFeatures.find(
+        ({ ability }) => ability === "Martyr’s Luck",
+      ),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("displays Knight of the Thorn features at their sourcebook levels", () => {
     const character = cloneCharacter(initialCharacter);
     const featuresAtLevel = (level: number) => {

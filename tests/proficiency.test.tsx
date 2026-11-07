@@ -204,6 +204,10 @@ describe("armor and shield proficiency", () => {
     const fighter = hero("fighter");
     expect(isWeaponProficient(fighter, item("Composite Longbow"))).toBe(true);
     expect(isWeaponProficient(fighter, item("Spiked Chain"))).toBe(false);
+    const ranger = hero("ranger");
+    expect(isWeaponProficient(ranger, item("Spear"))).toBe(true);
+    expect(isWeaponProficient(ranger, item("Longbow"))).toBe(true);
+    expect(isWeaponProficient(ranger, item("Spiked Chain"))).toBe(false);
     const rogue = hero("rogue");
     expect(isWeaponProficient(rogue, item("Hand Crossbow"))).toBe(true);
     expect(isWeaponProficient(rogue, item("Net"))).toBe(false);

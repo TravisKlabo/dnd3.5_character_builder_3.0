@@ -12,7 +12,7 @@ import { baseSpellSlots, getCasterLevel, getClassSpellSelections, getDailySpellS
   getSpellcastingAbility, hasSpellLevelAtClassLevel,
   getWizardFreeSpellAllowance, getWizardSpellbookSpells } from "../src/rules";
 import { getWizardCopyRequirements } from "../src/wizardSpellbookRules";
-import { savedCharacterStorageKey } from "../src/storage";
+import { savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 import { SpellSheets } from "../src/components/SpellSheet";
 import { readStoredCharacter } from "./storageTestHelpers";
@@ -223,6 +223,11 @@ function save(character: Character) {
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
 }
 
+function saveEditable(character: Character) {
+  save(character);
+  window.localStorage.setItem(savedCharacterSetupDraftStorageKey, "true");
+}
+
 function stored() {
   return readStoredCharacter();
 }
@@ -244,7 +249,7 @@ function fillCopiedSpell(name: string) {
   fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
   fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: name } });
   fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
   fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "30" } });
   fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
 }
@@ -262,17 +267,28 @@ describe("class-specific spell rules", () => {
   it.each([
     [0, 20, 15, 1, 100], [1, 21, 16, 1, 100], [2, 22, 17, 2, 200], [9, 29, 24, 9, 900],
   ])("calculates copying requirements at spell level %s", (level, decipherDC, learningDC, pages, writingCostGp) => {
-    expect(getWizardCopyRequirements(level)).toMatchObject({ decipherDC, learningDC, studyHours: 8, pages, writingCostGp, writingHours: 24 });
+    expect(getWizardCopyRequirements(level)).toMatchObject({ decipherDC, learningDC, studyDays: 1, pages, writingCostGp, writingHours: 24 });
   });
 
-  it("does not count copies or spells the wizard cannot cast toward free starting spells", () => {
+  it("allows prescribed starting spells below the casting ability threshold but gates later free spells", () => {
     const character = caster();
     character.classLevels = [{ classId: "wizard", level: 1 }];
     character.knownSpellsByClass = { wizard: ["Magic Missile", "Shield", "Web"] };
     character.spellAcquisitionByClass = { wizard: { Shield: "scroll" } };
     expect(getWizardFreeSpellAllowance(character)).toEqual({ starting: true, required: 6, selected: 1, remaining: 5 });
     character.abilities.int = 10;
-    expect(getWizardFreeSpellAllowance(character).selected).toBe(0);
+    expect(getWizardFreeSpellAllowance(character).selected).toBe(1);
+
+    const original = cloneCharacter(character);
+    original.knownSpellsByClass = { wizard: ["Magic Missile"] };
+    original.knownSpells = ["Magic Missile"];
+    original.spellAcquisitionByClass = {};
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 2;
+    proposed.knownSpellsByClass = { wizard: ["Magic Missile", "Mage Armor"] };
+    proposed.knownSpells = ["Magic Missile", "Mage Armor"];
+    expect(getWizardFreeSpellAllowance(proposed, original))
+      .toEqual({ starting: false, required: 2, selected: 0, remaining: 2 });
   });
   it.each([
     ["wizard", 3, 2, true], ["wizard", 3, 3, false],
@@ -295,6 +311,8 @@ describe("class-specific spell rules", () => {
       await openSpells(false);
       expect(screen.getByRole("tab", { name: "Spellbook" }).getAttribute("aria-selected")).toBe("true");
       expect(screen.getByText(/Core school specialization is optional and chosen at Wizard 1/)).toBeDefined();
+      expect(screen.getByText(/One of the two free spells gained at each new Wizard level/)).toBeDefined();
+      expect(screen.getByText(/Preparing a spell from a borrowed spellbook requires/)).toBeDefined();
       expect(screen.queryByRole("spinbutton")).toBeNull();
       expect(screen.queryByRole("checkbox", { name: /Expended/ })).toBeNull();
       expect(screen.getByText("Magic Missile", { exact: true })).toBeDefined();
@@ -310,19 +328,72 @@ describe("class-specific spell rules", () => {
       expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Prepare Magic Missile" }).value).toBe("2");
     });
 
+    it("allows prescribed starting spells below the Intelligence threshold for casting", async () => {
+      const character = caster();
+      character.classLevels = [{ classId: "wizard", level: 1 }];
+      character.abilities.int = 10;
+      character.knownSpellsByClass = { wizard: [] };
+      character.knownSpells = [];
+      saveEditable(character);
+      render(<App />);
+      await openSpells(false);
+
+      const freeSpell = screen.getByRole("combobox", { name: "Free wizard spell" });
+      expect(within(freeSpell).getByRole("option", { name: "Magic Missile (Level 1)" })).toBeDefined();
+      fireEvent.change(freeSpell, { target: { value: "Magic Missile" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add free spell" }));
+      expect(screen.getByText(/Requires wizard spell-level access and INT 11/)).toBeDefined();
+    });
+
+    it("prepares Read Magic from memory without adding it to the spellbook", async () => {
+      const character = caster();
+      character.classLevels = [{ classId: "wizard", level: 1 }];
+      character.knownSpellsByClass = { wizard: [] };
+      character.knownSpells = [];
+      character.preparedSpellsByClass = { wizard: [] };
+      character.preparedSpells = [];
+      saveEditable(character);
+      render(<App />);
+      await openSpells(false);
+
+      fireEvent.click(screen.getByRole("tab", { name: "Daily Preparation" }));
+      const readMagic = screen.getByRole("spinbutton", { name: "Prepare Read Magic" });
+      fireEvent.change(readMagic, { target: { value: "1" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(stored().preparedSpellsByClass?.wizard).toEqual(["Read Magic"]);
+      expect(stored().knownSpellsByClass?.wizard ?? []).not.toContain("Read Magic");
+
+      openBook();
+      expect(screen.queryByRole("row", { name: /Read Magic/ })).toBeNull();
+    });
+
+    it("hides spellbook mutation controls when the Wizard sheet is read-only", () => {
+      const character = caster();
+      character.spellAcquisitionByClass = { wizard: { "Magic Missile": "scroll" } };
+      render(<SpellSheets character={character} editable={false}
+        onKnownSpellsChange={vi.fn()} onPreparedSpellsChange={vi.fn()}
+        onSpellAcquisitionChange={vi.fn()} onCharacterUpdate={vi.fn()}
+        onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+        onCombatCastingContextChange={vi.fn()} />);
+
+      expect(screen.queryByRole("button", { name: "Learn a spell" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Remove Magic Missile from spellbook" })).toBeNull();
+    });
+
     it("requires the exact decipher and learning DCs, study, and writing confirmations before copying", async () => {
-      save(caster());
+      saveEditable(caster());
       render(<App />);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
       fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Web" } });
       expect(screen.getByText(/Copying requirements for Web/).textContent ?? "")
-        .toContain("learning Spellcraft DC 17 after 8 hours of study");
+        .toContain("learning Spellcraft DC 17 after one day of study");
+      expect(screen.queryByRole("option", { name: "Decipher Script check" })).toBeNull();
       expect(screen.getByText(/Writing takes 24 hours, uses 2 pages, and costs 200 gp/)).toBeDefined();
       fireEvent.change(screen.getByLabelText("Deciphering method"), { target: { value: "spellcraft" } });
       fireEvent.change(screen.getByLabelText("Deciphering Spellcraft total"), { target: { value: "21" } });
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
       fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "16" } });
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       expect(screen.getAllByRole("alert").map((entry) => entry.textContent).join(" ")).toContain("Learning failed");
@@ -347,17 +418,18 @@ describe("class-specific spell rules", () => {
       const character = caster();
       character.ruleset = "dragonlance-user-pack";
       character.languages = ["Common", "Magius"];
-      save(character);
+      saveEditable(character);
       render(<App />);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
       fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Web" } });
+      expect(screen.getByRole("option", { name: "Decipher Script check" })).toBeDefined();
       fireEvent.change(screen.getByLabelText("Deciphering method"), { target: { value: method } });
       expect(screen.getByText(/Magius grants a \+2 competence bonus/)).toBeDefined();
       fireEvent.change(screen.getByLabelText(label), { target: { value: "20" } });
       expect(screen.queryByText(/Deciphering failed/)).toBeNull();
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
       fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "17" } });
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       fireEvent.click(screen.getByRole("button", { name: "Record learned spell" }));
@@ -374,7 +446,7 @@ describe("class-specific spell rules", () => {
       const character = caster();
       character.ruleset = "dragonlance-user-pack";
       character.languages = ["Common", "Magius"];
-      save(character);
+      saveEditable(character);
       render(<App />);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
@@ -382,20 +454,22 @@ describe("class-specific spell rules", () => {
       fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Web" } });
       fireEvent.change(screen.getByLabelText("Deciphering method"), { target: { value: "spellcraft" } });
       expect(screen.queryByText(/Magius grants a \+2 competence bonus/)).toBeNull();
+      expect(screen.queryByRole("option", { name: "Decipher Script check" })).toBeNull();
       fireEvent.change(screen.getByLabelText("Deciphering Spellcraft total"), { target: { value: "20" } });
       expect(screen.getByRole("alert").textContent).toContain("Deciphering failed");
     });
 
     it("read magic bypasses deciphering rolls but not the learning check; cancelled attempts change nothing", async () => {
       const character = caster();
-      save(character);
+      saveEditable(character);
+      const savedBeforeAttempt = stored();
       render(<App />);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
       fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Shield" } });
       expect(screen.queryByLabelText("Deciphering Spellcraft total")).toBeNull();
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
       fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       expect(screen.getByRole<HTMLButtonElement>("button", { name: "Record learned spell" }).disabled).toBe(true);
       fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "15" } });
@@ -403,7 +477,9 @@ describe("class-specific spell rules", () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Learn a spell" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      expect(stored()).toEqual(character);
+      expect(stored().knownSpellsByClass).toEqual(savedBeforeAttempt.knownSpellsByClass);
+      expect(stored().spellAcquisitionByClass).toEqual(savedBeforeAttempt.spellAcquisitionByClass);
+      expect(stored().wizardSpellLearning).toEqual(savedBeforeAttempt.wizardSpellLearning);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
       expect(screen.getByLabelText<HTMLSelectElement>("Wizard spell").value).toBe("");
       fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
@@ -412,7 +488,7 @@ describe("class-specific spell rules", () => {
 
     it.each(["spellbook", "research", "reward"] as const)("records %s acquisition without converting it into a free level-up spell", async (source) => {
       const character = caster();
-      save(character);
+      saveEditable(character);
       const view = render(<App />);
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
@@ -421,7 +497,7 @@ describe("class-specific spell rules", () => {
       if (source === "spellbook") {
         expect(screen.getByText(/typical access fee is 100 gp/)).toBeDefined();
         fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
-        fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
+        fireEvent.click(screen.getByRole("checkbox", { name: "One day of study completed" }));
         fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "17" } });
         fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
       } else {
@@ -442,7 +518,7 @@ describe("class-specific spell rules", () => {
     });
 
     it("resets pending check results when the spell or source changes", async () => {
-      save(caster());
+      saveEditable(caster());
       render(<App />);
       await openSpells(false);
       fillCopiedSpell("Shield");
@@ -498,10 +574,14 @@ describe("class-specific spell rules", () => {
       await openSpells(false);
       fireEvent.click(screen.getByRole("button", { name: "Add starting cantrips" }));
       expect(screen.getByText("Detect Magic", { exact: true })).toBeDefined();
-      expect(within(screen.getByLabelText("Free wizard spell")).getAllByRole("option")).toHaveLength(1);
+      const freeSpell = screen.getByLabelText("Free wizard spell");
+      expect(within(freeSpell).getByRole("option", { name: "Magic Missile (Level 1)" })).toBeDefined();
+      fireEvent.change(freeSpell, { target: { value: "Magic Missile" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add free spell" }));
       expect(screen.queryByLabelText("Learning Spellcraft total")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       expect(stored().knownSpellsByClass?.wizard).toContain("Detect Magic");
+      expect(stored().knownSpellsByClass?.wizard).toContain("Magic Missile");
       expect(stored().wizardSpellLearning).toBeUndefined();
     });
 
@@ -528,6 +608,28 @@ describe("class-specific spell rules", () => {
     expect(getCasterLevel("ranger", 4)).toBe(2);
     expect(getCasterLevel("ranger", 8)).toBe(4);
     expect(getCasterLevel("wizard", 3)).toBe(3);
+  });
+
+  it("matches the PHB Paladin and Ranger spell-slot progression at every level", () => {
+    const expectedSlotsByLevel = [
+      [], [], [], [0], [0], [1], [1], [1, 0], [1, 0], [1, 1],
+      [1, 1, 0], [1, 1, 1], [1, 1, 1], [2, 1, 1, 0],
+      [2, 1, 1, 1], [2, 2, 1, 1], [2, 2, 2, 1], [3, 2, 2, 1],
+      [3, 3, 3, 2], [3, 3, 3, 3],
+    ];
+    for (const classId of ["paladin", "ranger"] as const) {
+      expectedSlotsByLevel.forEach((slots, index) => {
+        const classLevel = index + 1;
+        for (let spellLevel = 1; spellLevel <= 4; spellLevel++) {
+          expect(baseSpellSlots(classId, classLevel, spellLevel)).toBe(
+            slots[spellLevel - 1] ?? 0,
+          );
+          expect(hasSpellLevelAtClassLevel(classId, classLevel, spellLevel)).toBe(
+            spellLevel <= slots.length,
+          );
+        }
+      });
+    }
   });
 
   it("applies Dragonlance High Sorcery phase and conjunction modifiers to caster level and DC", () => {
@@ -1770,7 +1872,7 @@ describe("caster class subtabs", () => {
     delete character.knownSpellsByClass;
     character.knownSpells = ["Magic Missile", "Cure Light Wounds"];
     character.knownSpellClasses = { "Magic Missile": "wizard", "Cure Light Wounds": "cleric" };
-    save(character);
+    saveEditable(character);
     render(<App />);
     await openSpells(false);
     fillCopiedSpell("Shield");
@@ -1815,7 +1917,7 @@ describe("caster class subtabs", () => {
     character.preparedSpellsByClass = { wizard: ["Detect Magic"], cleric: ["Detect Magic"] };
     character.spellAcquisitionByClass = { wizard: { "Detect Magic": "scroll" } };
     character.wizardSpellLearning = { "Detect Magic": { source: "scroll", learnedAt: "2026-10-25T12:00:00Z", spellcraftTotal: 15 } };
-    save(character);
+    saveEditable(character);
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<App />);
     await openSpells(false);

@@ -4,7 +4,8 @@ import { lazy, Suspense } from "react";
 import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, CombatAttackModeControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "./shared";
 import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getAnimatedShieldState, getForceShieldState, getBlindingShieldState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem, type CombatAttackMode } from "../rules";
 import { formatSpellSchool } from "../spellFormatting";
-import { getEncumbrance, getMovement } from "../rules";
+import { getEncumbrance } from "../rules";
+import { getMovement } from "../movementRules";
 
 const CombatTargetDefenseControl = lazy(() =>
   import("./CombatTargetContextSelector").then((module) => ({

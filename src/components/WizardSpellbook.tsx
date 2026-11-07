@@ -28,7 +28,7 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
   const classLevel = getBaseClassLevel(character, "wizard");
   const freeChoices = spells.filter((spell) => !knownNames.has(spell.name.toLowerCase()) && spell.level > 0 &&
     (!allowance.starting || spell.level === 1) && hasSpellLevelAtClassLevel("wizard", classLevel, spell.level) &&
-    getEffectiveAbilityScore(character, "int") >= 10 + spell.level);
+    (allowance.starting || getEffectiveAbilityScore(character, "int") >= 10 + spell.level));
   const selectedFreeSpell = freeChoices.find((spell) => spell.name === freeSpell);
   const unavailableByOrder = known.filter((name) => {
     const spell = findSpellByName(name);
@@ -52,7 +52,8 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
         <p>Your spellbook records learned spells; Daily Preparation chooses today's copies.
           Recorded spells: {known.length}. Known page usage: {pageCount}.
           Physical books and their 100-page capacities are not tracked yet.</p>
-        <p className="spell-rules-notice">Core school specialization is optional and chosen at Wizard 1. A specialist chooses two prohibited schools (one if specializing in Divination; Divination cannot be prohibited), gains one extra prepared spell per spell level each day from the chosen school, and gets +2 on Spellcraft checks to learn spells from that school. These choices, extra slots, Spellcraft bonuses, and barred-school restrictions are not enforced here; manage them manually.</p>
+        <p className="spell-rules-notice">Core school specialization is optional and chosen at Wizard 1. A specialist chooses two prohibited schools (one if specializing in Divination; Divination cannot be prohibited), gains one extra prepared spell per spell level each day from the chosen school, and gets +2 on Spellcraft checks to learn spells from that school. One of the two free spells gained at each new Wizard level must also be from the specialty school. These choices, extra slots, Spellcraft bonuses, and barred-school restrictions are not enforced here; manage them manually.</p>
+        <p className="spell-rules-notice">Preparing a spell from a borrowed spellbook requires that it is also in your own spellbook and a Spellcraft check (DC 15 + spell level) each time. Track borrowed-book preparation checks manually.</p>
         {editable && (
           <form className="spellbook-free-spells" onSubmit={(event) => {
             event.preventDefault();
@@ -79,11 +80,13 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
             </button>}
           </form>
         )}
-        <button ref={addButton} type="button" className="level-button" onClick={() => setLearning(true)}>
-          Learn a spell
-        </button>
-        <p>Copy a scroll or another spellbook, or record DM-approved research or a reward.
-          Learning does not spend gold or remove inventory automatically. Save persists changes.</p>
+        {editable && <>
+          <button ref={addButton} type="button" className="level-button" onClick={() => setLearning(true)}>
+            Learn a spell
+          </button>
+          <p>Copy a scroll or another spellbook, or record DM-approved research or a reward.
+            Learning does not spend gold or remove inventory automatically. Save persists changes.</p>
+        </>}
       </div>
       {unknown.length > 0 && <div className="spell-rules-notice" role="alert">
         Unrecognized imported spellbook entries: {unknown.join(", ")}. Preserved unchanged; verify names with your DM.
@@ -108,8 +111,8 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
                   {record?.spellcraftTotal !== undefined && <small>Learning Spellcraft {record.spellcraftTotal} (DC {15 + level})</small>}
                   {notCastable && <small className="spell-rules-notice">Recorded, but not currently available to prepare. Requires wizard spell-level access and INT {10 + level}.</small>}
                 </div>
-                {(source && !["starting", "level-up"].includes(source) ||
-                  editable && !originalKnown.includes(spell.name)) && <button type="button" className="quiet-button"
+                {editable && (source && !["starting", "level-up"].includes(source) ||
+                  !originalKnown.includes(spell.name)) && <button type="button" className="quiet-button"
                   aria-label={`Remove ${spell.name} from spellbook`} onClick={() => {
                     if (window.confirm(`Remove ${spell.name} from the spellbook and remove its prepared copies?`)) {
                       if (source && !["starting", "level-up"].includes(source)) onAcquisitionChange("wizard", spell.name, null);
@@ -121,7 +124,7 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
           </ul>
         </section>;
       })}
-      {!known.length && <p>No spells recorded yet. Add starting spells or use Learn a spell.</p>}
+      {!known.length && <p>No spells recorded yet.{editable && " Add starting spells or use Learn a spell."}</p>}
       {learning && <LearnWizardSpell character={character} onLearn={onAcquisitionChange} onClose={() => {
         setLearning(false);
         addButton.current?.focus();
@@ -152,17 +155,20 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
   const requirements = spell ? getWizardCopyRequirements(spell.level) : undefined;
   const decipherNumber = decipherTotal.trim() ? Number(decipherTotal) : undefined;
   const learningNumber = learningTotal.trim() ? Number(learningTotal) : undefined;
-  const usesDecipherCheck =
-    decipherMethod === "spellcraft" || decipherMethod === "decipher-script";
   const magiusBonus =
-    source === "scroll" && getCharacterLanguages(character).includes("Magius")
+    source === "scroll" &&
+    character.ruleset === "dragonlance-user-pack" &&
+    getCharacterLanguages(character).includes("Magius")
       ? 2
       : 0;
+  const usesDecipherCheck = decipherMethod === "spellcraft" ||
+    (decipherMethod === "decipher-script" && magiusBonus > 0);
+  const validDecipherMethod = decipherMethod !== "decipher-script" || magiusBonus > 0;
   const decipherSkill =
     decipherMethod === "spellcraft" ? "Spellcraft" : "Decipher Script";
-  const deciphered = !usesDecipherCheck || (decipherNumber !== undefined &&
+  const deciphered = validDecipherMethod && (!usesDecipherCheck || (decipherNumber !== undefined &&
     Number.isInteger(decipherNumber) && requirements !== undefined &&
-    decipherNumber + magiusBonus >= requirements.decipherDC);
+    decipherNumber + magiusBonus >= requirements.decipherDC));
   const understood = learningNumber !== undefined && Number.isInteger(learningNumber) &&
     requirements !== undefined && learningNumber >= requirements.learningDC;
   const canLearn = Boolean(spell && (copying ? deciphered && decipherConfirmed && studied && understood && written : approved));
@@ -185,7 +191,8 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
       <h2 id="spell-learning-title">Learn a Wizard Spell</h2>
       <label>Spell source<select autoFocus value={source} onChange={(event) => {
         setSource(event.target.value as WizardSpellLearning["source"]);
-        setDecipherTotal(""); setDecipherConfirmed(false); setLearningTotal(""); setStudied(false); setWritten(false); setApproved(false);
+        setDecipherMethod("read-magic"); setDecipherTotal(""); setDecipherConfirmed(false);
+        setLearningTotal(""); setStudied(false); setWritten(false); setApproved(false);
       }}>
         <option value="scroll">Copy a scroll</option><option value="spellbook">Copy another spellbook</option>
         <option value="research">Independent research</option><option value="reward">DM reward</option>
@@ -199,7 +206,7 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
       </select></label>
       {spell && requirements && (copying ? <>
         <p>Copying requirements for {spell.name}: decipher DC {requirements.decipherDC};
-          learning Spellcraft DC {requirements.learningDC} after {requirements.studyHours} hours of study.
+          learning Spellcraft DC {requirements.learningDC} after one day of study.
           Writing takes {requirements.writingHours} hours, uses {requirements.pages} page{requirements.pages > 1 ? "s" : ""},
           and costs {requirements.writingCostGp} gp in materials.</p>
         {source === "scroll" && magiusBonus > 0 && (
@@ -213,7 +220,8 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
         }}>
           <option value="read-magic">Read magic used</option><option value="author">Author helped decipher the writing</option>
           <option value="previously-deciphered">This writing was already deciphered</option>
-          <option value="spellcraft">Spellcraft check</option><option value="decipher-script">Decipher Script check</option>
+          <option value="spellcraft">Spellcraft check</option>
+          {magiusBonus > 0 && <option value="decipher-script">Decipher Script check</option>}
         </select></label>
         {usesDecipherCheck && <label>{`Deciphering ${decipherSkill} total${magiusBonus > 0 ? " before Magius bonus" : ""}`}
           <input type="number" step="1" value={decipherTotal} onChange={(event) => setDecipherTotal(event.target.value)} />
@@ -222,7 +230,7 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
         <label className="spell-learning-confirm"><input type="checkbox" checked={decipherConfirmed} onChange={(event) => setDecipherConfirmed(event.target.checked)} />
           Writing successfully deciphered using the method above</label>
         <label className="spell-learning-confirm"><input type="checkbox" checked={studied} onChange={(event) => setStudied(event.target.checked)} />
-          {requirements.studyHours} hours of study completed</label>
+          One day of study completed</label>
         <label>Learning Spellcraft total<input type="number" step="1" value={learningTotal} onChange={(event) => setLearningTotal(event.target.value)} /></label>
         {!understood && learningTotal !== "" && <p role="alert">Learning failed. Gain another rank in Spellcraft before trying to learn this spell again.
           The scroll is not consumed and no spell will be added. Retry eligibility is tracked by you and your DM.</p>}

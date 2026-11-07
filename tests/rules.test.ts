@@ -20,7 +20,6 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getKnightOfCrownHeroicInitiativeBonus,
   getDwarfStabilityBonus, getRacialSkillContextOptions, getRacialSpellLikeAbilities, getSkillCheckModifier, getSkillTotalTooltip,
   getRaceDefinitionForCharacter,
-  getMovement,
   getImprovedInitiativeBonus, getInitiativeModifier,
   getNewLevelUpFeatSlots, getSavingThrow, getSkillMaximum, getSpentSkillPoints,
   getAvailableSkillCount, getAvailableSkillCountForSource, getSpentSkillPointsForSource,
@@ -28,6 +27,7 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   normalizeFeatSelections,
   getTwoWeaponAttackPenalty, alignmentDistance, isClericAlignmentAllowed,
   isClassAlignmentAllowed } from "../src/rules";
+import { getMovement } from "../src/movementRules";
 import { featCatalog } from "../src/data/characterCatalog";
 import { classFeatureDescriptions } from "../src/data/classFeatureDescriptions";
 import { getClassSpells, loadSpellCatalog, spells } from "../src/data/spellCatalog";
@@ -35,6 +35,140 @@ import { formatRaceDetails } from "../src/creationRules";
 import { getConstitutionHitPointAdjustment, getEffectiveAbilityScore } from "../src/abilityEquipment";
 
 beforeAll(loadSpellCatalog);
+
+describe("Barbarian class rules", () => {
+  it("matches the PHB attack, save, skill, and feature progressions", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Dwarf";
+
+    for (let level = 1; level <= 20; level += 1) {
+      character.classLevels = [{ classId: "barbarian", level }];
+      expect(getBaseAttackBonus(character)).toBe(level);
+      expect([
+        getBaseSave(character, "fortitude"),
+        getBaseSave(character, "reflex"),
+        getBaseSave(character, "will"),
+      ]).toEqual([
+        2 + Math.floor(level / 2),
+        Math.floor(level / 3),
+        Math.floor(level / 3),
+      ]);
+    }
+
+    for (const skill of [
+      "Climb",
+      "Craft",
+      "Handle Animal",
+      "Intimidate",
+      "Jump",
+      "Listen",
+      "Ride",
+      "Survival",
+      "Swim",
+    ]) {
+      expect(isClassSkill(character, skill, "barbarian")).toBe(true);
+    }
+    expect(isClassSkill(character, "Spot", "barbarian")).toBe(false);
+    expect(getSkillPointsPerLevel(character, "barbarian")).toBe(
+      Math.max(1, 4 + abilityModifier(character.abilities.int)),
+    );
+
+    character.classLevels = [{ classId: "barbarian", level: 20 }];
+    const features = getClassFeatureDisplay(character)
+      .filter(({ source }) => source.startsWith("Barbarian "))
+      .map(({ source, ability }) => [Number(source.slice(10)), ability]);
+    expect(features).toEqual([
+      [1, "Rage (1/day)"],
+      [1, "Fast Movement"],
+      [1, "Illiteracy"],
+      [2, "Uncanny Dodge"],
+      [3, "Trap Sense +1"],
+      [4, "Rage (2/day)"],
+      [5, "Improved Uncanny Dodge"],
+      [6, "Trap Sense +2"],
+      [7, "Damage Reduction 1/-"],
+      [8, "Rage (3/day)"],
+      [9, "Trap Sense +3"],
+      [10, "Damage Reduction 2/-"],
+      [11, "Greater Rage"],
+      [12, "Rage (4/day)"],
+      [12, "Trap Sense +4"],
+      [13, "Damage Reduction 3/-"],
+      [14, "Indomitable Will"],
+      [15, "Trap Sense +5"],
+      [16, "Damage Reduction 4/-"],
+      [16, "Rage (5/day)"],
+      [17, "Tireless Rage"],
+      [18, "Trap Sense +6"],
+      [19, "Damage Reduction 5/-"],
+      [20, "Mighty Rage"],
+      [20, "Rage (6/day)"],
+    ]);
+
+    expect(classFeatureDescriptions["Rage (1/day)"]).toContain("Once per encounter");
+    expect(classFeatureDescriptions.Illiteracy).toContain("2 skill points");
+    expect(classFeatureDescriptions["Fast Movement"]).toContain("medium load");
+    expect(classFeatureDescriptions["Mighty Rage"]).toContain("+8 Constitution");
+  });
+});
+
+describe("Fighter class rules", () => {
+  it("matches the PHB Fighter progression for attacks, saves, skills, and bonus feats", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Dwarf";
+    const fighterBonusFeatLevels = [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
+
+    for (let level = 1; level <= 20; level += 1) {
+      character.classLevels = [{ classId: "fighter", level }];
+      expect(getBaseAttackBonus(character)).toBe(level);
+      expect([
+        getBaseSave(character, "fortitude"),
+        getBaseSave(character, "reflex"),
+        getBaseSave(character, "will"),
+      ]).toEqual([
+        2 + Math.floor(level / 2),
+        Math.floor(level / 3),
+        Math.floor(level / 3),
+      ]);
+      expect(
+        getFeatSlots(character)
+          .filter((slot) => slot.fighterOnly)
+          .map((slot) => Number(slot.id?.slice("fighter-".length))),
+      ).toEqual(fighterBonusFeatLevels.filter((featLevel) => featLevel <= level));
+    }
+
+    for (const skill of [
+      "Climb",
+      "Craft",
+      "Handle Animal",
+      "Intimidate",
+      "Jump",
+      "Ride",
+      "Swim",
+    ]) {
+      expect(isClassSkill(character, skill, "fighter")).toBe(true);
+    }
+    expect(isClassSkill(character, "Spot", "fighter")).toBe(false);
+    expect(getSkillPointsPerLevel(character, "fighter")).toBe(
+      Math.max(1, 2 + abilityModifier(character.abilities.int)),
+    );
+
+    character.classLevels = [{ classId: "fighter", level: 1 }];
+    expect(getAvailableSkillCountForSource(character, "fighter")).toBe(
+      4 * Math.max(1, 2 + abilityModifier(character.abilities.int)),
+    );
+  });
+
+  it("does not allow Martial Weapon Proficiency as a Fighter bonus feat", () => {
+    const feat = featCatalog.find(
+      (candidate) => candidate.id === "martial-weapon-proficiency",
+    );
+    if (!feat) throw new Error("Missing Martial Weapon Proficiency fixture.");
+
+    expect(featQualifies(initialCharacter, feat, { fighterOnly: true })).toBe(false);
+    expect(featQualifies(initialCharacter, feat, { fighterOnly: false })).toBe(true);
+  });
+});
 
 describe("Dragonlance feats", () => {
   it("includes the sourcebook's Chapter 2 feats with the correct source", () => {
@@ -2263,7 +2397,7 @@ describe("character rules preserved from 2.0", () => {
     expect(classFeatureDescriptions["Favored Enemy"]).toContain("organization");
   });
 
-  it("requires PHB-listed subtypes for Humanoid and Outsider favored enemies", () => {
+  it("requires subtypes for Humanoid and Outsider favored enemies", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [{ classId: "ranger", level: 1 }];
     character.rangerFavoredEnemies = [{
@@ -2381,6 +2515,18 @@ describe("character rules preserved from 2.0", () => {
     character.classLevels = [{ classId: "fighter", level: 3 }];
     expect(getChosenFeats(character)).not.toContain("track");
     expect(getChosenFeats(character)).not.toContain("endurance");
+  });
+
+  it("documents Ranger Wild Empathy's range, timing, and magical-beast penalty", () => {
+    expect(classFeatureDescriptions["Wild Empathy"]).toContain(
+      "within 30 feet under normal visibility",
+    );
+    expect(classFeatureDescriptions["Wild Empathy"]).toContain(
+      "normally takes 1 minute",
+    );
+    expect(classFeatureDescriptions["Wild Empathy"]).toContain(
+      "Intelligence 1–2 at a –4 penalty",
+    );
   });
 
   it("requires Dragonlance Druids to follow an alignment-matched nature deity to cast spells", () => {

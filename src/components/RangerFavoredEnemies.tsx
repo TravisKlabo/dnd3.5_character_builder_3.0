@@ -71,6 +71,17 @@ export function RangerFavoredEnemies({
         const editable = editableLevels.includes(classLevel);
         const targetRequiresSubtype = choice.kind === "creature" &&
           (choice.target === "Humanoid" || choice.target === "Outsider");
+        const subtypes = choice.target === "Humanoid"
+          ? ["aquatic", "dwarf", "elf", "goblinoid", "gnoll", "gnome", "halfling", "human", "orc", "reptilian"]
+          : choice.target === "Outsider"
+          ? ["air", "chaotic", "earth", "evil", "fire", "good", "lawful", "native", "water"]
+          : [];
+        const originalSubtype = choice.subtype?.trim() ?? "";
+        const selectedSubtype = subtypes.find(
+          (subtype) => subtype === originalSubtype.toLowerCase(),
+        ) ?? originalSubtype;
+        const hasUnsupportedSubtype = selectedSubtype !== "" &&
+          !subtypes.includes(selectedSubtype);
         const bonusTargets = availableBonusTargets.some(
           (target) => target.classLevel === classLevel,
         )
@@ -147,18 +158,30 @@ export function RangerFavoredEnemies({
             {targetRequiresSubtype && (
               <label>
                 {choice.target} subtype
-                <input
+                <select
                   aria-label={`Ranger level ${classLevel} associated subtype`}
-                  value={choice.subtype ?? ""}
-                  maxLength={80}
-                  placeholder={choice.target === "Humanoid" ? "e.g. elf" : "e.g. lawful"}
+                  aria-invalid={hasUnsupportedSubtype}
+                  value={selectedSubtype}
                   disabled={!editable}
                   onChange={(event) =>
                     updateChoice(classLevel, {
                       subtype: event.currentTarget.value,
                     })
                   }
-                />
+                >
+                  <option value="">Choose a subtype</option>
+                  {hasUnsupportedSubtype && (
+                    <option value={selectedSubtype}>
+                      {selectedSubtype} (not PHB-listed)
+                    </option>
+                  )}
+                  {subtypes.map((subtype) => (
+                    <option key={subtype} value={subtype}>{subtype}</option>
+                  ))}
+                </select>
+                {hasUnsupportedSubtype && (
+                  <span role="alert">Choose a PHB-listed subtype.</span>
+                )}
               </label>
             )}
             {classLevel > 1 && (

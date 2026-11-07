@@ -604,7 +604,7 @@ export function getWizardFreeSpellAllowance(character: Character, original?: Cha
     !old.has(name) && !["scroll", "spellbook", "research", "reward"].includes(character.spellAcquisitionByClass?.wizard?.[name] ?? "") &&
     entries.some((spell) => spell.name === name && spell.level > 0 &&
       (!starting || spell.level === 1) && hasSpellLevelAtClassLevel("wizard", classLevel, spell.level) &&
-      getEffectiveAbilityScore(character, "int") >= 10 + spell.level)).length;
+      (starting || getEffectiveAbilityScore(character, "int") >= 10 + spell.level))).length;
   return { starting, required, selected, remaining: Math.max(0, required - selected) };
 }
 
@@ -1544,53 +1544,7 @@ export function hasActiveCombatFeat(character: Character, featId: string) {
   );
 }
 
-export function getMovement(character: Character) {
-  const race = getRaceDefinitionForCharacter(character) ?? raceDefinitions.human;
-  const baseSpeed = race.speed ?? 30;
-  const baseSwimSpeed = race.swimSpeed;
-  const armor = getWornArmor(character);
-  const encumbrance = getEncumbrance(character);
-  const monkState = getMonkAbilityState(character, encumbrance);
-  const monkSpeedBonus = monkState.active ? Math.floor(monkState.level / 3) * 10 : 0;
-  const armoredMobility = getPrestigeClassLevel(character, "knight-of-the-crown") >= 7;
-  const armorMovementCategory = armoredMobility && armor.movementCategory === "Heavy"
-    ? "Medium"
-    : armor.movementCategory;
-  const armorSlows = armorMovementCategory === "Medium" || armorMovementCategory === "Heavy";
-  const loadSlows = encumbrance.load !== "Light";
-  const causes: string[] = [];
-  let speed = baseSpeed + monkSpeedBonus;
-  let swimSpeed = baseSwimSpeed;
-  const bonuses = monkSpeedBonus > 0 ? [`Monk Fast Movement +${monkSpeedBonus} ft.`] : [];
-  const slowedSpeed = (movementSpeed: number) =>
-    movementSpeed === 20 ? 15 : Math.floor(movementSpeed * 2 / 15) * 5;
-  if (encumbrance.load === "Overloaded") {
-    speed = encumbrance.weight <= encumbrance.capacity.heavy * 2 ? 5 : 0;
-    if (swimSpeed !== undefined) swimSpeed = speed;
-    causes.push(speed === 5 ? "Overloaded: 5 ft. per round, full-round action" : "Beyond lifting limit: cannot carry this load");
-  } else if (race.id !== "dwarf" && (armorSlows || loadSlows)) {
-    speed = slowedSpeed(baseSpeed);
-    if (swimSpeed !== undefined) swimSpeed = slowedSpeed(swimSpeed);
-    if (armorSlows) causes.push(`Armor: ${armor.name}${armoredMobility && armor.movementCategory === "Heavy" ? " (treated as medium)" : ""}`);
-    if (loadSlows) causes.push(`${encumbrance.load} load: ${encumbrance.weight} lb.`);
-  }
-  const movement: {
-    baseSpeed: number;
-    speed: number;
-    causes: string[];
-    bonuses?: string[];
-    baseSwimSpeed?: number;
-    swimSpeed?: number;
-  } = { baseSpeed, speed, causes };
-  if (bonuses.length) movement.bonuses = bonuses;
-  if (baseSwimSpeed !== undefined && swimSpeed !== undefined) {
-    movement.baseSwimSpeed = baseSwimSpeed;
-    movement.swimSpeed = swimSpeed;
-  }
-  return movement;
-}
-
-function getMonkAbilityState(
+export function getMonkAbilityState(
   character: Character,
   encumbrance = getEncumbrance(character),
 ) {

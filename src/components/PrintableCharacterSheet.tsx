@@ -25,7 +25,6 @@ import {
   getKnownSpellLimit,
   hasSpellLevelAtClassLevel,
   isClassSkill,
-  getMovement,
   getRacialSpellLikeAbilities,
   getRaceDefinitionForCharacter,
   getSavingThrow,
@@ -37,6 +36,7 @@ import {
   getSpellcastingAbility,
   getWornArmor,
 } from "../rules";
+import { getMovement } from "../movementRules";
 import { findSpellByName, useSpellCatalog } from "../data/spellCatalog";
 import type { SrdSpell } from "../srdSpells";
 import {

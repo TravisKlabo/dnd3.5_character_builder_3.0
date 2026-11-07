@@ -9,6 +9,10 @@ regression coverage; it does not mean every rule in that category is complete.
 Passing tests demonstrate their specific scenarios, not comprehensive SRD
 coverage.
 
+Barbarian Fast Movement is applied to land speed when armor and load qualify;
+Rage effects and other non-automatic Barbarian features are explained on the
+character sheet and tracked manually.
+
 | Area | Status | Implemented and verified | Known gaps / boundaries | Evidence |
 |---|---|---|---|---|
 | Character creation and lifecycle | Implemented (bounded) | Setup drafts, creation validation, finalization, level-up drafts, save/export/import; representative Fighter and spellcaster creation flows | Not every class, race, choice combination, or legality edge case has an end-to-end regression | [app.test.tsx](../tests/app.test.tsx), [3.0 design](3.0-design.md) |

@@ -195,7 +195,24 @@ describe("application workflows", () => {
     fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
     expect(within(raceChoices).getByRole("option", { name: "Kender" })).toBeDefined();
     expect(within(raceChoices).queryByRole("option", { name: "Draconian" })).toBeNull();
+    expect(within(raceChoices).queryByRole("option", { name: "Baaz Draconian" })).toBeNull();
+    expect(within(raceChoices).queryByRole("option", { name: "Kapak Draconian" })).toBeNull();
     expect(within(raceChoices).queryByRole("option", { name: "Deep Dwarf" })).toBeNull();
+
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-monster-classes" } });
+    const monsterRaceChoices = screen.getByRole("listbox", { name: "Race choices" });
+    expect(within(monsterRaceChoices).getByRole("option", { name: "Baaz Draconian" })).toBeDefined();
+    expect(within(monsterRaceChoices).getByRole("option", { name: "Kapak Draconian" })).toBeDefined();
+    for (const unavailableSubtype of [
+      "Draconian",
+      "Bozak Draconian",
+      "Sivak Draconian",
+      "Aurak Draconian",
+    ]) {
+      expect(within(monsterRaceChoices).queryByRole("option", { name: unavailableSubtype })).toBeNull();
+    }
+
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(readStoredCharacter().ruleset).toBe("dragonlance-user-pack");
 
@@ -276,7 +293,7 @@ describe("application workflows", () => {
     });
     expect(within(creatureType).getByRole("option", { name: "Humanoid" })).toBeDefined();
     fireEvent.change(creatureType, { target: { value: "Humanoid" } });
-    expect(screen.getByRole("textbox", {
+    expect(screen.getByRole("combobox", {
       name: "Ranger level 1 associated subtype",
     })).toBeDefined();
     const enemyType = screen.getByRole("combobox", {

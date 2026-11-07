@@ -5,8 +5,9 @@ import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, type Ch
 import { findStoreItem } from "../src/data/equipmentCatalog";
 import { getClericDomainSlotCount } from "../src/clericDomains";
 import { equipInventoryItem, featQualifies, getArmorClassRestrictions, getArmorClassValues, getAvailableSkillCount,
-  getDailySpellSlots, getEncumbrance, getEquippedWeaponStats, getLanguageBonusSlots, getMovement, getSavingThrow,
+  getDailySpellSlots, getEncumbrance, getEquippedWeaponStats, getLanguageBonusSlots, getSavingThrow,
   getSkillCheckModifier, getSkillTotalTooltip, getSpecialAttackBonuses, getSpellSaveDC, getWizardFreeSpellAllowance } from "../src/rules";
+import { getMovement } from "../src/movementRules";
 import { featCatalog } from "../src/data/characterCatalog";
 import { loadSavedCharacter, savedCharacterStorageKey } from "../src/storage";
 import { readStoredCharacter } from "./storageTestHelpers";

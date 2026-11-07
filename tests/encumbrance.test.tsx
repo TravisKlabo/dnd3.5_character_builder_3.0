@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { carryingCapacity, cloneCharacter, initialCharacter } from "../src/domain";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { getArmorClassRestrictions, getCarriedWeight, getEncumbrance, getEquipmentArmorClass,
-  getMovement, getSkillCheckModifier, getSkillCheckPenalties } from "../src/rules";
+  getSkillCheckModifier, getSkillCheckPenalties } from "../src/rules";
+import { getMovement } from "../src/movementRules";
 import { savedCharacterStorageKey } from "../src/storage";
 import App from "../src/App";
 import { readStoredCharacter } from "./storageTestHelpers";
@@ -132,6 +133,42 @@ describe("load, armor, AC, and movement", () => {
     character.inventory["Load test ballast"] = 34;
     expect(getMovement(character).speed).toBe(20);
 
+    character.inventory = { "Unrecorded statue": 1 };
+    expect(getMovement(character).speed).toBe(30);
+  }));
+
+  it("applies Barbarian Fast Movement before medium armor/load reductions", () => withBallast(() => {
+    const character = hero();
+    character.classLevels = [{ classId: "barbarian", level: 1 }];
+    expect(getMovement(character)).toMatchObject({
+      baseSpeed: 30,
+      speed: 40,
+      bonuses: ["Barbarian Fast Movement +10 ft."],
+    });
+
+    character.equipment.Armor = "Leather Armor";
+    expect(getMovement(character).speed).toBe(40);
+    character.equipment.Armor = "Chainmail";
+    expect(getMovement(character).speed).toBe(30);
+    character.equipment.Armor = "";
+    character.inventory["Load test ballast"] = 34;
+    expect(getMovement(character).speed).toBe(30);
+    character.inventory["Load test ballast"] = 67;
+    expect(getMovement(character).speed).toBe(20);
+
+    character.inventory = {};
+    character.equipment.Armor = "Full Plate";
+    expect(getMovement(character).speed).toBe(20);
+    character.equipment.Armor = "";
+    character.equipment.Shield = "Buckler";
+    expect(getMovement(character).speed).toBe(40);
+
+    character.race = "Dwarf";
+    character.equipment.Armor = "Chainmail";
+    expect(getMovement(character).speed).toBe(30);
+
+    character.race = "Human";
+    character.equipment.Armor = "";
     character.inventory = { "Unrecorded statue": 1 };
     expect(getMovement(character).speed).toBe(30);
   }));

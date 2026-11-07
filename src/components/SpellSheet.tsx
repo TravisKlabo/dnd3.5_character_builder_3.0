@@ -907,6 +907,7 @@ export function SpellSheet({
               learningMode === "Prepared Spells"
                 ? preparedSpells.includes(spell.name)
                 : activeClassKnownSpells.has(spell.name) ||
+                  (spellcastingClass.id === "wizard" && preparationView && spell.name === "Read Magic") ||
                   isMysticDomainSpellAtLevel(spell.name, level),
           )
           .map((spell) => spell.name);
@@ -1005,7 +1006,8 @@ export function SpellSheet({
                       !spellAcquisition &&
                       levelUpOriginal &&
                         spellName &&
-                        !originalClassKnownSpells.has(spellName),
+                        !originalClassKnownSpells.has(spellName) &&
+                        !(spellcastingClass.id === "wizard" && preparationView && spellName === "Read Magic"),
                     );
                   const spellMarker = isMysticDomainBonusSpell
                     ? " (Domain)"

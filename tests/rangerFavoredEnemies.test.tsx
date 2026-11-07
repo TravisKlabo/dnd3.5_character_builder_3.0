@@ -24,13 +24,41 @@ describe("Ranger favored enemies", () => {
       />,
     );
 
-    const subtype = screen.getByRole("textbox", {
+    const subtype = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Ranger level 1 associated subtype",
     });
-    expect((subtype as HTMLInputElement).value).toBe("lawful");
+    expect(subtype.value).toBe("lawful");
+    expect(screen.getByRole("option", { name: "water" })).toBeDefined();
+    expect(screen.queryByRole("option", { name: "demon" })).toBeNull();
     fireEvent.change(subtype, { target: { value: "water" } });
     expect(onChange).toHaveBeenLastCalledWith([
       expect.objectContaining({ target: "Outsider", subtype: "water" }),
     ]);
+  });
+
+  it("preserves imported non-PHB subtypes so they can be corrected", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "ranger", level: 1 }];
+    character.rangerFavoredEnemies = [{
+      classLevel: 1,
+      kind: "creature",
+      target: "Humanoid",
+      subtype: "homebrew",
+      bonusTargetLevel: 1,
+    }];
+
+    render(
+      <RangerFavoredEnemies
+        character={character}
+        editableLevels={[1]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("option", { name: "homebrew (not PHB-listed)" })).toBeDefined();
+    expect(screen.getByRole("combobox", {
+      name: "Ranger level 1 associated subtype",
+    }).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("Choose a PHB-listed subtype.")).toBeDefined();
   });
 });

@@ -24,6 +24,8 @@ const countersongDescription =
   "Each round, roll Perform while maintaining this effect (up to 10 rounds). A creature within 30 feet affected by a sonic or language-dependent magical effect can use your check result instead of its save if higher; an ongoing effect allows another save each round using your check result. It does not counter effects that allow no save or spells that merely have verbal components.";
 const fascinateDescription =
   "With 3 Perform ranks, make a Perform check as the Will save DC for creatures within 90 feet that can see and hear you and are not threatened. Concentrate to maintain the effect for up to 1 round per Bard level; target one additional creature per three Bard levels beyond 1st.";
+const barbarianRageDescription =
+  "Once per encounter, enter a rage on your turn (not in response to another creature's action); track the listed daily uses manually. Standard rage grants +4 Strength, +4 Constitution, +2 morale on Will saves, and -2 AC for 3 rounds plus your increased Constitution modifier. The Constitution increase adds 2 hit points per Barbarian level until the rage ends; Greater and Mighty Rage increase this to 3 and 4 hit points per level. You cannot use most Charisma-, Dexterity-, or Intelligence-based skills, Concentration, spells, or command-word/spell-trigger/spell-completion items; Balance, Escape Artist, Intimidate, and Ride are exceptions. Combat Expertise, item creation, and metamagic feats cannot be used. You may end rage early; afterward you are fatigued for the encounter unless you have Tireless Rage. Apply and track these effects manually.";
 
 export const classFeatureDescriptions: Record<string, string> = {
   "Sneak Attack +1d6":
@@ -54,6 +56,47 @@ export const classFeatureDescriptions: Record<string, string> = {
     "Retain your Dexterity bonus to AC while flat-footed or attacked by an invisible foe, but not while immobilized or helpless. If another class already grants Uncanny Dodge, the classes' levels may grant Improved Uncanny Dodge instead.",
   "Improved Uncanny Dodge":
     "You cannot be flanked. A rogue with at least four more rogue levels can still flank you; levels in classes that grant Uncanny Dodge stack for this threshold. Flanking state is adjudicated manually.",
+  "Fast Movement":
+    "Barbarian: land speed +10 ft. in no, light, or medium armor and with no more than a medium load; apply the bonus before armor/load speed reductions. Monk: speed increases by +10 ft. per 3 Monk levels, only without armor or a shield and with a light load. Supported movement bonuses are calculated on the sheet.",
+  Illiteracy:
+    "A Barbarian starts unable to read or write. Spend 2 skill points to become literate in languages you can speak; gaining a level in any other class grants literacy automatically, and taking a Barbarian level does not remove existing literacy.",
+  Rage: barbarianRageDescription,
+  "Rage (1/day)": barbarianRageDescription,
+  "Rage (2/day)": barbarianRageDescription,
+  "Rage (3/day)": barbarianRageDescription,
+  "Rage (4/day)": barbarianRageDescription,
+  "Rage (5/day)": barbarianRageDescription,
+  "Rage (6/day)": barbarianRageDescription,
+  "Greater Rage":
+    "At Barbarian 11, rage bonuses become +6 Strength, +6 Constitution, and +3 morale on Will saves; the -2 AC penalty remains. Apply and track effects manually.",
+  "Mighty Rage":
+    "At Barbarian 20, rage bonuses become +8 Strength, +8 Constitution, and +4 morale on Will saves; the -2 AC penalty remains. Apply and track effects manually.",
+  "Indomitable Will":
+    "While raging at Barbarian 14 or higher, gain a +4 bonus on Will saves against enchantment spells. This stacks with the rage morale bonus and other modifiers.",
+  "Tireless Rage":
+    "At Barbarian 17 or higher, you no longer become fatigued when your rage ends.",
+  "Trap Sense +1":
+    "Gain +1 on Reflex saves and AC against traps; this stacks with Trap Sense from other classes.",
+  "Trap Sense +2":
+    "Gain +2 on Reflex saves and AC against traps; this stacks with Trap Sense from other classes.",
+  "Trap Sense +3":
+    "Gain +3 on Reflex saves and AC against traps; this stacks with Trap Sense from other classes.",
+  "Trap Sense +4":
+    "Gain +4 on Reflex saves and AC against traps; this stacks with Trap Sense from other classes.",
+  "Trap Sense +5":
+    "Gain +5 on Reflex saves and AC against traps; this stacks with Trap Sense from other classes.",
+  "Trap Sense +6":
+    "Gain +6 on Reflex saves and AC against traps; this stacks with Trap Sense from other classes.",
+  "Damage Reduction 1/-":
+    "Against weapon and natural-weapon attacks, reduce damage by 1; it cannot be bypassed. It does not reduce energy, spell, spell-like, or supernatural damage. Apply it manually after damage is rolled.",
+  "Damage Reduction 2/-":
+    "Against weapon and natural-weapon attacks, reduce damage by 2; it cannot be bypassed. It does not reduce energy, spell, spell-like, or supernatural damage. Apply it manually after damage is rolled.",
+  "Damage Reduction 3/-":
+    "Against weapon and natural-weapon attacks, reduce damage by 3; it cannot be bypassed. It does not reduce energy, spell, spell-like, or supernatural damage. Apply it manually after damage is rolled.",
+  "Damage Reduction 4/-":
+    "Against weapon and natural-weapon attacks, reduce damage by 4; it cannot be bypassed. It does not reduce energy, spell, spell-like, or supernatural damage. Apply it manually after damage is rolled.",
+  "Damage Reduction 5/-":
+    "Against weapon and natural-weapon attacks, reduce damage by 5; it cannot be bypassed. It does not reduce energy, spell, spell-like, or supernatural damage. Apply it manually after damage is rolled.",
   "Bardic Knowledge":
     bardicKnowledgeDescription,
   "Turn or Rebuke Undead":
@@ -98,7 +141,7 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Scribe Scroll":
     "Gain Scribe Scroll as a bonus feat at Wizard 1.",
   Spellbook:
-    "At Wizard 1, record all available 0-level wizard spells and three 1st-level spells, plus one more 1st-level spell per point of Intelligence bonus. Add two free wizard spells at each new wizard level from spell levels you can cast. Spell preparation requires the spellbook, except read magic can be prepared from memory; physical book capacity is tracked manually.",
+    "At Wizard 1, record all available 0-level wizard spells and three 1st-level spells, plus one more 1st-level spell per point of Intelligence bonus. Add two free wizard spells at each new wizard level from spell levels you can cast; specialists must choose one from their specialty school. Spell preparation requires the spellbook, except read magic can be prepared from memory. Preparing from a borrowed book requires a Spellcraft check (DC 15 + spell level) each time. Track specialization, prohibited schools, borrowed-book checks, and physical book capacity manually.",
   "Summon Familiar":
     "A Wizard or Sorcerer can obtain one familiar after 24 hours and 100 gp in materials. Wizard and Sorcerer levels stack for familiar abilities; the familiar's special bonuses to its master apply only within 1 mile. Track its type, statistics, and death or replacement manually.",
   "Wizard Bonus Feat":
@@ -121,7 +164,7 @@ export const classFeatureDescriptions: Record<string, string> = {
   Endurance:
     "Rangers gain the Endurance feat as a bonus feat at 3rd level.",
   "Wild Empathy":
-    "Roll 1d20 + the class level that granted this feature + Charisma to improve an animal's attitude. It can affect magical beasts with Intelligence 1–2 at a –4 penalty; resolve the attitude change manually.",
+    "Roll 1d20 + the class level that granted this feature + Charisma to improve an animal's attitude. You and the animal must be able to study each other within 30 feet under normal visibility; this normally takes 1 minute. You can also affect magical beasts with Intelligence 1–2 at a –4 penalty; resolve the attitude change manually.",
   "Woodland Stride":
     "Move through natural undergrowth at normal speed without damage or impairment; magically manipulated undergrowth still affects you.",
   "Swift Tracker":

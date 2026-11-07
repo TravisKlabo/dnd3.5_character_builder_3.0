@@ -623,7 +623,6 @@ export const featCatalog: FeatDefinition[] = ([
     id: "martial-weapon-proficiency",
     name: "Martial Weapon Proficiency",
     description: "Choose one martial weapon and use it without the nonproficiency penalty.",
-    fighterBonus: true,
   },
   {
     id: "honor-bound",

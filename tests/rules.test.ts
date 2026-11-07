@@ -1744,6 +1744,48 @@ describe("character rules preserved from 2.0", () => {
     expect(isClassSkill(prestigeCharacter, "Spellcraft")).toBe(false);
   });
 
+  it("sums mixed base and Knight of the Thorn progression", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [
+      { classId: "fighter", level: 2 },
+      { classId: "wizard", level: 2 },
+      {
+        classId: "wizard",
+        prestigeClassId: "knight-of-the-thorn",
+        level: 2,
+      },
+    ];
+
+    expect(getBaseAttackBonus(character)).toBe(4);
+    expect(getBaseSave(character, "fortitude")).toBe(3);
+    expect(getBaseSave(character, "reflex")).toBe(0);
+    expect(getBaseSave(character, "will")).toBe(6);
+    expect(getAvailableSkillCountForSource(character, "knight-of-the-thorn")).toBe(6);
+    expect(isClassSkill(character, "Spellcraft", "knight-of-the-thorn")).toBe(true);
+    expect(getSkillMaximum(character, "Spellcraft", "knight-of-the-thorn")).toBe(9);
+  });
+
+  it("sums mixed base and Righteous Zealot progression", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [
+      { classId: "fighter", level: 2 },
+      { classId: "wizard", level: 2 },
+      {
+        classId: "wizard",
+        prestigeClassId: "righteous-zealot",
+        level: 3,
+      },
+    ];
+
+    expect(getBaseAttackBonus(character)).toBe(5);
+    expect(getBaseSave(character, "fortitude")).toBe(4);
+    expect(getBaseSave(character, "reflex")).toBe(1);
+    expect(getBaseSave(character, "will")).toBe(6);
+    expect(getAvailableSkillCountForSource(character, "righteous-zealot")).toBe(15);
+    expect(isClassSkill(character, "Perform", "righteous-zealot")).toBe(true);
+    expect(getSkillMaximum(character, "Perform", "righteous-zealot")).toBe(10);
+  });
+
   it("checks Knight of the Crown prerequisites and the Knightly Council requirement", () => {
     const character = cloneCharacter(initialCharacter);
     character.ruleset = "dragonlance-user-pack";

@@ -939,7 +939,7 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
     features: ['Oration: Enthralling Discourse', 'Oration: Compelling Argument', 'Oration: Condemning Tirade', 'Oration: Verbal Obfuscation', 'Oration: Inflammatory Oratory', 'Righteous Indignation', 'Resist Enchantment', 'Gather Followers', 'Martyr’s Luck'],
     hitDie: 6,
     skillPoints: 4,
-    baseAttackBonus: 'poor',
+    baseAttackBonus: 'medium',
     fortitude: 'poor',
     reflex: 'poor',
     will: 'good',

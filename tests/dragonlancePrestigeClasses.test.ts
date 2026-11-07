@@ -135,6 +135,42 @@ describe("Dragonlance prestige-class rules", () => {
     ]);
   });
 
+  it("displays Knight of the Skull features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "cleric", prestigeClassId: "knight-of-the-skull", level },
+      ];
+      return getClassFeatureDisplay(character).map(({ ability }) => ability);
+    };
+
+    expect(featuresAtLevel(1)).toEqual([
+      "Detect Good",
+      "Smite Good (1/day)",
+      "Aura of Evil",
+    ]);
+    expect(featuresAtLevel(5)).toEqual([
+      "Detect Good",
+      "Smite Good (1/day)",
+      "Aura of Evil",
+      "Dark Blessing",
+      "Discern Lies",
+      "Rebuke Undead",
+      "Smite Good (2/day)",
+    ]);
+    expect(featuresAtLevel(10)).toEqual([
+      "Detect Good",
+      "Smite Good (1/day)",
+      "Aura of Evil",
+      "Dark Blessing",
+      "Discern Lies",
+      "Rebuke Undead",
+      "Smite Good (2/day)",
+      "Favor of the Dark Queen",
+      "Smite Good (3/day)",
+    ]);
+  });
+
   it("limits Wizard of High Sorcery advancement to wizard spellcasting", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [

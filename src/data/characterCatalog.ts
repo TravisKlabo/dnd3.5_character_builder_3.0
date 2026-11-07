@@ -1382,21 +1382,21 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Detect Good":
     "Detect good at will as the spell.",
   "Smite Good (1/day)":
-    "Once per day, add positive Charisma to one melee attack and deal extra damage equal to Knight of the Skull level.",
+    "Once per day, make one normal melee attack against a good creature, adding positive Charisma to the attack roll and dealing extra damage equal to Knight of the Skull level. Smite attempts against non-good creatures are wasted.",
   "Smite Good (2/day)":
     "The Knight of the Skull can smite good twice per day.",
   "Smite Good (3/day)":
     "The Knight of the Skull can smite good three times per day.",
   "Aura of Evil":
-    "The aura's strength equals Knight of the Skull levels plus cleric levels.",
+    "For effects such as detect evil, the aura's strength equals Knight of the Skull levels plus cleric levels.",
   "Dark Blessing":
     "Add positive Charisma modifier to all saving throws.",
   "Discern Lies":
     "Use discern lies as a spell-like ability a number of times per day equal to Wisdom modifier.",
   "Rebuke Undead":
-    "Rebuke undead as an evil cleric; use Knight of the Skull level -2, adding that amount to cleric levels if applicable.",
+    "Rebuke undead as an evil cleric with an effective cleric level equal to Knight of the Skull level -2; add that amount to cleric levels if applicable.",
   "Favor of the Dark Queen":
-    "At 10th level, a touched melee weapon is unholy for damage-reduction purposes and deals +1d6 unholy damage to good creatures.",
+    "At 10th level (called Favor of Darkness in the class text), a melee weapon the Knight wields counts as unholy to bypass damage reduction of certain good outsiders and deals +1d6 unholy damage to good creatures it hits. Both effects end when the Knight stops touching the weapon.",
   Diviner:
     "Cast all divination spells at +1 caster level. Wizards and sorcerers also gain one extra divination spell per spell level per day (or spell known at each level) and +2 on Spellcraft checks to learn divination spells, without losing access to other schools; existing wizard specialization is retained.",
   "Read Omens":

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { deityDefinitions, type Character } from "../domain";
 import { clericDomains, clericDomainSource, getClericDomain, isClericDomainId } from "../data/clericDomains";
 import { clericDomainAllowed, getActiveClericDomains, getClericDomainSlotCount,
-  getClericDomainSpellOptions, getClericDomainWarnings, getWarDomainWeapon } from "../clericDomains";
+  getClericDomainSpellOptions, getClericDomainWarnings, getWarDomainWeapon,
+  isDeityAvailableForRuleset } from "../clericDomains";
 
 export type ClericCastingUpdate = Pick<Character, "clericDomains" | "clericDomainPreparation" | "clericDomainExpended">;
 
@@ -16,25 +17,39 @@ export function ClericDomains({ character, editable, preparationComplete = true,
   const selected = character.clericDomains ?? [];
   const canChoose = editable || selected.length < 2 || changingDomains;
   const deity = deityDefinitions.find((entry) => entry.id === character.deity);
+  const deityAvailable = isDeityAvailableForRuleset(deity, character.ruleset);
   const warnings = getClericDomainWarnings(character);
   const active = getActiveClericDomains(character);
   const warWeapon = getWarDomainWeapon(character);
+  const selectableDomains = Object.keys(clericDomains)
+    .filter(isClericDomainId)
+    .map((id) => [id, getClericDomain(id)] as const)
+    .filter(([, definition]) =>
+    (!definition.source || character.ruleset !== "core-35-srd") &&
+    !definition.mysticOnly &&
+    !(definition.mysticOnlyInDragonlance && character.ruleset !== "core-35-srd"),
+  );
   const levels = Array.from({ length: 9 }, (_, index) => index + 1).filter((level) =>
     getClericDomainSlotCount(character, level) || character.clericDomainPreparation?.[level] ||
     character.clericDomainExpended?.includes(level));
   return (
     <section className="cleric-domains" aria-labelledby="cleric-domains-title">
       <h3 id="cleric-domains-title">Cleric Domains</h3>
-      <p>Choose two domains. Each accessible spell level from 1st has one separate domain slot,
-        prepared from either domain. No domain slot for orisons or bonus domain slots for high Wisdom.</p>
+      <p>{deity && !deityAvailable
+        ? "This deity is not part of the selected ruleset; domain spell preparation is unavailable."
+        : deity?.clericDomains?.length === 0
+          ? "This deity grants no cleric domains in this source; domain spell preparation is unavailable."
+          : "Choose two domains. Each accessible spell level from 1st has one separate domain slot, prepared from either domain. No domain slot for orisons or bonus domain slots for high Wisdom."}</p>
       <p className="spell-rules-notice">
         {deity ? `${deity.name}${deity.source !== "core-35-srd" ? " (Dragonlance)" : ""}: ` : character.deity ? `${character.deity}: ` : "No deity selected: "}
         {character.deity
-          ? deity?.clericDomains
-            ? "Only listed domains are available for this core deity."
-            : "Domain associations aren't verified for this deity; confirm choices with your DM."
+          ? !deityAvailable
+            ? "This deity is not available in the selected ruleset."
+            : deity?.clericDomains
+              ? "Only listed supported domains are available for this deity."
+              : "Domain associations aren't verified for this deity; confirm choices with your DM."
           : "Choose domains for your beliefs, subject to alignment and DM approval."}
-        {" "}Dragonlance-specific domains are not included.
+        {" "}Dragonlance domains are limited to their listed deities; Mystic-only domains are not Cleric choices.
       </p>
       {warnings.map((warning) => <p className="spell-rules-notice" role="alert" key={warning}>{warning}</p>)}
       <div className="cleric-domain-choices">
@@ -49,7 +64,7 @@ export function ClericDomains({ character, editable, preparationComplete = true,
                 onChange({ clericDomains: next.filter(isClericDomainId) });
               }}>
               <option value="">Choose a domain</option>
-              {Object.entries(clericDomains).map(([id, definition]) =>
+              {selectableDomains.map(([id, definition]) =>
                 <option key={id} value={id} disabled={
                   selected.some((choice, position) => position !== index && choice === id) ||
                   (isClericDomainId(id) && !clericDomainAllowed(character, id))
@@ -73,7 +88,9 @@ export function ClericDomains({ character, editable, preparationComplete = true,
             {definition.grantedPower && <p><strong>{warWeapon ? "Applied automatically:" : "Manual resolution:"}</strong>
               {" "}{warWeapon ? `${definition.grantedPower} Favored weapon: ${warWeapon}.` :
                 "No mapping; resolve manually."}</p>}
-            <a href={`${clericDomainSource}#${id}Domain`} target="_blank" rel="noreferrer">SRD {definition.name} domain rules</a>
+            {definition.source === "dragonlance-user-pack"
+              ? <p>Source: Dragonlance Campaign Setting, Chapter 3.</p>
+              : <a href={`${clericDomainSource}#${id}Domain`} target="_blank" rel="noreferrer">SRD {definition.name} domain rules</a>}
           </details>;
         })}
       </div>

@@ -4,10 +4,12 @@ import { cloneCharacter, deityDefinitions, initialCharacter, type Character } fr
 import { findStoreItem } from "../src/data/equipmentCatalog";
 import { clericDomains, getClericDomain, type ClericDomainId } from "../src/data/clericDomains";
 import { clericDomainAllowed, getActiveClericDomains, getClericDomainSlotCount,
-  getClericDomainSpellOptions, getClericDomainWarnings, getWarDomainWeapon } from "../src/clericDomains";
+  getActiveMysticDomain, getClericDomainSpellOptions, getClericDomainWarnings, getMysticDomainOptions,
+  getMysticDomainSpell, getMysticDomainSpellNote, getMysticDomainWarnings, getWarDomainWeapon,
+  isMysticDomainAllowed } from "../src/clericDomains";
 import { getDailySpellSlots, getEquippedWeaponStats, isClassSkill, getSpentSkillPoints, getChosenFeats,
   getAvailableFeatWeaponChoices, getAvailableFeats, isWeaponProficient } from "../src/rules";
-import { loadSpellCatalog } from "../src/data/spellCatalog";
+import { findSpellByName, loadSpellCatalog } from "../src/data/spellCatalog";
 import { parseCharacter } from "../src/validation";
 import { savedCharacterStorageKey } from "../src/storage";
 import { ClericDomains } from "../src/components/ClericDomains";
@@ -39,13 +41,24 @@ async function openCleric() {
 
 describe("SRD cleric domain catalog", () => {
   it("contains all 22 core SRD domains and nine spells in each, with explicit power handling", () => {
-    expect(Object.keys(clericDomains)).toHaveLength(22);
-    for (const id of Object.keys(clericDomains) as ClericDomainId[]) {
+    const coreDomains = Object.entries(clericDomains).filter(([, definition]) => !("source" in definition));
+    expect(coreDomains).toHaveLength(22);
+    for (const [id] of coreDomains as [ClericDomainId, (typeof clericDomains)[ClericDomainId]][]) {
       const definition = getClericDomain(id);
       expect(definition.spells).toHaveLength(9);
       expect(definition.spells.every((spell) => !!spell.trim())).toBe(true);
-      expect(!!definition.manualPower || !!definition.grantedPower || !!definition.classSkills).toBe(true);
+      expect(!!definition.manualPower || !!definition.mysticPower || !!definition.grantedPower || !!definition.classSkills).toBe(true);
     }
+  });
+
+  it("round-trips a Mystic domain and rejects unknown domain identifiers", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "mystic", level: 1 }];
+    character.mysticDomain = "animal";
+    expect(parseCharacter(JSON.parse(JSON.stringify(character)))).toEqual(character);
+    expect(() => parseCharacter({ ...character, mysticDomain: "not-a-domain" }))
+      .toThrow(/Cleric domains/);
   });
 
   it.each([
@@ -65,6 +78,121 @@ describe("SRD cleric domain catalog", () => {
     expect(getClericDomain(id).spells[8]).toBe(ninth);
   });
 
+  describe("Mystic domain rules", () => {
+    it("excludes Magic and enforces alignment restrictions without deity restrictions", () => {
+      const character = cloneCharacter(initialCharacter);
+      character.ruleset = "dragonlance-user-pack";
+      character.classLevels = [{ classId: "mystic", level: 1 }];
+      character.alignment = "Lawful Good";
+      character.deity = "paladine";
+
+      const options = getMysticDomainOptions(character).map(({ id }) => id);
+      expect(options).toContain("travel");
+      expect(options).not.toContain("magic");
+      expect(options).not.toContain("chaos");
+      expect(isMysticDomainAllowed(character, "travel")).toBe(true);
+      expect(isMysticDomainAllowed(character, "chaos")).toBe(false);
+      expect(getActiveMysticDomain(character)).toBeUndefined();
+      expect(getMysticDomainWarnings(character)).toHaveLength(1);
+
+      character.mysticDomain = "travel";
+      expect(getActiveMysticDomain(character)).toBe("travel");
+      expect(getMysticDomainWarnings(character)).toEqual([]);
+    });
+
+    it("includes the Chapter 3 domains with their complete spell lists and Mystic powers", () => {
+      const character = cloneCharacter(initialCharacter);
+      character.ruleset = "dragonlance-user-pack";
+      character.classLevels = [{ classId: "mystic", level: 1 }];
+      character.deity = "paladine";
+      const dragonlanceIds = [
+        "alteration", "community", "forge", "insight", "liberation", "meditation",
+        "mentalism", "necromancy", "passion", "pestilence", "restoration", "storm", "treachery",
+      ] as const;
+      const options = getMysticDomainOptions(character).map(({ id }) => id);
+
+      expect(options).toEqual(expect.arrayContaining([...dragonlanceIds]));
+      for (const id of dragonlanceIds) {
+        const definition = getClericDomain(id);
+        expect(definition.source).toBe("dragonlance-user-pack");
+        expect(definition.spells).toHaveLength(9);
+        expect(definition.mysticPower).toBeTruthy();
+      }
+
+      character.mysticDomain = "pestilence";
+      expect(getMysticDomainSpell(character, 2)).toBe("Summon Monster II");
+      expect(getMysticDomainSpellNote(character, 2)).toBe("1d3 fiendish dire rats only.");
+    });
+
+    it("uses the Dragonlance-only Sun power for Mystics while retaining the Core cleric power", () => {
+      expect(getClericDomain("sun").mysticPower).toContain("as a good cleric");
+      expect(getClericDomain("sun").manualPower).toContain("greater turning");
+    });
+
+    it("resolves domain spells and complete metadata, including apostrophe variants", () => {
+      const domainSpellNames = [
+        "Summon Nature's Ally IV", "Summon Nature's Ally VIII", "Protection from Law",
+        "Magic Circle against Law", "Chaos Hammer", "Dispel Law", "Protection from Good",
+        "Magic Circle against Good", "Unholy Blight", "Dispel Good", "Protection from Evil",
+        "Holy Smite", "Order's Wrath", "Mage's Disjunction", "Bull's Strength", "Random Action",
+        "Hardening", "Otyugh Swarm", "Plague of Rats", "Scourge", "Unbinding",
+      ];
+      const missing = domainSpellNames.filter((name) => !findSpellByName(name));
+      const incomplete = domainSpellNames.filter((name) => {
+        const spell = findSpellByName(name);
+        return !spell?.description.trim() || !spell.school || !spell.components ||
+          !spell.castingTime || !spell.range || !spell.duration || !spell.savingThrow;
+      });
+
+      expect(missing).toEqual([]);
+      expect(incomplete).toEqual([]);
+      expect(findSpellByName("Summon Nature's Ally IV")?.name).toBe("Summon Nature’s Ally IV");
+      expect(findSpellByName("Random Action")).toMatchObject({
+        level: 1,
+        classes: [],
+        source: "dragonlance-user-pack",
+        sourceBook: "Player's Handbook (3.0), p. 242; Dragonlance Campaign Setting, p. 103",
+      });
+      expect(getClericDomain("animal").spells[0]).toBe("Calm Animals");
+    });
+
+    it("maps every Chapter 3 domain spell to the catalog", () => {
+      const expectedLists = {
+        alteration: ["Enlarge Person", "Alter Self", "Gaseous Form", "Polymorph", "Baleful Polymorph", "Flesh to Stone", "Regenerate", "Polymorph Any Object", "Shapechange"],
+        community: ["Bless", "Shield Other", "Prayer", "Status", "Rary's Telepathic Bond", "Heroes' Feast", "Refuge", "Heal, Mass", "Miracle"],
+        forge: ["Magic Weapon", "Heat Metal", "Keen Edge", "Minor Creation", "Wall of Iron", "Major Creation", "Hardening", "Repel Metal or Stone", "Iron Body"],
+        insight: ["True Strike", "Augury", "Locate Object", "Divination", "Commune", "Owl's Wisdom, Mass", "Greater Arcane Sight", "Moment of Prescience", "Foresight"],
+        liberation: ["Remove Fear", "Remove Paralysis", "Remove Curse", "Freedom of Movement", "Break Enchantment", "Dispel Magic, Greater", "Refuge", "Mind Blank", "Unbinding"],
+        meditation: ["Comprehend Languages", "Owl's Wisdom", "Locate Object", "Tongues", "Spell Resistance", "Find the Path", "Spell Turning", "Mind Blank", "Astral Projection"],
+        mentalism: ["Command", "Detect Thoughts", "Hold Person", "Discern Lies", "Greater Command", "Hold Monster", "Hold Person, Mass", "Charm Monster, Mass", "Dominate Monster"],
+        necromancy: ["Detect Undead", "Death Knell", "Halt Undead", "Animate Dead", "Slay Living", "Create Undead", "Destruction", "Create Greater Undead", "Energy Drain"],
+        passion: ["Random Action", "Tasha's Hideous Laughter", "Rage", "Crushing Despair", "Fear", "Greater Heroism", "Song of Discord", "Otto's Irresistible Dance", "Weird"],
+        pestilence: ["Doom", "Summon Monster II", "Contagion", "Poison", "Plague of Rats", "Eyebite", "Scourge", "Create Greater Undead", "Otyugh Swarm"],
+        restoration: ["Remove Fear", "Lesser Restoration", "Remove Disease", "Restoration", "Raise Dead", "Heal", "Greater Restoration", "Resurrection", "True Resurrection"],
+        storm: ["Entropic Shield", "Gust of Wind", "Call Lightning", "Sleet Storm", "Ice Storm", "Call Lightning Storm", "Control Weather", "Whirlwind", "Storm of Vengeance"],
+        treachery: ["Undetectable Alignment", "Eagle's Splendor", "Bestow Curse", "Glibness", "Magic Jar", "Symbol of Persuasion", "Eyebite", "Trap the Soul", "Imprisonment"],
+      } as const satisfies Partial<Record<ClericDomainId, readonly string[]>>;
+      const spellNames = Object.entries(expectedLists).flatMap(([id, spells]) => {
+        expect(getClericDomain(id as ClericDomainId).spells).toEqual(spells);
+        return spells;
+      });
+      const missing = [...new Set(spellNames.filter((name) => !findSpellByName(name)))].sort();
+
+      expect(missing).toEqual([]);
+    });
+
+    it("does not activate a Mystic domain for Core characters", () => {
+      const character = cloneCharacter(initialCharacter);
+      character.ruleset = "core-35-srd";
+      character.classLevels = [{ classId: "mystic", level: 1 }];
+      character.mysticDomain = "animal";
+
+      expect(getActiveMysticDomain(character)).toBeUndefined();
+      expect(getMysticDomainSpell(character, 1)).toBeUndefined();
+      expect(getMysticDomainWarnings(character)).toEqual([]);
+    });
+  });
+
   it.each([
     ["bahamut", ["air", "good", "luck", "protection", "strength"]],
     ["corellon", ["chaos", "good", "protection", "war"]],
@@ -80,6 +208,87 @@ describe("SRD cleric domain catalog", () => {
     ["erythnul", ["chaos", "evil", "trickery", "war"]],
   ] as const)("records verified core domain associations for %s", (id, domains) => {
     expect(deityDefinitions.find((deity) => deity.id === id)?.clericDomains).toEqual(domains);
+  });
+
+  it.each([
+    ["branchala", "Chaotic Good", ["chaos", "good", "luck", "trickery"], undefined],
+    ["habbakuk", "Neutral Good", ["animal", "good", "water"], undefined],
+    ["kiri-jolith", "Lawful Good", ["good", "strength", "war"], "Longsword"],
+    ["majere", "Lawful Good", ["good", "law", "meditation"], undefined],
+    ["mishakal", "Neutral Good", ["community", "good", "healing", "protection"], undefined],
+    ["gilean", "True Neutral", ["knowledge", "liberation", "protection"], undefined],
+    ["zivilyn", "True Neutral", ["insight", "knowledge", "meditation"], undefined],
+    ["reorx", "True Neutral", ["earth", "fire", "forge"], undefined],
+    ["sirrion", "Chaotic Neutral", ["chaos", "fire", "passion"], undefined],
+    ["chemosh", "Neutral Evil", ["death", "evil", "trickery"], undefined],
+    ["hiddukel", "Chaotic Evil", ["evil", "treachery", "trickery"], undefined],
+    ["morgion", "Neutral Evil", ["destruction", "evil", "pestilence"], undefined],
+    ["solinari", "Lawful Good", [], undefined],
+    ["lunitari", "True Neutral", [], undefined],
+    ["chislev", "True Neutral", ["air", "animal", "earth", "plant"], undefined],
+    ["shinare", "Lawful Neutral", ["law", "luck", "travel"], undefined],
+    ["nuitari", "Lawful Evil", [], undefined],
+    ["sargonnas", "Lawful Evil", ["evil", "fire", "law", "war"], "Greataxe"],
+    ["zeboim", "Chaotic Evil", ["chaos", "evil", "storm", "water"], undefined],
+  ] as const)("records supported Dragonlance domain data for %s", (id, alignment, domains, weapon) => {
+    const deity = deityDefinitions.find((entry) => entry.id === id);
+    expect(deity).toMatchObject({
+      alignment,
+      sourceBook: "Dragonlance Campaign Setting",
+      clericDomains: domains,
+      ...(weapon ? { warDomainFavoredWeapon: weapon } : {}),
+    });
+  });
+
+  it.each([
+    ["zivilyn", "True Neutral", "insight", "meditation"],
+    ["chislev", "Lawful Neutral", "animal", "plant"],
+    ["shinare", "Lawful Neutral", "law", "travel"],
+    ["sirrion", "Chaotic Neutral", "passion", "chaos"],
+    ["hiddukel", "Chaotic Evil", "treachery", "trickery"],
+  ] as const)("activates %s's supported domains only for its Dragonlance clerics", (deity, alignment, firstDomain, secondDomain) => {
+    const character = cleric();
+    character.ruleset = "dragonlance-user-pack";
+    character.deity = deity;
+    character.alignment = alignment;
+    character.clericDomains = [firstDomain, secondDomain];
+
+    expect(getActiveClericDomains(character)).toEqual([firstDomain, secondDomain]);
+    character.deity = "mishakal";
+    expect(clericDomainAllowed(character, firstDomain)).toBe(false);
+    character.deity = deity;
+    character.ruleset = "core-35-srd";
+    expect(clericDomainAllowed(character, firstDomain)).toBe(false);
+  });
+
+  it.each(["paladine", "takhisis"] as const)("records that %s grants no cleric domains in this source", (id) => {
+    const character = cleric();
+    character.deity = id;
+    character.ruleset = "dragonlance-user-pack";
+
+    expect(deityDefinitions.find((deity) => deity.id === id)?.clericDomains).toEqual([]);
+    expect(clericDomainAllowed(character, "good")).toBe(false);
+  });
+
+  it("enforces exact deity cleric alignments and withholds domains from non-divine patrons", () => {
+    const character = cleric();
+    character.ruleset = "dragonlance-user-pack";
+    character.deity = "shinare";
+    character.alignment = "True Neutral";
+    character.clericDomains = ["luck", "travel"];
+    expect(getActiveClericDomains(character)).toEqual(["luck", "travel"]);
+
+    character.alignment = "Chaotic Neutral";
+    expect(getActiveClericDomains(character)).toEqual([]);
+    expect(getClericDomainWarnings(character).join(" "))
+      .toContain("Shinare does not permit Clerics of Chaotic Neutral alignment");
+
+    character.deity = "solinari";
+    character.alignment = "Lawful Good";
+    character.clericDomains = ["law"];
+    expect(getActiveClericDomains(character)).toEqual([]);
+    expect(getClericDomainWarnings(character).join(" "))
+      .toContain("Solinari grants no cleric domains in this source");
   });
 
   it("uses domain-specific levels, not a spell's ordinary class level, and keeps special restrictions", () => {
@@ -118,6 +327,50 @@ describe("domain access and powers", () => {
     expect(getClericDomainSpellOptions(character, 1)).toEqual([]);
   });
 
+  it("applies deity associations only when the character's selected ruleset matches", () => {
+    const character = cleric();
+    character.deity = "mishakal";
+    character.clericDomains = ["healing", "protection"];
+    expect(clericDomainAllowed(character, "healing")).toBe(false);
+    expect(getActiveClericDomains(character)).toEqual([]);
+    expect(getClericDomainWarnings(character).join(" ")).toContain("not part of the Core 3.5 SRD ruleset");
+
+    character.ruleset = "dragonlance-user-pack";
+    expect(clericDomainAllowed(character, "healing")).toBe(true);
+    expect(getActiveClericDomains(character)).toEqual(["healing", "protection"]);
+  });
+
+  it("keeps Chapter 3 domain availability separate for Clerics and Mystics", () => {
+    const character = cleric();
+    character.ruleset = "dragonlance-user-pack";
+    character.deity = "mishakal";
+
+    expect(clericDomainAllowed(character, "community")).toBe(true);
+    expect(clericDomainAllowed(character, "alteration")).toBe(false);
+    expect(clericDomainAllowed(character, "forge")).toBe(false);
+    expect(clericDomainAllowed(character, "sun")).toBe(false);
+
+    character.deity = "reorx";
+    expect(clericDomainAllowed(character, "forge")).toBe(true);
+
+    character.ruleset = "core-35-srd";
+    character.deity = "pelor";
+    expect(clericDomainAllowed(character, "community")).toBe(false);
+    expect(clericDomainAllowed(character, "sun")).toBe(true);
+  });
+
+  it.each(["nuitari", "paladine", "takhisis"] as const)(
+    "does not offer domain slots when %s grants no cleric domains",
+    (deity) => {
+    const character = cleric(20);
+    character.deity = deity;
+    character.ruleset = "dragonlance-user-pack";
+    character.clericDomains = [];
+    expect(getClericDomainSlotCount(character, 1)).toBe(0);
+    expect(getClericDomainWarnings(character).join(" ")).toContain("grants no cleric domains");
+    },
+  );
+
   it.each([
     ["chaos", "Chaotic Neutral", "Lawful Good"], ["good", "Neutral Good", "True Neutral"],
     ["evil", "Lawful Evil", "Chaotic Neutral"], ["law", "Lawful Neutral", "Neutral Good"],
@@ -132,14 +385,14 @@ describe("domain access and powers", () => {
     expect(getClericDomainWarnings(character).join(" ")).toContain("requires a matching");
   });
 
-  it("filters evil Death spells for good clerics or good deities, without forbidding the Death domain itself", () => {
+  it("filters evil Death spells for good clerics without forbidding the Death domain itself", () => {
     const character = cleric(15);
     character.clericDomains = ["death", "travel"];
     expect(clericDomainAllowed(character, "death")).toBe(true);
     expect(getClericDomainSpellOptions(character, 2).map((entry) => entry.domain)).toEqual(["travel"]);
     character.alignment = "True Neutral";
     expect(getClericDomainSpellOptions(character, 2).map((entry) => entry.domain)).toEqual(["death", "travel"]);
-    character.deity = "mishakal";
+    character.alignment = "Neutral Good";
     expect(getClericDomainSpellOptions(character, 2).map((entry) => entry.domain)).toEqual(["travel"]);
   });
 
@@ -198,7 +451,8 @@ describe("domain access and powers", () => {
 
   it("keeps unsupported War deity mappings manual and does not grant their benefits", () => {
     const character = cleric();
-    character.deity = "mishakal";
+    character.deity = "unmapped-dragonlance-deity";
+    character.ruleset = "dragonlance-user-pack";
     character.clericDomains = ["war", "travel"];
     expect(getWarDomainWeapon(character)).toBeUndefined();
     expect(getChosenFeats(character)).not.toContain("weapon-focus");
@@ -246,18 +500,19 @@ describe("domain persistence and import validation", () => {
 });
 
 describe("cleric domain UI and lifecycle", () => {
-  it("offers two distinct, alignment-appropriate choices with explicit unverified deity associations", () => {
+  it("explains that Paladine grants no cleric domains in this source", () => {
     const character = cleric();
     character.clericDomains = ["healing"];
-    character.deity = "mishakal";
+    character.deity = "paladine";
+    character.ruleset = "dragonlance-user-pack";
     const onChange = vi.fn();
     render(<ClericDomains character={character} editable={false} onChange={onChange} />);
     const second = screen.getByRole("combobox", { name: "Domain 2" });
     expect(within(second).getByRole<HTMLOptionElement>("option", { name: "Healing" }).disabled).toBe(true);
     expect(within(second).getByRole<HTMLOptionElement>("option", { name: "Evil" }).disabled).toBe(true);
-    expect(screen.getByText(/Mishakal \(Dragonlance\)/).textContent).toContain("aren't verified");
-    fireEvent.change(second, { target: { value: "travel" } });
-    expect(onChange).toHaveBeenCalledWith({ clericDomains: ["healing", "travel"] });
+    expect(screen.getByText(/Paladine \(Dragonlance\)/).textContent).toContain("Only listed supported domains");
+    expect(screen.getByText(/This deity grants no cleric domains/)).toBeDefined();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("restricts mapped core deities to their domains and warns on invalid saved choices", () => {
@@ -273,12 +528,13 @@ describe("cleric domain UI and lifecycle", () => {
     render(<ClericDomains character={character} editable onChange={vi.fn()} />);
     expect(within(screen.getByRole("combobox", { name: "Domain 1" }))
       .getByRole<HTMLOptionElement>("option", { name: "War" }).disabled).toBe(true);
-    expect(screen.getByText(/Only listed domains are available for this core deity/)).toBeDefined();
+    expect(screen.getByText(/Only listed supported domains are available for this deity/)).toBeDefined();
   });
 
   it("keeps unmapped Dragonlance deity domain choices manual", () => {
     const character = cleric();
-    character.deity = "mishakal";
+    character.deity = "unmapped-dragonlance-deity";
+    character.ruleset = "dragonlance-user-pack";
     character.clericDomains = ["healing", "travel"];
     expect(clericDomainAllowed(character, "travel")).toBe(true);
     render(<ClericDomains character={character} editable onChange={vi.fn()} />);
@@ -316,7 +572,7 @@ describe("cleric domain UI and lifecycle", () => {
     render(<ClericDomains character={character} editable={false} onChange={vi.fn()} />);
     fireEvent.click(screen.getByText("War granted power"));
     expect(screen.getByText(/Favored weapon: Longsword/)).toBeDefined();
-    expect(screen.getByText(/Only listed domains are available for this core deity/)).toBeDefined();
+    expect(screen.getByText(/Only listed supported domains are available for this deity/)).toBeDefined();
   });
 
   it("requires explicit confirmation before changing established domains, and does not reset usage or remove preparation", () => {

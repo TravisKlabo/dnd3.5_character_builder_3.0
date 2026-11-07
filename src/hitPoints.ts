@@ -4,7 +4,7 @@ import { getConstitutionHitPointAdjustment } from "./abilityEquipment";
 export type HitPointAction = "damage" | "heal" | "nonlethal" | "recoverNonlethal" | "temporary";
 
 export function getCurrentHitPoints(character: Character) {
-  return getStoredCurrentHitPoints(character) + getConstitutionHitPointAdjustment(character);
+  return getStoredCurrentHitPoints(character) + getPermanentHitPointAdjustment(character);
 }
 
 export function getStoredCurrentHitPoints(character: Character) {
@@ -12,11 +12,20 @@ export function getStoredCurrentHitPoints(character: Character) {
 }
 
 export function getMaximumHitPoints(character: Character) {
-  return character.hitPoints + getConstitutionHitPointAdjustment(character);
+  return character.hitPoints + getPermanentHitPointAdjustment(character);
+}
+
+export function getToughnessHitPointBonus(character: Character) {
+  return Object.values(character.featSelections ?? {})
+    .filter((featId) => featId === "toughness").length * 3;
+}
+
+export function getPermanentHitPointAdjustment(character: Character) {
+  return getConstitutionHitPointAdjustment(character) + getToughnessHitPointBonus(character);
 }
 
 function storeEffectiveCurrentHitPoints(character: Character, effective: number) {
-  return effective - getConstitutionHitPointAdjustment(character);
+  return effective - getPermanentHitPointAdjustment(character);
 }
 
 export function applyHitPointAction(character: Character, action: HitPointAction, amount: number): Character {
@@ -44,10 +53,18 @@ export function applyHitPointAction(character: Character, action: HitPointAction
       changes = { nonlethalDamage: Math.max(0, nonlethal - amount) };
       break;
     case "temporary":
-      changes = { temporaryHitPoints: amount };
+      changes = {
+        temporaryHitPoints: amount,
+        combatEffects: (character.combatEffects ?? []).map((effect) => ({
+          ...effect,
+          expiresTemporaryHitPoints: false,
+        })),
+      };
       break;
   }
-  if (Object.values(changes).some((value) => !Number.isSafeInteger(value))) {
+  if (Object.values(changes).some(
+    (value) => typeof value === "number" && !Number.isSafeInteger(value),
+  )) {
     throw new Error("The resulting HP value is outside the supported whole-number range.");
   }
   return { ...character, ...changes };

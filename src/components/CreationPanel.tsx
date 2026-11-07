@@ -1,12 +1,15 @@
-import { type Character, type ClassId, type AbilityName, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
+import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
-import { isClassAlignmentAllowed, isClericAlignmentAllowed, getClassAlignmentRestriction, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getRacialLanguages, getLanguageBonusSlots, formatModifier } from "../rules";
+import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
 import { formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
+import { getMysticDomainOptions, isMysticDomainAllowed } from "../clericDomains";
 import { ContentSourceLabel, Panel } from "./shared";
 import { LanguagePicker } from "./pickers";
 import { handleScrollableMenuKeyDown } from "../menuNavigation";
+import { HighSorceryChoices } from "./HighSorceryChoices";
+import { RangerFavoredEnemies } from "./RangerFavoredEnemies";
 
 export function CreationPanel({
   draft,
@@ -22,7 +25,6 @@ export function CreationPanel({
   onChange,
   onClassChange,
   onRaceChange,
-  ruleset,
   onRulesetChange,
   onAbilityChange,
   onCreate,
@@ -43,15 +45,13 @@ export function CreationPanel({
   ) => void;
   onClassChange: (classId: ClassId) => void;
   onRaceChange: (race: string) => void;
-  ruleset:
-    "core-35-srd" | "dragonlance-user-pack" | "dragonlance-monster-classes";
   onRulesetChange: (
-    ruleset:
-      "core-35-srd" | "dragonlance-user-pack" | "dragonlance-monster-classes",
+    ruleset: RulesetId,
   ) => void;
   onAbilityChange: (ability: AbilityName, value: number) => void;
   onCreate: () => void;
 }) {
+  const ruleset = draft.ruleset;
   const [raceMenuOpen, setRaceMenuOpen] = useState(false);
   const [classMenuOpen, setClassMenuOpen] = useState(false);
   const [prestigeClassMenuOpen, setPrestigeClassMenuOpen] = useState(false);
@@ -117,9 +117,7 @@ export function CreationPanel({
     };
   }, []);
   const classId = draft.classLevels[0].classId;
-  const selectedRace =
-    raceDefinitions[draft.race.toLowerCase().replaceAll(" ", "-")] ??
-    raceDefinitions.human;
+  const selectedRace = getRaceDefinitionForCharacter(draft, ruleset) ?? raceDefinitions.human;
   const availableClasses = Object.values(classDefinitions).filter(
     (definition) =>
       (definition.source === "core-35-srd" || ruleset !== "core-35-srd") &&
@@ -137,7 +135,14 @@ export function CreationPanel({
           ? "core-35-srd"
           : "dragonlance-user-pack") &&
       (classId !== "cleric" ||
-        isClericAlignmentAllowed(draft.alignment, deity.alignment)),
+        (deity.clericDomains?.length !== 0 &&
+          isClericAlignmentAllowedForDeity(draft.alignment, deity))) &&
+      (classId !== "ranger" || ruleset === "core-35-srd" ||
+        !draft.alignment ||
+        getDragonlanceRangerPatron(draft.alignment)?.id === deity.id) &&
+      (classId !== "druid" || ruleset === "core-35-srd" ||
+        !draft.alignment ||
+        getDragonlanceRangerPatron(draft.alignment)?.id === deity.id),
   );
           const dragonlanceRuleset = ruleset !== "core-35-srd";
   const availablePrestigeClasses = Object.values(dragonlancePrestigeClasses).filter(
@@ -153,8 +158,8 @@ export function CreationPanel({
   );
   const raceOptions = Object.values(raceDefinitions).filter(
     (race) =>
-      (race.source === "core-35-srd" ||
-        race.source === "dragonlance-user-pack") &&
+      (race.selectable !== false || race.id === selectedRace.id) &&
+      (race.source === "core-35-srd" || ruleset !== "core-35-srd") &&
       (ruleset === "dragonlance-monster-classes" || !race.levelAdjustment),
   );
   const pointBuyTotal = abilityNames.reduce(
@@ -222,8 +227,24 @@ export function CreationPanel({
   const selectedDeity = deityDefinitions.find((deity) => deity.id === draft.deity);
   if (classId === "cleric" && !selectedDeity)
     creationErrors.push("Cleric characters must choose a deity.");
-  if (selectedDeity && classId === "cleric" && !isClericAlignmentAllowed(draft.alignment, selectedDeity.alignment))
-    creationErrors.push(`Cleric alignment must be within one step of ${selectedDeity.name}.`);
+  if (selectedDeity && classId === "cleric" && selectedDeity.clericDomains?.length === 0)
+    creationErrors.push(`${selectedDeity.name} grants no divine spells or cleric domains.`);
+  if (selectedDeity && classId === "cleric" &&
+    !isClericAlignmentAllowedForDeity(draft.alignment, selectedDeity))
+    creationErrors.push(selectedDeity.clericAlignments
+      ? `Cleric alignment must be one of ${selectedDeity.clericAlignments.join(", ")} for ${selectedDeity.name}.`
+      : `Cleric alignment must be within one step of ${selectedDeity.name}.`);
+  if (dragonlanceRuleset && classId === "ranger")
+    creationErrors.push(...getDragonlanceRangerWarnings(draft, 1));
+  if (dragonlanceRuleset && classId === "druid")
+    creationErrors.push(...getDragonlanceDruidWarnings(draft));
+  if (classId === "ranger")
+    creationErrors.push(...getRangerFavoredEnemyWarnings(draft));
+  if (dragonlanceRuleset && classId === "mystic") {
+    if (!draft.mysticDomain) creationErrors.push("Choose one Mystic domain.");
+    else if (!isMysticDomainAllowed(draft, draft.mysticDomain))
+      creationErrors.push("That Mystic domain is not legal for this alignment.");
+  }
     if (dragonlanceRuleset && draft.highSorceryOrder &&
       (classId === "wizard" || classId === "sorcerer") &&
       !isHighSorceryAlignmentAllowed(draft.highSorceryOrder, draft.alignment))
@@ -253,13 +274,23 @@ export function CreationPanel({
     creationErrors.push("Select every required starting feat.");
   creationErrors.push(...getFeatWeaponSelectionWarnings(draft));
   creationErrors.push(...getFeatSkillSelectionWarnings(draft));
-  if (!(draft.languages ?? []).length)
+  if (!(draft.languages ?? []).length && !(draft.speakLanguages ?? []).length)
     creationErrors.push("Select at least one starting language.");
   const availableLanguageSet = new Set(getAvailableLanguages(ruleset));
   const availableBonusLanguageSet = new Set(
     getAvailableBonusLanguages(draft, ruleset),
   );
-  const automaticLanguages = new Set(getRacialLanguages(draft));
+  const automaticLanguages = new Set(getAutomaticLanguages(draft, ruleset));
+  const regionalLanguageOptions = getHumanRegionalLanguages(draft, ruleset);
+  if (regionalLanguageOptions.length && !draft.regionalLanguage)
+    creationErrors.push("Choose a regional language for this human character.");
+  if (
+    draft.regionalLanguage &&
+    !regionalLanguageOptions.includes(draft.regionalLanguage)
+  )
+    creationErrors.push(
+      `Remove regional language unavailable to this race or ruleset: ${draft.regionalLanguage}.`,
+    );
   const invalidLanguages = (draft.languages ?? []).filter(
     (language) =>
       !availableLanguageSet.has(language) ||
@@ -270,10 +301,13 @@ export function CreationPanel({
     creationErrors.push(
       `Remove languages unavailable to this race or ruleset: ${invalidLanguages.join(", ")}.`,
     );
+  creationErrors.push(...getSpeakLanguageWarnings(draft));
   if (!Object.values(draft.inventory).some((quantity) => quantity > 0))
     creationErrors.push("Select at least one piece of starting equipment.");
   const spellcastingLevels = draft.classLevels.filter(
-    (level) => classDefinitions[level.classId as ClassId]?.spellcasting,
+    (level) =>
+      !("prestigeClassId" in level) &&
+      classDefinitions[level.classId as ClassId]?.spellcasting,
   );
   for (const spellcastingLevel of spellcastingLevels) {
     const spellcastingClass = classDefinitions[spellcastingLevel.classId];
@@ -283,10 +317,10 @@ export function CreationPanel({
       continue;
     }
     const learningMode =
-      spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer"
+      spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic"
           ? "Spells Known"
           : "Prepared Spells";
-    const classSpells = getClassSpells(spellcastingClass.id);
+    const classSpells = getClassSpells(spellcastingClass.id, draft.ruleset, draft);
     const selectedSpells = getClassSpellSelections(draft,
       learningMode === "Prepared Spells" ? "preparedSpells" : "knownSpells")[spellcastingClass.id] ?? [];
     const availableLevels = Array.from({ length: 10 }, (_, level) => level).filter(
@@ -361,6 +395,21 @@ export function CreationPanel({
                 onChange={(event) => onChange("name", event.target.value)}
               />
             </label>
+            {dragonlanceRuleset && classId === "druid" && (
+              <p className="creation-rule-note" role="note">
+                Dragonlance Druids must follow Habbakuk, Chislev, or Zeboim according to moral alignment.
+              </p>
+            )}
+            {dragonlanceRuleset && classId === "paladin" && (
+              <p className="creation-rule-note" role="note">
+                Paladins are not normally available in Dragonlance; ask the DM before creating one as a rare champion of a good deity (Dragonlance Campaign Setting, p. 52).
+              </p>
+            )}
+            {dragonlanceRuleset && classId === "wizard" && (
+              <p className="creation-rule-note" role="note">
+                Dragonlance Wizards are apprentices through Wizard level 4. Advancement beyond that requires the Test of High Sorcery and an order, or a renegade path (Dragonlance Campaign Setting, p. 53).
+              </p>
+            )}
             <label>
               Player
               <input
@@ -821,6 +870,7 @@ export function CreationPanel({
                           }}
                         >
                           <span>{deity.name} ({deity.alignment})</span>
+                          {deity.sourceBook && <ContentSourceLabel source={deity.source} book={deity.sourceBook} />}
                         </button>
                       ))}
                   </div>
@@ -833,27 +883,47 @@ export function CreationPanel({
               </div>
             </label>
             {dragonlanceRuleset &&
-              (draft.prestigeClass === "wizard-of-high-sorcery" ||
-                draft.prestigeClass === "white-robed-wizard" ||
-                draft.prestigeClass === "red-robed-wizard" ||
-                draft.prestigeClass === "black-robed-wizard") && (
-              <label className="high-sorcery-creation-field">
-                High Sorcery order
+              draft.prestigeClass === "wizard-of-high-sorcery" && (
+                <HighSorceryChoices
+                  order={draft.highSorceryOrder}
+                  specializationSchool={draft.wizardSpecializationSchool}
+                  barredSchools={draft.wizardBarredSchools}
+                  onChange={(choices) => {
+                    if ("highSorceryOrder" in choices)
+                      onChange("highSorceryOrder", choices.highSorceryOrder);
+                    if ("wizardSpecializationSchool" in choices)
+                      onChange(
+                        "wizardSpecializationSchool",
+                        choices.wizardSpecializationSchool,
+                      );
+                    if ("wizardBarredSchools" in choices)
+                      onChange("wizardBarredSchools", choices.wizardBarredSchools);
+                  }}
+                />
+              )}
+            {dragonlanceRuleset && classId === "mystic" && (
+              <label className="mystic-domain-creation-field">
+                Mystic domain
                 <select
-                  value={draft.highSorceryOrder ?? ""}
-                  onChange={(event) =>
-                    onChange(
-                      "highSorceryOrder",
-                      (event.target.value || undefined) as Character["highSorceryOrder"],
-                    )
-                  }
+                  value={draft.mysticDomain ?? ""}
+                  onChange={(event) => onChange(
+                    "mysticDomain",
+                    getMysticDomainOptions(draft).find(({ id }) => id === event.target.value)?.id,
+                  )}
                 >
-                  <option value="">No order selected</option>
-                  <option value="white">White Robes (good)</option>
-                  <option value="red">Red Robes (neutral)</option>
-                  <option value="black">Black Robes (evil)</option>
+                  <option value="">Choose one domain</option>
+                  {getMysticDomainOptions(draft).map(({ id, name }) => (
+                    <option key={id} value={id}>{name}</option>
+                  ))}
                 </select>
               </label>
+            )}
+            {classId === "ranger" && (
+              <RangerFavoredEnemies
+                character={draft}
+                editableLevels={[1]}
+                onChange={(choices) => onChange("rangerFavoredEnemies", choices)}
+              />
             )}
           </div>
           <div className="ability-methods">
@@ -904,13 +974,35 @@ export function CreationPanel({
               <h3>Languages</h3>
               <p className="language-summary">
                 <strong>Automatic:</strong>{" "}
-                {getRacialLanguages(draft).join(", ")}
+                {getAutomaticLanguages(draft, ruleset).join(", ")}
               </p>
             </div>
+            {getHumanRegionalLanguages(draft, ruleset).length > 0 && (
+              <label>
+                Regional language
+                <LanguagePicker
+                  selected={draft.regionalLanguage ?? ""}
+                  options={getHumanRegionalLanguages(draft, ruleset)}
+                  onChange={(language) => {
+                    onChange(
+                      "languages",
+                      (draft.languages ?? []).filter(
+                        (chosen) => chosen !== language,
+                      ),
+                    );
+                    onChange("regionalLanguage", language || undefined);
+                  }}
+                />
+                <span>
+                  This is automatic for Dragonlance humans and does not use an
+                  Intelligence bonus-language slot.
+                </span>
+              </label>
+            )}
             {Array.from(
               { length: getLanguageBonusSlots(draft) },
               (_, index) => {
-                const automatic = getRacialLanguages(draft);
+                const automatic = getAutomaticLanguages(draft, ruleset);
                 const chosen = (draft.languages ?? []).filter(
                   (language) => !automatic.includes(language),
                 );
@@ -926,7 +1018,8 @@ export function CreationPanel({
                       selected={current}
                       options={getAvailableBonusLanguages(draft, ruleset).filter(
                         (language) =>
-                          !taken.has(language) || language === current,
+                          (!taken.has(language) || language === current) &&
+                          !(draft.speakLanguages ?? []).includes(language),
                       )}
                       onChange={(language) => {
                         const next = [...chosen];
@@ -939,6 +1032,34 @@ export function CreationPanel({
                   </label>
                 );
               },
+            )}
+            {getSpeakLanguageRankCount(draft) > 0 && (
+              <>
+                <p className="language-empty">
+                  Each full Speak Language rank learns one additional
+                  language, without a skill check.
+                </p>
+                {Array.from(
+                  { length: getSpeakLanguageRankCount(draft) },
+                  (_, index) => {
+                    const current = draft.speakLanguages?.[index] ?? "";
+                    return (
+                      <label key={`speak-language-${index}`}>
+                        Speak Language rank {index + 1}
+                        <LanguagePicker
+                          selected={current}
+                          options={getAvailableSpeakLanguages(draft, index)}
+                          onChange={(language) => {
+                            const next = [...(draft.speakLanguages ?? [])];
+                            next[index] = language;
+                            onChange("speakLanguages", next.filter(Boolean));
+                          }}
+                        />
+                      </label>
+                    );
+                  },
+                )}
+              </>
             )}
             {!getLanguageBonusSlots(draft) && (
               <p className="language-empty">

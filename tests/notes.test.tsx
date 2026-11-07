@@ -27,7 +27,7 @@ function loadHero() {
 
 async function enterNote(text: string) {
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Add Note" }));
+  await user.click(await screen.findByRole("button", { name: "Add Note" }));
   const dialog = screen.getByRole("dialog", { name: "Add Character Note" });
   await user.type(within(dialog).getByRole("textbox", { name: "Note" }), text);
   await user.click(within(dialog).getByRole("button", { name: "Add Note" }));
@@ -56,7 +56,7 @@ it("appends dated notes without replacing existing notes and persists through re
 it("disables blank submissions and clears canceled text", async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(screen.getByRole("button", { name: "Add Note" }));
+  await user.click(await screen.findByRole("button", { name: "Add Note" }));
   const dialog = screen.getByRole("dialog");
   const submit = within(dialog).getByRole<HTMLButtonElement>("button", { name: "Add Note" });
   expect(submit.disabled).toBe(true);
@@ -90,11 +90,12 @@ it("discards notes added during level-up when the draft is discarded", async () 
   expect(document.querySelector(".character-note-text")?.textContent).toBe("An earlier adventure.");
 });
 
-it("preserves multiline note bodies and undated legacy notes in separate columns", () => {
+it("preserves multiline note bodies and undated legacy notes in separate columns", async () => {
   const character = cloneCharacter(initialCharacter);
   character.notes = "Legacy background.\nStill part of the background.\n\n[10/25/2026]\nFirst line\nSecond line\n\nAnother paragraph.";
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
   render(<App />);
+  await screen.findByRole("button", { name: "Add Note" });
   const entries = document.querySelectorAll(".character-note-entry");
   expect(entries).toHaveLength(2);
   expect(entries[0].querySelector(".character-note-date")?.textContent).toBe("Undated");
@@ -116,7 +117,7 @@ it("toggles handwritten styling from the notes header without changing note cont
   loadHero();
   const user = userEvent.setup();
   render(<App />);
-  const toggle = screen.getByRole("switch", { name: "Handwritten" });
+  const toggle = await screen.findByRole("switch", { name: "Handwritten" });
   const panel = document.querySelector(".notes-panel");
   expect(toggle.closest(".panel-title")).not.toBeNull();
   expect(toggle.getAttribute("aria-checked")).toBe("true");

@@ -36,6 +36,7 @@ describe("SRD carrying capacity", () => {
   it.each(["Halfling", "Gnome", "Kender"])("scales bipedal Small %s capacity and rounds down", (race) => {
     const character = hero();
     character.race = race;
+    if (race === "Kender") character.ruleset = "dragonlance-user-pack";
     expect(carryingCapacity(character)).toEqual({ light: 24, medium: 49, heavy: 75 });
   });
 
@@ -113,6 +114,28 @@ describe("load, armor, AC, and movement", () => {
     expect(getSkillCheckPenalties(character, "Hide")).toEqual([]);
   });
 
+  it("applies Monk Fast Movement only when unarmored, shieldless, and at light load", () => withBallast(() => {
+    const character = hero();
+    character.classLevels = [{ classId: "monk", level: 3 }];
+    expect(getMovement(character)).toMatchObject({
+      baseSpeed: 30,
+      speed: 40,
+      bonuses: ["Monk Fast Movement +10 ft."],
+    });
+
+    character.equipment.Armor = "Leather Armor";
+    expect(getMovement(character).speed).toBe(30);
+    character.equipment.Armor = "";
+    character.equipment.Shield = "Buckler";
+    expect(getMovement(character).speed).toBe(30);
+    character.equipment.Shield = "";
+    character.inventory["Load test ballast"] = 34;
+    expect(getMovement(character).speed).toBe(20);
+
+    character.inventory = { "Unrecorded statue": 1 };
+    expect(getMovement(character).speed).toBe(30);
+  }));
+
   it("uses mithral's lighter movement category without applying a second speed reduction", () => {
     const character = hero();
     character.equipment.Armor = "Mithral Breastplate";
@@ -152,6 +175,7 @@ it("uses the same load, AC, and speed on both sheets and preserves saved data", 
     const character = hero(67);
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     const { container } = render(<App />);
+    await screen.findByText("Armor Class", { selector: ".stat > small" });
     const statValue = (label: string) => {
       const stat = screen.getByText(label, { selector: ".stat > small" }).parentElement;
       if (!stat) throw new Error(`Missing ${label} stat`);
@@ -172,10 +196,11 @@ it("uses the same load, AC, and speed on both sheets and preserves saved data", 
   }
 });
 
-it("shows an explicit missing-weight warning on the character sheet", () => {
+it("shows an explicit missing-weight warning on the character sheet", async () => {
   const character = hero();
   character.inventory = { "Unknown treasure": 1 };
   window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
   render(<App />);
-  expect(screen.getByText(/Missing weight: Unknown treasure/).getAttribute("role")).toBe("status");
+  expect((await screen.findByText(/Missing weight: Unknown treasure/)).getAttribute("role"))
+    .toBe("status");
 });

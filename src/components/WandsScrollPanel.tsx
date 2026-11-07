@@ -1,8 +1,12 @@
 import { type Character, classDefinitions, type ClassId } from "../domain";
-import { getChosenFeats } from "../rules";
+import { getBaseClassLevels, getChosenFeats } from "../rules";
 import { formatSpellSchool } from "../spellFormatting";
 import { useState } from "react";
-import { spells as srdSpells } from "../data/spellCatalog";
+import {
+  getSpellLevelForClass,
+  isSpellClassAccessAllowed,
+  spells as srdSpells,
+} from "../data/spellCatalog";
 import { SpellPicker } from "./pickers";
 
 export function WandsScrollPanel({
@@ -16,23 +20,45 @@ export function WandsScrollPanel({
   const hasScribeScroll = chosenFeats.includes("scribe-scroll");
   const hasCraftWand = chosenFeats.includes("craft-wand");
   const [purchaseInstead, setPurchaseInstead] = useState(false);
-  const spellcastingLevels = character.classLevels.filter((level) =>
+  const spellcastingLevels = getBaseClassLevels(character).filter((level) =>
     classDefinitions[level.classId]?.spellcasting,
   );
   const minimumCasterLevel = (spell: (typeof srdSpells)[number], classId: ClassId) => {
-    if (spell.level === 0) return 1;
+    const spellLevel = getSpellLevelForClass(spell, classId);
+    if (spellLevel === 0) return 1;
     return ["paladin", "ranger"].includes(classId)
-      ? spell.level * 2 + 2
-      : spell.level * 2 - 1;
+      ? spellLevel * 2 + 2
+      : spellLevel * 2 - 1;
   };
-  const craftableSpells = srdSpells.filter((spell) =>
+  const availableSourceSpells = srdSpells.filter(
+    (spell) =>
+      (spell.source !== "dragonlance-user-pack" || character.ruleset !== "core-35-srd") &&
+      (!spell.classes.length ||
+        spell.classes.some((classId) => isSpellClassAccessAllowed(spell, classId, character))),
+  );
+  const spellLevelForCharacter = (spell: (typeof srdSpells)[number]) => {
+    const characterClassLevels = spellcastingLevels
+      .filter(({ classId }) =>
+        spell.classes.includes(classId) &&
+        isSpellClassAccessAllowed(spell, classId, character),
+      )
+      .map(({ classId }) => getSpellLevelForClass(spell, classId));
+    return Math.min(...(characterClassLevels.length ? characterClassLevels : [spell.level]));
+  };
+  const itemSpells = availableSourceSpells.map((spell) => {
+    const level = spellLevelForCharacter(spell);
+    return level === spell.level ? spell : { ...spell, level };
+  });
+  const craftableSpells = availableSourceSpells.filter((spell) =>
     spellcastingLevels.some((classLevel) =>
       spell.classes.includes(classLevel.classId) &&
+      isSpellClassAccessAllowed(spell, classLevel.classId, character) &&
       classLevel.level >= minimumCasterLevel(spell, classLevel.classId),
     ),
-  );
-  const availableScrollSpells = purchaseInstead ? srdSpells : craftableSpells;
-  const wandSpells = (purchaseInstead ? srdSpells : craftableSpells).filter((spell) => spell.level <= 4);
+  ).map((spell) => itemSpells.find((entry) => entry.name === spell.name) ?? spell);
+  const availableScrollSpells = purchaseInstead ? itemSpells : craftableSpells;
+  const wandSpells = (purchaseInstead ? itemSpells : craftableSpells)
+    .filter((spell) => spell.level <= 4);
   const [scrollSpellName, setScrollSpellName] = useState(availableScrollSpells[0]?.name ?? "");
   const [scrollCasterLevel, setScrollCasterLevel] = useState(1);
   const [wandSpellName, setWandSpellName] = useState(wandSpells[0]?.name ?? "");
@@ -42,12 +68,18 @@ export function WandsScrollPanel({
   const scrollMinimumCasterLevel = scrollSpell
     ? purchaseInstead
       ? (scrollSpell.level === 0 ? 1 : scrollSpell.level * 2 - 1)
-      : Math.min(...spellcastingLevels.filter((classLevel) => scrollSpell.classes.includes(classLevel.classId)).map((classLevel) => minimumCasterLevel(scrollSpell, classLevel.classId)))
+      : Math.min(...spellcastingLevels.filter((classLevel) =>
+        scrollSpell.classes.includes(classLevel.classId) &&
+        isSpellClassAccessAllowed(scrollSpell, classLevel.classId, character),
+      ).map((classLevel) => minimumCasterLevel(scrollSpell, classLevel.classId)))
     : 1;
   const wandMinimumCasterLevel = wandSpell
     ? purchaseInstead
       ? (wandSpell.level === 0 ? 1 : wandSpell.level * 2 - 1)
-      : Math.min(...spellcastingLevels.filter((classLevel) => wandSpell.classes.includes(classLevel.classId)).map((classLevel) => minimumCasterLevel(wandSpell, classLevel.classId)))
+      : Math.min(...spellcastingLevels.filter((classLevel) =>
+        wandSpell.classes.includes(classLevel.classId) &&
+        isSpellClassAccessAllowed(wandSpell, classLevel.classId, character),
+      ).map((classLevel) => minimumCasterLevel(wandSpell, classLevel.classId)))
     : 1;
   const scrollLevel = scrollSpell?.level || 0.5;
   const wandLevel = wandSpell?.level || 0.5;

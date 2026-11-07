@@ -13,6 +13,17 @@ describe("in-play HP rules", () => {
     expect(initialCharacter.currentHitPoints).toBeUndefined();
   });
 
+  it("applies each selected Toughness feat to current and maximum HP", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.featSelections = { "general-1": "toughness", "general-2": "toughness" };
+
+    expect(getMaximumHitPoints(character)).toBe(16);
+    expect(getCurrentHitPoints(character)).toBe(16);
+    const damaged = applyHitPointAction(character, "damage", 3);
+    expect(getCurrentHitPoints(damaged)).toBe(13);
+    expect(getMaximumHitPoints(damaged)).toBe(16);
+  });
+
   it("absorbs damage with temporary HP, then permits negative current HP without changing maximum", () => {
     const original = { ...cloneCharacter(initialCharacter), temporaryHitPoints: 5 };
     const absorbed = applyHitPointAction(original, "damage", 3);
@@ -74,8 +85,9 @@ describe("HP tracker workflow", () => {
     return render(<App />);
   }
 
-  it("applies damage, healing and temporary HP, persists through Save and reload, and leaves maximum HP intact", () => {
+  it("applies damage, healing and temporary HP, persists through Save and reload, and leaves maximum HP intact", async () => {
     const view = setup();
+    await screen.findByRole("group", { name: "Hit point tracker" });
     const tracker = within(screen.getByRole("group", { name: "Hit point tracker" }));
     const amount = tracker.getByRole("spinbutton", { name: "HP amount" });
     fireEvent.change(amount, { target: { value: "5" } });
@@ -96,11 +108,13 @@ describe("HP tracker workflow", () => {
     expect(loadSavedCharacter().character).toMatchObject({ hitPoints: 10, currentHitPoints: 10, nonlethalDamage: 6 });
     view.unmount();
     render(<App />);
+    await screen.findByRole("group", { name: "Hit point tracker" });
     expect(within(screen.getByRole("group", { name: "Hit point tracker" })).getByText("Nonlethal 6")).toBeDefined();
   });
 
-  it("reports blank and fractional input without changing HP", () => {
+  it("reports blank and fractional input without changing HP", async () => {
     setup();
+    await screen.findByRole("group", { name: "Hit point tracker" });
     const tracker = within(screen.getByRole("group", { name: "Hit point tracker" }));
     fireEvent.click(tracker.getByRole("button", { name: "Damage" }));
     expect(tracker.getByRole("alert")).toBeDefined();
@@ -110,10 +124,11 @@ describe("HP tracker workflow", () => {
     expect(tracker.getByText("HP 10 / 10")).toBeDefined();
   });
 
-  it("disables controls in setup and level-up drafts and restores existing HP on discard", () => {
+  it("disables controls in setup and level-up drafts and restores existing HP on discard", async () => {
     const character = { ...initialCharacter, currentHitPoints: 4, temporaryHitPoints: 3, nonlethalDamage: 2 };
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     render(<App />);
+    await screen.findByRole("group", { name: "Hit point tracker" });
     fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
     expect(screen.getByRole<HTMLFieldSetElement>("group", { name: /HP controls are available/ }).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Discard Draft" }));
@@ -131,13 +146,14 @@ describe("HP tracker workflow", () => {
     expect(window.alert).not.toHaveBeenCalled();
   });
 
-  it("preserves damage when a level-up increases maximum HP", () => {
+  it("preserves damage when a level-up increases maximum HP", async () => {
     const character = { ...cloneCharacter(initialCharacter), currentHitPoints: 4,
       classLevels: [{ classId: "barbarian", level: 1 }] as const };
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
+    await screen.findByRole("group", { name: "Hit point tracker" });
     fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
     fireEvent.change(screen.getByRole("combobox", { name: /class/i }), { target: { value: "barbarian" } });
     const climb = within(screen.getByRole("group", { name: "Climb skill" }));
@@ -169,7 +185,7 @@ describe("HP tracker workflow", () => {
     expect(loadSavedCharacter().character).toMatchObject({ hitPoints: 17, currentHitPoints: 12 });
   });
 
-  it("preserves damage and avoids baking equipped Constitution into level-up HP", () => {
+  it("preserves damage and avoids baking equipped Constitution into level-up HP", async () => {
     const character = { ...cloneCharacter(initialCharacter), currentHitPoints: 4,
       classLevels: [{ classId: "barbarian", level: 1 }] as const,
       equipment: { ...initialCharacter.equipment, Neck: "Amulet of Health +4" } };
@@ -177,6 +193,7 @@ describe("HP tracker workflow", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
+    await screen.findByRole("group", { name: "Hit point tracker" });
     fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
     fireEvent.change(screen.getByRole("combobox", { name: /class/i }), { target: { value: "barbarian" } });
     const climb = within(screen.getByRole("group", { name: "Climb skill" }));
@@ -191,7 +208,7 @@ describe("HP tracker workflow", () => {
     expect(getMaximumHitPoints(saved) - getCurrentHitPoints(saved)).toBe(6);
   });
 
-  it("applies level-up Constitution increases to current and maximum HP", () => {
+  it("applies level-up Constitution increases to current and maximum HP", async () => {
     const character = {
       ...cloneCharacter(initialCharacter),
       abilities: { ...initialCharacter.abilities, con: 13 },
@@ -202,6 +219,7 @@ describe("HP tracker workflow", () => {
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     render(<App />);
+    await screen.findByRole("group", { name: "Hit point tracker" });
     fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
     fireEvent.change(screen.getByRole("combobox", { name: /class/i }), { target: { value: "fighter" } });
     fireEvent.change(

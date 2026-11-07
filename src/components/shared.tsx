@@ -124,8 +124,12 @@ export function CombatAttackModeControl({ mode, onChange }: {
         onChange={(event) => onChange(event.currentTarget.value as CombatAttackMode)}>
         <option value="single">Single attack</option>
         <option value="full-attack">Full attack</option>
+        <option value="flurry">Flurry of blows</option>
         <option value="manyshot">Manyshot</option>
       </select>
+      {mode === "flurry" && (
+        <small>Full attack; requires an eligible Monk weapon while unarmored, without a shield, and at light load.</small>
+      )}
     </label>
   );
 }
@@ -281,6 +285,12 @@ export function ArmorClassStat({
     detail={[
       `Touch ${defenses.touch}`,
       `Flat-footed ${defenses.flatFooted}`,
+      ...(defenses.arrowCatchingShield
+        ? [
+            `Vs. ranged weapons: AC ${defenses.rangedWeapon} (touch ${defenses.rangedWeaponTouch}; flat-footed ${defenses.rangedWeaponFlatFooted})`,
+            "Arrow Catching redirects projectile/thrown attacks aimed at another creature within 5 ft. to you unless you have total cover; resolve redirection manually.",
+          ]
+        : []),
       ...(defenses.dodgeFeatBonus ? ["+1 Dodge AC against selected opponent"] : []),
       ...(defenses.towerShieldCoverActive ? ["Total cover via tower shield; no attacks until the start of your next turn."] : []),
       ...(defenses.shieldBashACBonusLost ? ["Shield AC bonus lost until your next action after a shield bash."] : []),
@@ -310,7 +320,7 @@ export function SavingThrowStat({ character, save, label, conditions = [] }: {
   conditions?: SavingThrowCondition[];
 }) {
   const result = getSavingThrow(character, save, conditions);
-  return <Stat label={label} value={formatModifier(result.total)} detail={[result.detail]} title={result.title} />;
+  return <Stat label={label} value={result.immune ? "Immune" : formatModifier(result.total)} detail={[result.detail]} title={result.title} />;
 }
 
 export function SpecialAttackStats({ character }: { character: Character }) {

@@ -116,11 +116,17 @@ export function CombatEffectsTracker({
             const details = (Object.keys(modifierLabels) as CombatEffectModifier[])
               .filter((modifier) => effect.modifiers[modifier] !== 0)
               .map((modifier) => `${modifierLabels[modifier]} ${effect.modifiers[modifier] > 0 ? "+" : ""}${effect.modifiers[modifier]}`);
+            const abilityDetails = Object.entries(effect.abilityModifiers ?? {})
+              .filter(([, value]) => value !== 0)
+              .map(([ability, value]) => `${ability.toUpperCase()} ${value! > 0 ? "+" : ""}${value}`);
+            if (effect.expiresTemporaryHitPoints) abilityDetails.push("Temporary HP expire with effect");
             return <li key={`${effect.name}-${index}`}>
               <div>
                 <strong>{effect.name}</strong>
                 <span>{effect.remainingRounds === null ? "Until removed" : `${effect.remainingRounds} round${effect.remainingRounds === 1 ? "" : "s"}`}</span>
-                {details.length > 0 && <small>{details.join(" · ")}</small>}
+                {(details.length > 0 || abilityDetails.length > 0) && (
+                  <small>{[...details, ...abilityDetails].join(" · ")}</small>
+                )}
               </div>
               <button type="button" className="quiet-button" disabled={!enabled}
                 aria-label={`Remove ${effect.name}`} onClick={() => onChange(round, effects.filter((_, itemIndex) => itemIndex !== index))}>

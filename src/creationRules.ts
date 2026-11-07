@@ -14,7 +14,17 @@ export function formatRaceModifiers(modifiers: Partial<Record<AbilityName, numbe
 
 export function formatRaceDetails(race: (typeof raceDefinitions)[string]) {
   const abilities = race.specialAbilities ?? race.traits ?? [];
-  return `${formatRaceModifiers(race.abilityModifiers)}; Size ${race.size ?? "Medium"}; Speed ${race.speed ?? 30} ft.; ${abilities.length ? abilities.join(", ") : "No special abilities recorded"}`;
+  const movement = [
+    `Speed ${race.speed ?? 30} ft.`,
+    ...(race.swimSpeed === undefined ? [] : [`Swim ${race.swimSpeed} ft.`]),
+  ].join("; ");
+  const levelAdjustment = race.levelAdjustment
+    ? `; Level adjustment +${race.levelAdjustment}`
+    : "";
+  const racialHitDice = race.racialHitDice
+    ? `; ${race.racialHitDice.count}d${race.racialHitDice.hitDie} racial Hit Dice (include these in manually entered total HP)`
+    : "";
+  return `${formatRaceModifiers(race.abilityModifiers)}; Size ${race.size ?? "Medium"}; ${movement}${racialHitDice}${levelAdjustment}; ${abilities.length ? abilities.join(", ") : "No special abilities recorded"}`;
 }
 
 export function formatClassDetails(
@@ -43,6 +53,17 @@ export function formatPrestigeClassDetails(
           .map(([ability, score]) => `${ability.toUpperCase()} ${score}`)
           .join(", ")
       : "",
+    prerequisites.baseSaves
+      ? Object.entries(prerequisites.baseSaves)
+          .map(([save, bonus]) => `Base ${save} +${bonus}`)
+          .join(", ")
+      : "",
+    prerequisites.skills
+      ? Object.entries(prerequisites.skills)
+          .map(([skill, ranks]) => `${skill} ${ranks} ranks`)
+          .join(", ")
+      : "",
+    prerequisites.alignment ?? "",
     prerequisites.classes?.length
       ? prerequisites.classes
           .map((classId) => classDefinitions[classId].name)
@@ -51,7 +72,7 @@ export function formatPrestigeClassDetails(
     prerequisites.races?.length ? prerequisites.races.join(" or ") : "",
     prerequisites.feats?.length ? prerequisites.feats.join(", ") : "",
   ].filter(Boolean);
-  return `${requirements.length ? `Prerequisites: ${requirements.join("; ")}. ` : ""}Features: ${prestigeClass.features.join(", ")}.`;
+  return `${requirements.length ? `Prerequisites: ${requirements.join("; ")}. ` : ""}${prestigeClass.roleplayPrerequisite ? `Special: ${prestigeClass.roleplayPrerequisite} ` : ""}Features: ${prestigeClass.features.join(", ")}.`;
 }
 
 export function isPrestigeClassEligible(
@@ -59,6 +80,7 @@ export function isPrestigeClassEligible(
   classId: ClassId,
   race: string,
 ) {
+  if (definition.levelUpEnabled) return false;
   const prerequisites = definition.prerequisites;
   const raceId = race.toLowerCase().replaceAll(" ", "-");
   return (

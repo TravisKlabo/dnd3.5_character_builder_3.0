@@ -3,10 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { cloneCharacter, initialCharacter, type Character, type ClassId } from "../src/domain";
-import { defaultSrdSpellSourceBook, getSrdSpellSourceBook, loadSpellCatalog } from "../src/data/spellCatalog";
+import { defaultSrdSpellSourceBook, findSpellByName, getClassSpells, getSrdSpellContentSource, getSrdSpellSourceBook, loadSpellCatalog } from "../src/data/spellCatalog";
 import { srdSpells } from "../src/srdSpells";
+import { WandsScrollPanel } from "../src/components/WandsScrollPanel";
 import { baseSpellSlots, getCasterLevel, getClassSpellSelections, getDailySpellSlots,
-  getKnownSpellLimit, getLevelUpSpellWarnings, getSpellcastingAbility, hasSpellLevelAtClassLevel,
+  getHighSorceryMoonModifier, getKnownSpellLimit, getLevelUpSpellWarnings,
+  getKnownSpellReplacementLevelLimit, getMysticSpellReplacementLevelLimit, getSpellSaveDC,
+  getSpellcastingAbility, hasSpellLevelAtClassLevel,
   getWizardFreeSpellAllowance, getWizardSpellbookSpells } from "../src/rules";
 import { getWizardCopyRequirements } from "../src/wizardSpellbookRules";
 import { savedCharacterStorageKey } from "../src/storage";
@@ -23,6 +26,167 @@ describe("spell catalog source attribution", () => {
     if (!phantomTrap || !magicMissile) throw new Error("Expected core spell entries are missing.");
     expect(getSrdSpellSourceBook(phantomTrap)).toBeUndefined();
     expect(getSrdSpellSourceBook(magicMissile)).toBe("Player's Handbook (3.5)");
+  });
+
+  it("resolves domain-name variants to complete SRD spell records", () => {
+    const aliases = {
+      "Greater Arcane Sight": "Arcane Sight, Greater",
+      "Greater Command": "Command, Greater",
+      "Greater Heroism": "Heroism, Greater",
+      "Greater Restoration": "Restoration, Greater",
+      "Lesser Restoration": "Restoration, Lesser",
+      "Otto's Irresistible Dance": "Irresistible Dance",
+      "Rary's Telepathic Bond": "Telepathic Bond",
+      "Tasha's Hideous Laughter": "Hideous Laughter",
+    };
+    for (const [domainName, catalogName] of Object.entries(aliases)) {
+      const spell = findSpellByName(domainName);
+      expect(spell?.name).toBe(catalogName);
+      expect([
+        spell?.description, spell?.school, spell?.components,
+        spell?.castingTime, spell?.range, spell?.duration, spell?.savingThrow,
+      ].every(Boolean)).toBe(true);
+    }
+  });
+
+  it("adds sourced Dragonlance domain spell details without making them Core class choices", () => {
+    const names = ["Hardening", "Otyugh Swarm", "Plague of Rats", "Scourge", "Unbinding"];
+    for (const name of names) {
+      const spell = findSpellByName(name);
+      if (!spell) throw new Error(`Expected Dragonlance domain spell ${name} to be cataloged.`);
+      expect(spell).toMatchObject({
+        source: "dragonlance-user-pack",
+        sourceBook: "Dragonlance Campaign Setting",
+      });
+      expect(getSrdSpellContentSource(spell)).toBe("dragonlance-user-pack");
+      expect(getSrdSpellSourceBook(spell)).toBe("Dragonlance Campaign Setting");
+      expect([
+        spell.description, spell.school, spell.components,
+        spell.castingTime, spell.range, spell.duration, spell.savingThrow,
+      ].every(Boolean)).toBe(true);
+    }
+
+    for (const name of ["Otyugh Swarm", "Plague of Rats", "Scourge"])
+      expect(findSpellByName(name)?.classes).toEqual([]);
+    expect(findSpellByName("Hardening")).toMatchObject({
+      level: 7,
+      classes: ["sorcerer", "wizard"],
+      classLevels: { sorcerer: 6, wizard: 6 },
+    });
+    expect(findSpellByName("Unbinding")?.classes).toEqual(["sorcerer", "wizard"]);
+    for (const classId of ["cleric", "mystic", "sorcerer", "wizard"] as const)
+      expect(getClassSpells(classId).some((spell) => names.includes(spell.name))).toBe(false);
+  });
+
+  it("adds all Chapter 3 New Spells with source-backed class access and levels", () => {
+    const newSpellClasses: Record<string, string[]> = {
+      "Bestow Greater Curse": ["bard", "cleric", "sorcerer", "wizard"],
+      "Billim's Bifrost Bridge": ["sorcerer", "wizard"],
+      "Crackling Sphere": ["sorcerer", "wizard"],
+      "Dalamar's Lightning Lance": ["sorcerer", "wizard"],
+      "Deep Freeze": ["sorcerer", "wizard"],
+      Disjoin: ["cleric", "sorcerer", "wizard"],
+      "Divine Retribution": ["cleric"],
+      Drown: ["druid", "sorcerer", "wizard"],
+      "Earthen Shield": ["cleric", "sorcerer", "wizard"],
+      "Electrical Storm": ["sorcerer", "wizard"],
+      "Elemental Dart": ["sorcerer", "wizard"],
+      "Fistandantilus's Portal": ["sorcerer", "wizard"],
+      "Magius's Light of Truth": ["wizard"],
+      "Palin's Pyre": ["sorcerer", "wizard"],
+      "Share Animal's Mind": ["cleric", "druid"],
+      "Shocking Spark": ["sorcerer", "wizard"],
+      "Spark Shield": ["cleric", "sorcerer", "wizard"],
+      "Spirit Walk": ["cleric", "sorcerer", "wizard"],
+      "Stone Shards": ["sorcerer", "wizard"],
+      "Storm Wall": ["sorcerer", "wizard"],
+      Talons: ["cleric", "druid"],
+    };
+    for (const [name, classes] of Object.entries(newSpellClasses)) {
+      const spell = findSpellByName(name);
+      if (!spell) throw new Error(`Expected Chapter 3 spell ${name} to be cataloged.`);
+      expect(spell.source).toBe("dragonlance-user-pack");
+      expect(spell.classes).toEqual(classes);
+      expect([
+        spell.description, spell.school, spell.components,
+        spell.castingTime, spell.range, spell.duration, spell.savingThrow,
+      ].every(Boolean)).toBe(true);
+    }
+
+    const newSpellNames = Object.keys(newSpellClasses);
+    expect(getClassSpells("wizard").some((spell) => newSpellNames.includes(spell.name))).toBe(false);
+    expect(getClassSpells("bard", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Bestow Greater Curse")?.level).toBe(6);
+    expect(getClassSpells("bard", "dragonlance-user-pack")
+      .filter((spell) => spell.school === "Conjuration (Healing)")).toEqual([]);
+    expect(getClassSpells("bard")
+      .some((spell) => spell.name === "Cure Light Wounds")).toBe(true);
+    expect(getClassSpells("cleric", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Bestow Greater Curse")?.level).toBe(7);
+    expect(getClassSpells("sorcerer", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Bestow Greater Curse")?.level).toBe(8);
+    expect(getClassSpells("druid", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Drown")?.level).toBe(5);
+    expect(getClassSpells("wizard", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Drown")?.level).toBe(6);
+    expect(getClassSpells("cleric", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Spirit Walk")?.level).toBe(6);
+    expect(getClassSpells("wizard", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Spirit Walk")?.level).toBe(7);
+    expect(getClassSpells("wizard", "dragonlance-user-pack")
+      .find((spell) => spell.name === "Hardening")?.level).toBe(6);
+
+    const mystic = cloneCharacter(initialCharacter);
+    mystic.ruleset = "dragonlance-user-pack";
+    mystic.classLevels = [{ classId: "mystic", level: 1 }];
+    expect(getClassSpells("mystic", mystic.ruleset, mystic)
+      .find((spell) => spell.name === "Bestow Greater Curse")?.level).toBe(7);
+
+    const whiteWizard = cloneCharacter(initialCharacter);
+    whiteWizard.ruleset = "dragonlance-user-pack";
+    whiteWizard.highSorceryOrder = "white";
+    expect(getClassSpells("wizard", whiteWizard.ruleset, whiteWizard)
+      .some((spell) => spell.name === "Magius's Light of Truth")).toBe(true);
+    expect(getClassSpells("wizard", "dragonlance-user-pack")
+      .some((spell) => spell.name === "Magius's Light of Truth")).toBe(false);
+    expect(getClassSpells("sorcerer", whiteWizard.ruleset, whiteWizard)
+      .some((spell) => spell.name === "Magius's Light of Truth")).toBe(false);
+  });
+
+  it("keeps Dragonlance domain spell details out of Core scroll purchase choices", () => {
+    const character = cloneCharacter(initialCharacter);
+    render(<WandsScrollPanel character={character} onInventoryChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Purchase instead of craft"));
+    const scrollPicker = document.querySelector<HTMLButtonElement>(".spell-picker > button");
+    if (!scrollPicker) throw new Error("Missing scroll spell picker.");
+    fireEvent.click(scrollPicker);
+    fireEvent.change(screen.getByLabelText("Search spells"), { target: { value: "Hardening" } });
+    expect(screen.getByText("No spells match.")).toBeDefined();
+  });
+
+  it("offers Dragonlance domain spell details in Dragonlance scroll purchase choices", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    render(<WandsScrollPanel character={character} onInventoryChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Purchase instead of craft"));
+    const scrollPicker = document.querySelector<HTMLButtonElement>(".spell-picker > button");
+    if (!scrollPicker) throw new Error("Missing scroll spell picker.");
+    fireEvent.click(scrollPicker);
+    fireEvent.change(screen.getByLabelText("Search spells"), { target: { value: "Hardening" } });
+    expect(screen.getByRole("option", { name: /Hardening \(Level 7\)/ })).toBeDefined();
+  });
+
+  it("uses a character's class-specific spell level for Dragonlance scroll choices", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "wizard", level: 12 }];
+    render(<WandsScrollPanel character={character} onInventoryChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Purchase instead of craft"));
+    const scrollPicker = document.querySelector<HTMLButtonElement>(".spell-picker > button");
+    if (!scrollPicker) throw new Error("Missing scroll spell picker.");
+    fireEvent.click(scrollPicker);
+    fireEvent.change(screen.getByLabelText("Search spells"), { target: { value: "Hardening" } });
+    expect(screen.getByRole("option", { name: /Hardening \(Level 6\)/ })).toBeDefined();
   });
 });
 
@@ -45,6 +209,13 @@ function caster(): Character {
   character.abilities.cha = 18;
   character.knownSpellsByClass = { wizard: ["Magic Missile", "Detect Magic", "Invisibility"] };
   character.knownSpells = ["Magic Missile", "Detect Magic", "Invisibility"];
+  return character;
+}
+
+function highSorceryCaster(order: NonNullable<Character["highSorceryOrder"]> = "red") {
+  const character = caster();
+  character.ruleset = "dragonlance-user-pack";
+  character.highSorceryOrder = order;
   return character;
 }
 
@@ -123,6 +294,7 @@ describe("class-specific spell rules", () => {
       render(<App />);
       await openSpells(false);
       expect(screen.getByRole("tab", { name: "Spellbook" }).getAttribute("aria-selected")).toBe("true");
+      expect(screen.getByText(/Core school specialization is optional and chosen at Wizard 1/)).toBeDefined();
       expect(screen.queryByRole("spinbutton")).toBeNull();
       expect(screen.queryByRole("checkbox", { name: /Expended/ })).toBeNull();
       expect(screen.getByText("Magic Missile", { exact: true })).toBeDefined();
@@ -166,6 +338,52 @@ describe("class-specific spell rules", () => {
         source: "scroll", decipherMethod: "spellcraft", decipherTotal: 22, spellcraftTotal: 17,
       });
       expect(stored().inventory).toEqual({});
+    });
+
+    it.each([
+      ["spellcraft", "Deciphering Spellcraft total before Magius bonus"],
+      ["decipher-script", "Deciphering Decipher Script total before Magius bonus"],
+    ] as const)("applies Magius to arcane scroll %s checks", async (method, label) => {
+      const character = caster();
+      character.ruleset = "dragonlance-user-pack";
+      character.languages = ["Common", "Magius"];
+      save(character);
+      render(<App />);
+      await openSpells(false);
+      fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
+      fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Web" } });
+      fireEvent.change(screen.getByLabelText("Deciphering method"), { target: { value: method } });
+      expect(screen.getByText(/Magius grants a \+2 competence bonus/)).toBeDefined();
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "20" } });
+      expect(screen.queryByText(/Deciphering failed/)).toBeNull();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Writing successfully deciphered using the method above" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "8 hours of study completed" }));
+      fireEvent.change(screen.getByLabelText("Learning Spellcraft total"), { target: { value: "17" } });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Writing time and material cost resolved with the DM" }));
+      fireEvent.click(screen.getByRole("button", { name: "Record learned spell" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(stored().wizardSpellLearning?.Web).toMatchObject({
+        source: "scroll",
+        decipherMethod: method,
+        decipherTotal: 22,
+        spellcraftTotal: 17,
+      });
+    });
+
+    it("does not apply Magius's scroll-reading bonus when copying another spellbook", async () => {
+      const character = caster();
+      character.ruleset = "dragonlance-user-pack";
+      character.languages = ["Common", "Magius"];
+      save(character);
+      render(<App />);
+      await openSpells(false);
+      fireEvent.click(screen.getByRole("button", { name: "Learn a spell" }));
+      fireEvent.change(screen.getByLabelText("Spell source"), { target: { value: "spellbook" } });
+      fireEvent.change(screen.getByLabelText("Wizard spell"), { target: { value: "Web" } });
+      fireEvent.change(screen.getByLabelText("Deciphering method"), { target: { value: "spellcraft" } });
+      expect(screen.queryByText(/Magius grants a \+2 competence bonus/)).toBeNull();
+      fireEvent.change(screen.getByLabelText("Deciphering Spellcraft total"), { target: { value: "20" } });
+      expect(screen.getByRole("alert").textContent).toContain("Deciphering failed");
     });
 
     it("read magic bypasses deciphering rolls but not the learning check; cancelled attempts change nothing", async () => {
@@ -312,6 +530,42 @@ describe("class-specific spell rules", () => {
     expect(getCasterLevel("wizard", 3)).toBe(3);
   });
 
+  it("applies Dragonlance High Sorcery phase and conjunction modifiers to caster level and DC", () => {
+    const character = highSorceryCaster();
+    character.dragonlanceMoonState = {
+      phases: { lunitari: "waxing-gibbous" },
+      conjunction: "none",
+    };
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(1);
+    expect(getCasterLevel("wizard", 3, character)).toBe(4);
+    expect(getSpellSaveDC(character, "wizard", 2)).toBe(16);
+    expect(getSpellSaveDC(character, "wizard", 2, undefined, false)).toBe(15);
+
+    character.dragonlanceMoonState.phases!.lunitari = "new";
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(-1);
+    expect(getCasterLevel("wizard", 3, character)).toBe(2);
+    expect(getSpellSaveDC(character, "wizard", 2)).toBe(14);
+
+    character.dragonlanceMoonState.conjunction = "lunitari-nuitari";
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(0);
+    character.dragonlanceMoonState.conjunction = "all";
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(1);
+    character.dragonlanceMoonState.phases!.lunitari = "full";
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(3);
+
+    character.highSorceryOrder = "white";
+    character.dragonlanceMoonState = { phases: { solinari: "full" } };
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(1);
+    character.highSorceryOrder = "black";
+    character.dragonlanceMoonState = { phases: { nuitari: "full" } };
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(1);
+
+    character.ruleset = "core-35-srd";
+    expect(getHighSorceryMoonModifier(character, "wizard")).toBe(0);
+    character.ruleset = "dragonlance-user-pack";
+    expect(getHighSorceryMoonModifier(character, "cleric")).toBe(0);
+  });
+
   it("does not grant bonus slots above class access or below the required casting ability", () => {
     const character = caster();
     character.abilities.int = 30;
@@ -324,16 +578,358 @@ describe("class-specific spell rules", () => {
 
   it("uses SRD bard and sorcerer known-spell limits without ability bonus spells known", () => {
     const character = caster();
+    expect(baseSpellSlots("sorcerer", 1, 0)).toBe(5);
+    expect(baseSpellSlots("sorcerer", 1, 1)).toBe(3);
+    expect(baseSpellSlots("sorcerer", 4, 2)).toBe(3);
+    expect(getDailySpellSlots(character, "sorcerer", 1, 1)).toBe(4);
     expect(getKnownSpellLimit(character, "sorcerer", 2, 1)).toBe(2);
     expect(getKnownSpellLimit(character, "sorcerer", 4, 2)).toBe(1);
     expect(getKnownSpellLimit(character, "sorcerer", 20, 0)).toBe(9);
+    character.abilities.cha = 19;
     expect(getKnownSpellLimit(character, "sorcerer", 20, 9)).toBe(3);
     expect(getKnownSpellLimit(character, "bard", 1, 1)).toBe(0);
     expect(getKnownSpellLimit(character, "bard", 4, 2)).toBe(2);
     character.abilities.cha = 12;
-    expect(getKnownSpellLimit(character, "bard", 4, 2)).toBe(0);
+    expect(getKnownSpellLimit(character, "bard", 4, 2)).toBe(2);
+    expect(getDailySpellSlots(character, "bard", 4, 2)).toBe(0);
     expect(baseSpellSlots("bard", 14, 0)).toBe(4);
+    character.abilities.cha = 16;
     expect(getKnownSpellLimit(character, "bard", 20, 6)).toBe(4);
+
+    character.abilities.cha = 9;
+    expect(getKnownSpellLimit(character, "sorcerer", 1, 0)).toBe(0);
+    expect(getKnownSpellLimit(character, "sorcerer", 1, 1)).toBe(0);
+    character.abilities.cha = 10;
+    expect(getKnownSpellLimit(character, "sorcerer", 1, 0)).toBe(4);
+    expect(getKnownSpellLimit(character, "sorcerer", 1, 1)).toBe(0);
+    character.abilities.cha = 11;
+    expect(getKnownSpellLimit(character, "sorcerer", 1, 0)).toBe(4);
+    expect(getKnownSpellLimit(character, "sorcerer", 1, 1)).toBe(2);
+
+    character.abilities.cha = 11;
+    expect(getKnownSpellLimit(character, "bard", 2, 1)).toBe(2);
+    expect(getDailySpellSlots(character, "bard", 2, 1)).toBe(0);
+  });
+
+  it("limits Bard and Sorcerer known-spell replacements to their class-level schedules", () => {
+    const replacementLimit = (
+      classId: "bard" | "sorcerer",
+      originalLevel: number,
+      proposedLevel: number,
+    ) => {
+      const original = cloneCharacter(caster());
+      original.classLevels = [{ classId, level: originalLevel }];
+      const proposed = cloneCharacter(original);
+      proposed.classLevels[0].level = proposedLevel;
+      return getKnownSpellReplacementLevelLimit(original, proposed, classId);
+    };
+
+    expect(replacementLimit("bard", 4, 5)).toBe(0);
+    expect(replacementLimit("bard", 5, 6)).toBeUndefined();
+    expect(replacementLimit("bard", 7, 8)).toBe(1);
+    expect(replacementLimit("sorcerer", 3, 4)).toBe(0);
+    expect(replacementLimit("sorcerer", 4, 5)).toBeUndefined();
+    expect(replacementLimit("sorcerer", 5, 6)).toBe(1);
+  });
+
+  it("validates Sorcerer spell replacements by level and class-level milestone", () => {
+    const sorcererSpells = getClassSpells("sorcerer");
+    const cantrips = sorcererSpells.filter((spell) => spell.level === 0);
+    const firstLevelSpells = sorcererSpells.filter((spell) => spell.level === 1);
+    const secondLevelSpell = sorcererSpells.find((spell) => spell.level === 2);
+    if (
+      cantrips.length < 3 ||
+      firstLevelSpells.length < 2 ||
+      !secondLevelSpell
+    ) {
+      throw new Error("Expected Sorcerer spell choices are missing from the catalog.");
+    }
+
+    const original = cloneCharacter(initialCharacter);
+    original.classLevels = [{ classId: "sorcerer", level: 3 }];
+    original.abilities.cha = 18;
+    original.knownSpellsByClass = { sorcerer: [cantrips[0].name] };
+    original.knownSpells = [cantrips[0].name];
+    const validReplacement = cloneCharacter(original);
+    validReplacement.classLevels[0].level = 4;
+    const validKnownSpells = [
+      cantrips[1].name,
+      cantrips[2].name,
+      secondLevelSpell.name,
+    ];
+    validReplacement.knownSpellsByClass = { sorcerer: validKnownSpells };
+    validReplacement.knownSpells = validKnownSpells;
+    expect(getLevelUpSpellWarnings(original, validReplacement)).toEqual([]);
+
+    const highLevelOriginal = cloneCharacter(original);
+    highLevelOriginal.knownSpellsByClass = {
+      sorcerer: [firstLevelSpells[0].name],
+    };
+    highLevelOriginal.knownSpells = [firstLevelSpells[0].name];
+    const invalidReplacement = cloneCharacter(highLevelOriginal);
+    invalidReplacement.classLevels[0].level = 4;
+    const invalidKnownSpells = [
+      firstLevelSpells[1].name,
+      cantrips[0].name,
+      secondLevelSpell.name,
+    ];
+    invalidReplacement.knownSpellsByClass = {
+      sorcerer: invalidKnownSpells,
+    };
+    invalidReplacement.knownSpells = invalidKnownSpells;
+    expect(getLevelUpSpellWarnings(highLevelOriginal, invalidReplacement)).toContain(
+      "The exchanged spell must be at least two levels below the highest spell level available.",
+    );
+
+    const wrongLevelOriginal = cloneCharacter(validReplacement);
+    const wrongLevel = cloneCharacter(wrongLevelOriginal);
+    wrongLevel.classLevels[0].level = 5;
+    const wrongLevelKnownSpells = [
+      cantrips[0].name,
+      cantrips[2].name,
+      secondLevelSpell.name,
+    ];
+    wrongLevel.knownSpellsByClass = { sorcerer: wrongLevelKnownSpells };
+    wrongLevel.knownSpells = wrongLevelKnownSpells;
+    expect(getLevelUpSpellWarnings(wrongLevelOriginal, wrongLevel)).toContain(
+      "A Sorcerer may replace spells only at qualifying class levels.",
+    );
+  });
+
+  it("uses the Dragonlance Mystic spells-per-day and spells-known tables", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.abilities.wis = 11;
+    expect(baseSpellSlots("mystic", 1, 0)).toBe(5);
+    expect(baseSpellSlots("mystic", 1, 1)).toBe(3);
+    expect(baseSpellSlots("mystic", 2, 0)).toBe(6);
+    expect(baseSpellSlots("mystic", 4, 2)).toBe(3);
+    expect(baseSpellSlots("mystic", 20, 9)).toBe(6);
+    expect(hasSpellLevelAtClassLevel("mystic", 1, 0)).toBe(true);
+    expect(hasSpellLevelAtClassLevel("mystic", 1, 2)).toBe(false);
+    expect(getDailySpellSlots(character, "mystic", 1, 1)).toBe(3);
+    expect(getDailySpellSlots(character, "mystic", 1, 0)).toBe(5);
+    character.abilities.wis = 18;
+    expect(getDailySpellSlots(character, "mystic", 1, 1)).toBe(4);
+    expect(getDailySpellSlots(character, "mystic", 1, 0)).toBe(5);
+    character.classLevels = [{ classId: "mystic", level: 1 }];
+    expect(getKnownSpellLimit(character, "mystic", 1, 0)).toBe(4);
+    expect(getKnownSpellLimit(character, "mystic", 1, 1)).toBe(2);
+    expect(getKnownSpellLimit(character, "mystic", 4, 2)).toBe(1);
+    expect(getKnownSpellLimit(character, "mystic", 20, 9)).toBe(3);
+    character.mysticDomain = "animal";
+    expect(getKnownSpellLimit(character, "mystic", 1, 0)).toBe(4);
+    expect(getKnownSpellLimit(character, "mystic", 1, 1)).toBe(3);
+    expect(getKnownSpellLimit(character, "mystic", 4, 2)).toBe(2);
+    expect(getKnownSpellLimit(character, "mystic", 20, 9)).toBe(4);
+    expect(getClassSpells("mystic").map((spell) => spell.name)).toContain("Cure Light Wounds");
+    expect(getClassSpells("mystic").map((spell) => spell.name)).not.toContain("Magic Missile");
+  });
+
+  it("warns when Mystic level-up gains new spells known", () => {
+    const original = cloneCharacter(initialCharacter);
+    original.ruleset = "dragonlance-user-pack";
+    original.classLevels = [{ classId: "mystic", level: 1 }];
+    original.mysticDomain = "animal";
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 2;
+
+    expect(getLevelUpSpellWarnings(original, proposed)).toEqual([
+      "Learn 1 additional 0-level Mystic spell.",
+    ]);
+  });
+
+  it("allows one same-level Mystic replacement and counts a newly accessible domain spell automatically", () => {
+    const mysticSpells = getClassSpells("mystic");
+    const cantrips = mysticSpells.filter((spell) => spell.level === 0);
+    const secondLevelSpell = mysticSpells.find((spell) => spell.level === 2);
+    if (cantrips.length < 3 || !secondLevelSpell) {
+      throw new Error("Expected Mystic spell choices are missing from the catalog.");
+    }
+    const original = cloneCharacter(initialCharacter);
+    original.ruleset = "dragonlance-user-pack";
+    original.classLevels = [{ classId: "mystic", level: 3 }];
+    original.mysticDomain = "animal";
+    original.knownSpellsByClass = { mystic: [cantrips[0].name] };
+    original.knownSpells = [cantrips[0].name];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 4;
+    const proposedKnownSpells = [
+      cantrips[1].name,
+      cantrips[2].name,
+      secondLevelSpell.name,
+    ];
+    proposed.knownSpellsByClass = {
+      mystic: proposedKnownSpells,
+    };
+    proposed.knownSpells = proposedKnownSpells;
+
+    expect(getMysticSpellReplacementLevelLimit(original, proposed)).toBe(0);
+    expect(getLevelUpSpellWarnings(original, proposed)).toEqual([]);
+  });
+
+  it("limits Mystic replacements to eligible levels and qualifying Mystic levels", () => {
+    const firstLevelSpells = getClassSpells("mystic").filter((spell) => spell.level === 1);
+    const cantrip = getClassSpells("mystic").find((spell) => spell.level === 0);
+    const alternateCantrip = getClassSpells("mystic").find(
+      (spell) => spell.level === 0 && spell.name !== cantrip?.name,
+    );
+    const secondLevelSpell = getClassSpells("mystic").find((spell) => spell.level === 2);
+    if (firstLevelSpells.length < 2 || !cantrip || !alternateCantrip || !secondLevelSpell) {
+      throw new Error("Expected Mystic spell choices are missing from the catalog.");
+    }
+    const original = cloneCharacter(initialCharacter);
+    original.ruleset = "dragonlance-user-pack";
+    original.classLevels = [{ classId: "mystic", level: 3 }];
+    original.mysticDomain = "animal";
+    original.knownSpellsByClass = { mystic: [firstLevelSpells[0].name] };
+    original.knownSpells = [firstLevelSpells[0].name];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 4;
+    const proposedKnownSpells = [
+      firstLevelSpells[1].name,
+      cantrip.name,
+      secondLevelSpell.name,
+    ];
+    proposed.knownSpellsByClass = {
+      mystic: proposedKnownSpells,
+    };
+    proposed.knownSpells = proposedKnownSpells;
+
+    expect(getLevelUpSpellWarnings(original, proposed)).toContain(
+      "The exchanged spell must be at least two levels below the highest spell level available.",
+    );
+    const fifthLevel = cloneCharacter(proposed);
+    fifthLevel.classLevels[0].level = 5;
+    const fifthLevelKnownSpells = (proposed.knownSpellsByClass?.mystic ?? [])
+      .map((name) => name === cantrip.name ? alternateCantrip.name : name);
+    fifthLevel.knownSpellsByClass = { mystic: fifthLevelKnownSpells };
+    fifthLevel.knownSpells = fifthLevelKnownSpells;
+    expect(getMysticSpellReplacementLevelLimit(proposed, fifthLevel)).toBeUndefined();
+    expect(getLevelUpSpellWarnings(proposed, fifthLevel)).toContain(
+      "A Mystic may replace spells only at qualifying class levels.",
+    );
+  });
+
+  it("requires a Mystic domain when gaining a Mystic level", () => {
+    const original = cloneCharacter(initialCharacter);
+    original.ruleset = "dragonlance-user-pack";
+    original.classLevels = [{ classId: "mystic", level: 1 }];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 2;
+
+    expect(getLevelUpSpellWarnings(original, proposed)).toEqual([
+      "Choose one Mystic domain; its bonus spells are inactive until selected.",
+    ]);
+  });
+
+  it("shows a Mystic domain spell as automatically known without persisting it as a learned spell", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "mystic", level: 1 }];
+    character.mysticDomain = "animal";
+    const onKnownSpellsChange = vi.fn();
+    render(<SpellSheets character={character} editable={false}
+      onKnownSpellsChange={onKnownSpellsChange} onPreparedSpellsChange={vi.fn()}
+      onSpellAcquisitionChange={vi.fn()} onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
+
+    expect(screen.getByRole("row", { name: /Calm Animals \(Domain\)/ })).toBeDefined();
+    expect(screen.getByText("Known 1/3")).toBeDefined();
+    expect(onKnownSpellsChange).not.toHaveBeenCalled();
+  });
+
+  it("shows Dragonlance domain powers manually and displays verified spell details", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "mystic", level: 14 }];
+    character.mysticDomain = "forge";
+    character.abilities.wis = 20;
+    render(<SpellSheets character={character} editable={false}
+      onKnownSpellsChange={vi.fn()} onPreparedSpellsChange={vi.fn()}
+      onSpellAcquisitionChange={vi.fn()} onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
+
+    expect(screen.getByText(/Forge domain power \(manual\): Gain a \+2 insight bonus/)).toBeDefined();
+    const hardeningRow = screen.getByRole("row", { name: /Hardening \(Domain\)/ });
+    expect(within(hardeningRow).getByText(/increases a touched item's hardness/i)).toBeDefined();
+    expect(within(hardeningRow).getByText(/Book: Dragonlance Campaign Setting/)).toBeDefined();
+    expect(screen.queryByText(/Domain spell Hardening .*resolved manually/)).toBeNull();
+  });
+
+  it("shows Random Action as a Dragonlance-only spell with its legacy source", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "mystic", level: 1 }];
+    character.mysticDomain = "passion";
+    render(<SpellSheets character={character} editable={false}
+      onKnownSpellsChange={vi.fn()} onPreparedSpellsChange={vi.fn()}
+      onSpellAcquisitionChange={vi.fn()} onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
+
+    const randomActionRow = screen.getByRole("row", { name: /Random Action \(Domain\)/ });
+    expect(within(randomActionRow).getByText(/compels one living creature/i)).toBeDefined();
+    expect(within(randomActionRow).getByText(
+      /Book: Player's Handbook \(3\.0\), p\. 242; Dragonlance Campaign Setting, p\. 103/,
+    )).toBeDefined();
+    expect(screen.queryByText(/Domain spell Random Action .*resolved manually/)).toBeNull();
+  });
+
+  it("lets a Mystic replace one eligible known spell without exposing the automatic domain spell", async () => {
+    const user = userEvent.setup();
+    const original = cloneCharacter(initialCharacter);
+    original.ruleset = "dragonlance-user-pack";
+    original.classLevels = [{ classId: "mystic", level: 5 }];
+    original.mysticDomain = "healing";
+    const levelOneSpells = getClassSpells("mystic").filter((spell) => spell.level === 1);
+    const domainSpellIndex = levelOneSpells.findIndex(
+      (spell) => spell.name === "Cure Light Wounds",
+    );
+    const originalSpell = levelOneSpells[domainSpellIndex + 1];
+    const replacementSpell = levelOneSpells.find(
+      (spell) => spell.name !== originalSpell?.name && spell.name !== "Cure Light Wounds",
+    );
+    if (domainSpellIndex < 0 || !originalSpell || !replacementSpell) {
+      throw new Error("Expected healing-domain spell choices are missing from the catalog.");
+    }
+    original.knownSpellsByClass = { mystic: [originalSpell.name] };
+    original.knownSpells = [originalSpell.name];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 6;
+    const onKnownSpellsChange = vi.fn();
+
+    render(<SpellSheets character={proposed} levelUpOriginal={original}
+      levelUpClassId="mystic" editable onKnownSpellsChange={onKnownSpellsChange}
+      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
+      onCharacterUpdate={vi.fn()} onExpendedSpellSlotsChange={vi.fn()}
+      onClericCastingChange={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+
+    const domainRow = screen.getByRole("row", { name: /Cure Light Wounds \(Domain\)/ });
+    expect(domainRow).toBeDefined();
+    expect(within(domainRow).queryByRole("button")).toBeNull();
+    await user.click(screen.getByRole("button", {
+      name: `${originalSpell.name} (Level 1)`,
+    }));
+    await user.click(screen.getByRole("option", {
+      name: new RegExp(`${replacementSpell.name} \\(Level 1\\)`),
+    }));
+    expect(onKnownSpellsChange).toHaveBeenLastCalledWith([replacementSpell.name], "mystic");
+  });
+
+  it("does not apply Mystic domain spells or known-spell bonuses to Core characters", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "core-35-srd";
+    character.classLevels = [{ classId: "mystic", level: 1 }];
+    character.mysticDomain = "animal";
+
+    expect(getKnownSpellLimit(character, "mystic", 1, 1)).toBe(2);
+    expect(getLevelUpSpellWarnings(character, {
+      ...character,
+      classLevels: [{ classId: "mystic", level: 2 }],
+    })).toEqual(["Learn 1 additional 0-level Mystic spell."]);
   });
 
   it("requires two wizard level-up additions in total, not two at every spell level", () => {
@@ -988,6 +1584,34 @@ describe("caster class subtabs", () => {
     expect(within(panel).queryByText("Magic Missile", { exact: true })).toBeNull();
     expect(within(panel).getByText("Cure Light Wounds", { exact: true })).toBeDefined();
     expect(within(panel).getByRole("heading", { name: "Cleric Domains" })).toBeDefined();
+    expect(within(panel).getByText(/Spontaneous casting: good clerics/)).toBeDefined();
+    expect(within(panel).getByText(/Domain slots cannot be converted; track the replacement manually/)).toBeDefined();
+  });
+
+  it("lets a Dragonlance High Sorcery character set moons and applies the current effect", async () => {
+    const character = highSorceryCaster();
+    character.dragonlanceMoonState = {
+      phases: { lunitari: "new" },
+      conjunction: "none",
+    };
+    save(character);
+    render(<App />);
+    const panel = await openSpells();
+
+    expect(screen.getByLabelText<HTMLSelectElement>("Lunitari phase").value).toBe("new");
+    expect(spellLevel(panel, "LEVEL 2 SPELLS").getByText("Save DC 14")).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Lunitari phase"), { target: { value: "waxing-gibbous" } });
+    expect(screen.getByText("Current Lunitari order effect: +1 caster level and +1 spell save DC.")).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 2 SPELLS").getByText("Save DC 16")).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Moon conjunction"), { target: { value: "all" } });
+    expect(screen.getByText("Current Lunitari order effect: +3 caster level and +3 spell save DC.")).toBeDefined();
+    expect(spellLevel(panel, "LEVEL 2 SPELLS").getByText("Save DC 18")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(stored().dragonlanceMoonState).toEqual({
+      phases: { lunitari: "waxing-gibbous" },
+      conjunction: "all",
+    });
   });
 
   it("locks daily preparation, persists usage, and resets it after a rest", async () => {
@@ -1289,11 +1913,31 @@ describe("caster class subtabs", () => {
     expect(screen.getByText(/spellcasting begins at class level 4/)).toBeDefined();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText("CANTRIPS")).toBeNull();
+    if (classId === "paladin") {
+      expect(screen.getByText(/cannot spontaneously replace prepared spells with cure spells/)).toBeDefined();
+    } else {
+      expect(screen.getByText(/cannot spontaneously replace prepared spells with cure spells/)).toBeDefined();
+      expect(screen.getByText(/no domain spells or granted powers/)).toBeDefined();
+    }
   });
 
-  it.each(["bard", "sorcerer"] as const)("gives %s a known-spell sheet without preparation controls", (classId: ClassId) => {
+  it("explains Druid spontaneous summon conversion and lack of domains", () => {
+    const character = caster();
+    character.classLevels = [{ classId: "druid", level: 3 }];
+    render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
+      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
+      onCharacterUpdate={vi.fn()}
+      onExpendedSpellSlotsChange={vi.fn()} onClericCastingChange={vi.fn()}
+      onCombatCastingContextChange={vi.fn()} />);
+    expect(screen.getByText(/replace a prepared spell with summon nature's ally/)).toBeDefined();
+    expect(screen.getByText(/cannot spontaneously replace prepared spells with cure spells/)).toBeDefined();
+    expect(screen.getByText(/no cleric domain spells or granted powers/)).toBeDefined();
+  });
+
+  it.each(["bard", "sorcerer", "mystic"] as const)("gives %s a known-spell sheet without preparation controls", (classId: ClassId) => {
     const character = caster();
     character.classLevels = [{ classId, level: 3 }];
+    if (classId === "mystic") character.ruleset = "dragonlance-user-pack";
     render(<SpellSheets character={character} editable={false} onKnownSpellsChange={vi.fn()}
       onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
       onCharacterUpdate={vi.fn()}
@@ -1302,5 +1946,41 @@ describe("caster class subtabs", () => {
     expect(screen.getByText("Spells Known", { exact: true })).toBeDefined();
     expect(screen.queryByRole("spinbutton")).toBeNull();
     expect(screen.queryByText("LEVEL 2 SPELLS")).toBeNull();
+  });
+
+  it("allows a Sorcerer to replace one eligible known spell at 4th level", async () => {
+    const user = userEvent.setup();
+    const sorcererSpells = getClassSpells("sorcerer");
+    const originalSpell = sorcererSpells.find((spell) => spell.name === "Acid Splash");
+    const replacementSpell = sorcererSpells.find((spell) => spell.name === "Dancing Lights");
+    if (!originalSpell || !replacementSpell) {
+      throw new Error("Expected Sorcerer cantrips are missing from the catalog.");
+    }
+    const original = cloneCharacter(initialCharacter);
+    original.classLevels = [{ classId: "sorcerer", level: 3 }];
+    original.abilities.cha = 18;
+    original.knownSpellsByClass = { sorcerer: [originalSpell.name] };
+    original.knownSpells = [originalSpell.name];
+    const proposed = cloneCharacter(original);
+    proposed.classLevels[0].level = 4;
+    const onKnownSpellsChange = vi.fn();
+
+    render(<SpellSheets character={proposed} levelUpOriginal={original}
+      levelUpClassId="sorcerer" editable onKnownSpellsChange={onKnownSpellsChange}
+      onPreparedSpellsChange={vi.fn()} onSpellAcquisitionChange={vi.fn()}
+      onCharacterUpdate={vi.fn()} onExpendedSpellSlotsChange={vi.fn()}
+      onClericCastingChange={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+
+    expect(screen.getByText(/Applying a metamagic feat while casting spontaneously takes a full-round action/)).toBeDefined();
+    await user.click(screen.getByRole("button", {
+      name: `${originalSpell.name} (Level 0)`,
+    }));
+    await user.click(screen.getByRole("option", {
+      name: new RegExp(`${replacementSpell.name} \\(Level 0\\)`),
+    }));
+    expect(onKnownSpellsChange).toHaveBeenLastCalledWith(
+      [replacementSpell.name],
+      "sorcerer",
+    );
   });
 });

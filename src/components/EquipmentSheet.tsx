@@ -2,7 +2,7 @@ import { type Character } from "../domain";
 import { useCombatTargetContext } from "../combatTargetDefenseContext";
 import { lazy, Suspense } from "react";
 import { Stat, ArmorClassStat, SpecialAttackStats, CombatMovementLine, RangedDistanceControl, CombatAttackModeControl, TargetDamageReductionControl, RangedAmmunitionControl, CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "./shared";
-import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem, type CombatAttackMode } from "../rules";
+import { getCarriedWeight, getTwoWeaponAttackPenalty, getEquippedWeaponStats, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getAnimatedShieldState, getForceShieldState, getBlindingShieldState, getEffectiveWeaponKey, formatModifier, getInventoryEntryDetails, adjustWandCharges, unequipInventoryItem, equipInventoryItem, removeInventoryItem, type CombatAttackMode } from "../rules";
 import { formatSpellSchool } from "../spellFormatting";
 import { getEncumbrance, getMovement } from "../rules";
 
@@ -32,6 +32,9 @@ export function EquipmentSheet({
   onDoubleWeaponPrimaryEndChange,
   onTowerShieldTotalCoverChange,
   onShieldBashModeChange,
+  onForceShieldActiveChange,
+  onAnimatedShieldModeChange,
+  onBlindingShieldUseChange,
   onCompositeBowStrengthRatingChange,
   onEquipmentAndInventoryChange,
 }: {
@@ -54,6 +57,9 @@ export function EquipmentSheet({
   onDoubleWeaponPrimaryEndChange: (end: "first" | "second") => void;
   onTowerShieldTotalCoverChange: (enabled: boolean) => void;
   onShieldBashModeChange: (enabled: boolean) => void;
+  onForceShieldActiveChange: (enabled: boolean) => void;
+  onAnimatedShieldModeChange: (enabled: boolean) => void;
+  onBlindingShieldUseChange: (action: "use" | "reset") => void;
   onCompositeBowStrengthRatingChange: (weaponKey: string, rating: number) => void;
   onEquipmentAndInventoryChange: (
     equipment: Record<string, string>,
@@ -87,6 +93,9 @@ export function EquipmentSheet({
   const doubleWeaponModeState = getDoubleWeaponModeState(character);
   const towerShieldState = getTowerShieldState(character);
   const shieldBashState = getShieldBashState(character);
+  const animatedShieldState = getAnimatedShieldState(character);
+  const forceShieldState = getForceShieldState(character);
+  const blindingShieldState = getBlindingShieldState(character);
   const setSlot = (slot: string, value: string) =>
     onEquipmentChange({ ...equipment, [slot]: value });
   return (
@@ -147,7 +156,10 @@ export function EquipmentSheet({
           combatExpertiseAmount={combatExpertiseAmount}
           dodgeTargetSelected={dodgeTargetSelected}
         />
-        <Stat label="Speed" value={`${movement.speed} ft.`} detail={movement.causes} />
+        <Stat label="Speed" value={`${movement.speed} ft.`} detail={[...(movement.bonuses ?? []), ...movement.causes]} />
+        {movement.swimSpeed !== undefined && (
+          <Stat label="Swim" value={`${movement.swimSpeed} ft.`} />
+        )}
         <AttacksOfOpportunityStat character={character} />
       </div>
       {encumbrance.unknownWeights.length > 0 && <p className="combat-note" role="status">
@@ -171,6 +183,7 @@ export function EquipmentSheet({
               type="checkbox"
               aria-label="Use tower shield for total cover"
               checked={towerShieldState.coverActive}
+              disabled={animatedShieldState.active}
               onChange={(event) => onTowerShieldTotalCoverChange(event.target.checked)}
             />
             Use tower shield for total cover (standard action)
@@ -180,6 +193,60 @@ export function EquipmentSheet({
           <p className="combat-note" role="status">
             Total cover lasts until the start of your next turn. Attacks are unavailable; targeted spells can still target the shield. Clear this setting manually at the start of your turn.
           </p>
+        )}
+        {animatedShieldState.equipped && (
+          <label className="weapon-grip-control">
+            <input
+              type="checkbox"
+              aria-label="Activate animated shield"
+              checked={animatedShieldState.active}
+              onChange={(event) => onAnimatedShieldModeChange(event.target.checked)}
+            />
+            Activate animated shield (standard action)
+          </label>
+        )}
+        {forceShieldState.equipped && (
+          <label className="weapon-grip-control">
+            <input
+              type="checkbox"
+              aria-label="Activate Ring of Force Shield"
+              checked={forceShieldState.active}
+              onChange={(event) => onForceShieldActiveChange(event.target.checked)}
+            />
+            Activate Ring of Force Shield (free action)
+          </label>
+        )}
+        {animatedShieldState.active && (
+          <p className="combat-note" role="status">
+            The shield floats within 2 feet, grants its shield bonus, and frees both hands. Shield penalties still apply; it cannot bash while animated. Clear this setting when you command it to stop.
+          </p>
+        )}
+        {blindingShieldState.equipped && (
+          <div className="combat-note" role="group" aria-label="Blinding shield ability">
+            <strong>Blinding flash: {blindingShieldState.usesUsed}/2 uses today ({blindingShieldState.usesRemaining} remaining).</strong>
+            <p>
+              Command flash: creatures within 20 ft. make a DC 14 Reflex save or are blinded for 1d4 rounds. The SRD does not specify the action type; resolve targets and saves manually.
+            </p>
+            <button
+              className="quiet-button"
+              type="button"
+              aria-label="Use blinding flash"
+              disabled={!blindingShieldState.canUse}
+              onClick={() => onBlindingShieldUseChange("use")}
+            >
+              Use blinding flash
+            </button>
+            {blindingShieldState.usesUsed > 0 && (
+              <button
+                className="quiet-button"
+                type="button"
+                aria-label="Reset blinding shield daily uses"
+                onClick={() => onBlindingShieldUseChange("reset")}
+              >
+                Reset daily uses
+              </button>
+            )}
+          </div>
         )}
         {shieldBashState.hasBashableShield && (
           <label className="weapon-grip-control">
@@ -301,7 +368,9 @@ export function EquipmentSheet({
                     </label>
                     <small>Strength below the rating gives -2 attack; positive Strength damage is capped at the rating. Each point adds 100 gp for a longbow or 75 gp for a shortbow; adjust currency manually.</small>
                   </>}
-                  {stats.attackSequence.length > 1 && <span>Full attack: {stats.attackSequence.map(formatModifier).join(" / ")}</span>}
+                  {stats.attackSequence.length > 1 && <span>
+                    {combatAttackMode === "flurry" ? "Flurry of blows" : "Full attack"}: {stats.attackSequence.map(formatModifier).join(" / ")}
+                  </span>}
                   {stats.attackActionWarning && <span className="combat-warning" role="status">{stats.attackActionWarning}</span>}
                   {stats.manyshotArrowCount && <span>{stats.manyshotArrowCount} arrows use one Manyshot attack roll</span>}
                   {stats.manyshotDamage && <span className="combat-note" role="status">
@@ -344,6 +413,14 @@ export function EquipmentSheet({
                     Weapon-size mismatch: {formatModifier(stats.weaponSizePenalty)} attack; treated as {stats.effectiveHandedness}.
                   </span>}
                   <span>Damage: {stats.damage} ({stats.damageType})</span>
+                  {stats.sneakAttackDamage && (
+                    <span className="combat-note" title={stats.sneakAttackNote}>
+                      Potential Sneak Attack +{stats.sneakAttackDamage} (conditional; not included in Damage)
+                    </span>
+                  )}
+                  {stats.sneakAttackWarning && (
+                    <span className="combat-warning" role="status">{stats.sneakAttackWarning}</span>
+                  )}
                   {stats.powerAttackDamageBonus > 0 && <span>
                     Power Attack damage: +{stats.powerAttackDamageBonus}
                   </span>}

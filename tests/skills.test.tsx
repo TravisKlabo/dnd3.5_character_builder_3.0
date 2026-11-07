@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { cloneCharacter, initialCharacter, type ClassId } from "../src/domain";
 import { classSkills, skills, trainedOnlySkills } from "../src/data/characterCatalog";
-import { getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getSkillTotalTooltip, getSkillAbility, getSkillSynergyBonus, getSkillSynergyContextOptions, isClassSkill, type SkillSynergyContext } from "../src/rules";
+import { getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getSkillTotalTooltip, getSkillAbility, getSkillSynergyBonus, getSkillSynergyContextOptions, getRacialSkillContextOptions, isClassSkill, type SkillSynergyContext } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
 import { savedCharacterStorageKey } from "../src/storage";
 import App from "../src/App";
@@ -53,6 +53,43 @@ const coreSkillSynergyCases: {
   { sourceSkill: "Use Rope", targetSkill: "Climb", context: "climbing-ropes" },
   { sourceSkill: "Use Rope", targetSkill: "Escape Artist", context: "escape-ropes" },
 ];
+
+describe("equipment skill bonuses", () => {
+  it("applies Slick to Escape Artist, preserves armor penalties, and stacks only with the highest competence bonus", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.skills["Escape Artist"] = 1;
+    const baseModifier = getSkillCheckModifier(character, "Escape Artist");
+    character.equipment = {
+      Armor: "Slick +1 Chain Shirt (Medium)",
+    };
+
+    expect(getSkillCheckModifier(character, "Escape Artist")).toBe(baseModifier! + 4);
+    expect(getSkillCheckPenalties(character, "Escape Artist")).toMatchObject([
+      { source: "armor", penalty: -1 },
+    ]);
+    expect(getSkillTotalTooltip(character, "Escape Artist")).toContain(
+      "Slick armor: +5 competence bonus",
+    );
+
+    character.equipment.Torso = "Vest of Escape";
+    expect(getSkillCheckModifier(character, "Escape Artist")).toBe(baseModifier! + 5);
+    expect(getSkillTotalTooltip(character, "Escape Artist")).toContain(
+      "Vest of Escape: +6 competence bonus",
+    );
+  });
+
+  it("applies the Vest of Escape Open Lock competence bonus", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.skills["Open Lock"] = 1;
+    const baseModifier = getSkillCheckModifier(character, "Open Lock");
+    character.equipment.Torso = "Vest of Escape";
+
+    expect(getSkillCheckModifier(character, "Open Lock")).toBe(baseModifier! + 4);
+    expect(getSkillTotalTooltip(character, "Open Lock")).toContain(
+      "Vest of Escape: +4 competence bonus",
+    );
+  });
+});
 
 const coreClassSkillExpectations: readonly [ClassId, readonly string[]][] = [
   ["barbarian", ["Climb", "Craft", "Handle Animal", "Intimidate", "Jump", "Listen", "Ride", "Survival", "Swim"]],
@@ -119,6 +156,28 @@ const coreClassSkillExpectations: readonly [ClassId, readonly string[]][] = [
 ];
 
 describe("skill training and untrained use", () => {
+  it("applies the Druid Nature Sense bonus to Knowledge (nature) and Survival", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.alignment = "Neutral Good";
+    character.skills["Knowledge (nature)"] = 2;
+    character.skills.Survival = 3;
+    const baseNature = getSkillCheckModifier(character, "Knowledge (nature)");
+    const baseSurvival = getSkillCheckModifier(character, "Survival");
+
+    character.classLevels = [{ classId: "druid", level: 1 }];
+    expect(getSkillCheckModifier(character, "Knowledge (nature)")).toBe(
+      baseNature! + 2,
+    );
+    expect(getSkillCheckModifier(character, "Survival")).toBe(baseSurvival! + 2);
+    expect(getSkillTotalTooltip(character, "Survival")).toContain(
+      "Nature Sense: +2",
+    );
+    expect(getSkillCheckModifier(character, "Knowledge (arcana)")).toBe(0);
+    character.alignment = "Chaotic Good";
+    expect(getSkillCheckModifier(character, "Knowledge (nature)")).toBe(baseNature);
+    expect(getSkillCheckModifier(character, "Survival")).toBe(baseSurvival);
+  });
+
   it("applies each Skill Focus bonus to its selected skill without stacking duplicates", () => {
     const character = cloneCharacter(initialCharacter);
     character.skills.Listen = 2;
@@ -205,6 +264,25 @@ describe("skill training and untrained use", () => {
     expect(getSkillUse(character, "Sleight of Hand").label).toBe("Trained - usable");
   });
 
+  it("applies Kender skill exceptions and taunt bonuses only in Dragonlance", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Kender";
+    expect(getSkillUse(character, "Open Lock").untrainedUse).toBe("none");
+    expect(getSkillUse(character, "Sleight of Hand").untrainedUse).toBe("limited");
+    expect(getSkillCheckModifier(character, "Open Lock")).toBeNull();
+    expect(getRacialSkillContextOptions(character, "Bluff")).toEqual([]);
+
+    character.ruleset = "dragonlance-user-pack";
+    expect(getSkillUse(character, "Open Lock").untrainedUse).toBe("allowed");
+    expect(getSkillUse(character, "Sleight of Hand").untrainedUse).toBe("allowed");
+    expect(getSkillCheckModifier(character, "Open Lock")).toBe(2);
+    expect(getSkillCheckModifier(character, "Sleight of Hand")).toBe(2);
+    expect(getRacialSkillContextOptions(character, "Bluff")).toEqual([
+      { condition: "taunt", label: "Taunting with Bluff", bonus: 4 },
+    ]);
+    expect(getSkillCheckModifier(character, "Bluff", "taunt")).toBe(4);
+  });
+
   it.each([
     ["Appraise", "allowed", "rough estimate"],
     ["Forgery", "allowed", "literacy in that document's language"],
@@ -224,6 +302,24 @@ describe("skill training and untrained use", () => {
     expect(getSkillUse(initialCharacter, "Climb").trained).toBe(false);
     expect(isClassSkill(initialCharacter, "Listen")).toBe(false);
     expect(getSkillUse(initialCharacter, "Listen").usable).toBe(true);
+
+    const mystic = cloneCharacter(initialCharacter);
+    mystic.ruleset = "dragonlance-user-pack";
+    mystic.classLevels = [{ classId: "mystic", level: 1 }];
+    for (const skill of [
+      "Concentration",
+      "Craft",
+      "Diplomacy",
+      "Heal",
+      "Knowledge (arcana)",
+      "Knowledge (nature)",
+      "Knowledge (religion)",
+      "Profession",
+      "Spellcraft",
+    ]) {
+      expect(isClassSkill(mystic, skill)).toBe(true);
+    }
+    expect(isClassSkill(mystic, "Survival")).toBe(false);
   });
 
   it("does not invent a Speak Language check", () => {

@@ -12,16 +12,19 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run lint && npm test && npm run build",
+    "verify:release": "npm run check && npm run test:print",
     "benchmark": "node scripts/benchmark.mjs",
     "preview": "vite preview",
     "dist:linux": "npm run build && electron-builder --linux AppImage deb",
-    "dist:windows": "npm run build && electron-builder --win nsis"
+    "dist:windows": "npm run build && electron-builder --win nsis --x64",
+    "test:print": "tsc --noEmit -p tsconfig.e2e.json && playwright test --config=playwright.config.ts"
   },
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
     "@types/node": "^24.13.3",
@@ -32,6 +35,7 @@
     "electron-builder": "^26.0.12",
     "jsdom": "^30.1.3",
     "oxlint": "^1.81.0",
+    "pdf-lib": "^1.17.1",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.5"

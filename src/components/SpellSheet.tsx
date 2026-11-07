@@ -1,13 +1,27 @@
-import { type Character, type ClassId, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
+import { type Character, type ClassId, type DragonlanceMoonConjunction, type DragonlanceMoonId, type DragonlanceMoonPhase, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
 import { useState } from "react";
-import { hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getWizardSpellbookSpells, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier } from "../rules";
+import { getBaseClassLevels, getEffectiveSpellcastingClassLevel, hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getKnownSpellReplacementLevelLimit, getWizardSpellbookSpells, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier, getHighSorceryMoonModifier } from "../rules";
 import { formatSpellDuration, formatSpellSchool } from "../spellFormatting";
-import { getClassSpells, getSrdSpellSourceBook, srdSpellContentSource } from "../data/spellCatalog";
+import {
+  findSpellByName,
+  getClassSpells,
+  getSrdSpellContentSource,
+  getSrdSpellSourceBook,
+  normalizeSpellName,
+} from "../data/spellCatalog";
 import { Stat } from "./shared";
 import { SpellPicker } from "./pickers";
 import { WizardSpellbook } from "./WizardSpellbook";
 import { ClericDomains, type ClericCastingUpdate } from "./ClericDomains";
-import { getClericDomainSlotCount } from "../clericDomains";
+import {
+  getActiveMysticDomain,
+  getClericDomainSlotCount,
+  getMysticDomainOptions,
+  getMysticDomainSpell,
+  getMysticDomainSpellNote,
+  getMysticDomainWarnings,
+} from "../clericDomains";
+import { getClericDomain } from "../data/clericDomains";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
 import { CombatCastingContextControl, ContentSourceLabel } from "./shared";
 import type { CombatCastingContext } from "../rules";
@@ -72,12 +86,20 @@ const getPreparedMetamagicSlotAdjustment = (
 
 export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">) {
   const [selectedClass, setSelectedClass] = useState<ClassId>();
-  const casters = props.character.classLevels.filter(({ classId }) => classDefinitions[classId].spellcasting);
+  const casters = getBaseClassLevels(props.character).filter(({ classId }) => classDefinitions[classId].spellcasting);
   const activeClass = casters.find(({ classId }) => classId === selectedClass)?.classId ??
     casters.find(({ classId }) => classId === props.levelUpClassId)?.classId ?? casters[0]?.classId;
   if (!activeClass) return <p>This character has no spellcasting classes.</p>;
   return (
     <section className="class-spell-sheets" aria-label="Class spell sheets">
+      {props.character.ruleset === "dragonlance-user-pack" &&
+        props.character.highSorceryOrder &&
+        casters.some(({ classId }) => classId === "wizard" || classId === "sorcerer") && (
+          <HighSorceryMoonControls
+            character={props.character}
+            onCharacterUpdate={props.onCharacterUpdate}
+          />
+        )}
       <div className="spell-class-tabs" role="tablist" aria-label="Spellcasting classes">
         {casters.map(({ classId, level }, index) => (
           <button key={classId} type="button" role="tab" id={`spell-tab-${classId}`}
@@ -118,6 +140,116 @@ export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">)
   );
 }
 
+const moons: { id: DragonlanceMoonId; name: string }[] = [
+  { id: "solinari", name: "Solinari" },
+  { id: "lunitari", name: "Lunitari" },
+  { id: "nuitari", name: "Nuitari" },
+];
+
+const moonPhases: { id: DragonlanceMoonPhase; name: string }[] = [
+  { id: "new", name: "New" },
+  { id: "waxing-crescent", name: "Waxing crescent" },
+  { id: "first-quarter", name: "First quarter" },
+  { id: "waxing-gibbous", name: "Waxing gibbous" },
+  { id: "full", name: "Full" },
+  { id: "waning-gibbous", name: "Waning gibbous" },
+  { id: "last-quarter", name: "Last quarter" },
+  { id: "waning-crescent", name: "Waning crescent" },
+];
+
+const moonConjunctions: { id: DragonlanceMoonConjunction; name: string }[] = [
+  { id: "none", name: "No conjunction" },
+  { id: "solinari-lunitari", name: "Solinari + Lunitari" },
+  { id: "solinari-nuitari", name: "Solinari + Nuitari" },
+  { id: "lunitari-nuitari", name: "Lunitari + Nuitari" },
+  { id: "all", name: "All three (Night of the Eye)" },
+];
+
+function HighSorceryMoonControls({
+  character,
+  onCharacterUpdate,
+}: {
+  character: Character;
+  onCharacterUpdate: SpellSheetProps["onCharacterUpdate"];
+}) {
+  if (!character.highSorceryOrder) return null;
+  const orderMoon = {
+    white: "Solinari",
+    red: "Lunitari",
+    black: "Nuitari",
+  }[character.highSorceryOrder];
+  const modifier = getHighSorceryMoonModifier(character, "wizard");
+  const updatePhase = (moon: DragonlanceMoonId, phase: DragonlanceMoonPhase | undefined) => {
+    onCharacterUpdate((current) => ({
+      ...current,
+      dragonlanceMoonState: {
+        ...current.dragonlanceMoonState,
+        phases: {
+          ...current.dragonlanceMoonState?.phases,
+          [moon]: phase,
+        },
+      },
+    }));
+  };
+  const updateConjunction = (conjunction: DragonlanceMoonConjunction) => {
+    onCharacterUpdate((current) => ({
+      ...current,
+      dragonlanceMoonState: {
+        ...current.dragonlanceMoonState,
+        conjunction,
+      },
+    }));
+  };
+
+  return (
+    <fieldset className="high-sorcery-moon-controls">
+      <legend>Dragonlance Moon Magic</legend>
+      <div className="high-sorcery-moon-grid">
+        {moons.map((moon) => (
+          <label key={moon.id}>
+            {moon.name} phase
+            <select
+              aria-label={`${moon.name} phase`}
+              value={character.dragonlanceMoonState?.phases?.[moon.id] ?? ""}
+              onChange={(event) =>
+                updatePhase(
+                  moon.id,
+                  (event.target.value || undefined) as DragonlanceMoonPhase | undefined,
+                )
+              }
+            >
+              <option value="">Not recorded</option>
+              {moonPhases.map((phase) => (
+                <option key={phase.id} value={phase.id}>{phase.name}</option>
+              ))}
+            </select>
+          </label>
+        ))}
+        <label>
+          Moon conjunction
+          <select
+            aria-label="Moon conjunction"
+            value={character.dragonlanceMoonState?.conjunction ?? "none"}
+            onChange={(event) =>
+              updateConjunction(event.target.value as DragonlanceMoonConjunction)
+            }
+          >
+            {moonConjunctions.map((conjunction) => (
+              <option key={conjunction.id} value={conjunction.id}>{conjunction.name}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="high-sorcery-moon-effect" aria-live="polite">
+        {modifier === 0
+          ? `No current lunar modifier for the ${orderMoon} order.`
+          : `Current ${orderMoon} order effect: ${formatModifier(modifier)} caster level and ${formatModifier(modifier)} spell save DC.`}
+      </p>
+      <small>Only this character’s Dragonlance High Sorcery wizard or sorcerer spells are affected. Unrecorded phases add no phase modifier.</small>
+    </fieldset>
+  );
+}
+
 export function SpellSheet({
   character, levelUpOriginal, spellcastingClassId, combatCastingContext, onCombatCastingContextChange,
   onKnownSpellsChange, onSpellAcquisitionChange, onPreparedSpellsChange,
@@ -126,7 +258,7 @@ export function SpellSheet({
 }: SpellSheetProps) {
   const [openSpellLevel, setOpenSpellLevel] = useState<number | null>(null);
   const [wizardView, setWizardView] = useState<"spellbook" | "preparation">("spellbook");
-  const spellcastingLevel = character.classLevels.find((level) => level.classId === spellcastingClassId);
+  const spellcastingLevel = getBaseClassLevels(character).find((level) => level.classId === spellcastingClassId);
   if (!spellcastingLevel || !classDefinitions[spellcastingClassId].spellcasting) {
     throw new Error(`No ${classDefinitions[spellcastingClassId].name} spellcasting progression exists for this character.`);
   }
@@ -135,11 +267,11 @@ export function SpellSheet({
   const learningMode =
     spellcastingClass.id === "wizard"
       ? "Spellbook"
-      : spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer"
+      : spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic"
         ? "Spells Known"
         : "Prepared Spells";
-  const classLevel = spellcastingLevel.level;
-  const casterLevel = getCasterLevel(spellcastingClass.id, classLevel);
+  const classLevel = getEffectiveSpellcastingClassLevel(character, spellcastingClassId);
+  const casterLevel = getCasterLevel(spellcastingClass.id, classLevel, character);
   const selectedFeats = getChosenFeats(character);
   const spellPenetrationBonus =
     (selectedFeats.includes("spell-penetration") ? 2 : 0) +
@@ -167,7 +299,63 @@ export function SpellSheet({
     character.spellPreparationCompletedByClass?.[spellcastingClass.id] === true;
   const requiresPreparation = learningMode !== "Spells Known";
   const preparationView = learningMode !== "Spellbook" || wizardView === "preparation";
-  const classSpells = spellcastingClass.id === "wizard" ? getWizardSpellbookSpells() : getClassSpells(spellcastingClass.id);
+  const baseClassSpells = spellcastingClass.id === "wizard"
+    ? getWizardSpellbookSpells(character)
+    : getClassSpells(spellcastingClass.id, character.ruleset, character);
+  const mysticDomainSpellLevels = spellcastingClass.id === "mystic"
+    ? availableLevels
+      .filter((level) => level > 0)
+      .map((level) => ({ level, name: getMysticDomainSpell(character, level) }))
+      .filter((entry): entry is { level: number; name: string } => Boolean(entry.name))
+    : [];
+  const activeMysticDomain = spellcastingClass.id === "mystic"
+    ? getActiveMysticDomain(character)
+    : undefined;
+  const activeMysticDomainDefinition = activeMysticDomain
+    ? getClericDomain(activeMysticDomain)
+    : undefined;
+  const mysticDomainPower = activeMysticDomainDefinition?.mysticPower;
+  const mysticDomainSpellNotes = mysticDomainSpellLevels.flatMap(({ level, name }) => {
+    const note = getMysticDomainSpellNote(character, level);
+    return note ? [{ level, name, note }] : [];
+  });
+  const missingMysticDomainSpells = mysticDomainSpellLevels
+    .filter(({ name }) => !findSpellByName(name))
+    .map(({ name }) => name);
+  const isMysticDomainSpellAtLevel = (name: string, level: number) => {
+    const domainSpell = spellcastingClass.id === "mystic"
+      ? getMysticDomainSpell(character, level)
+      : undefined;
+    return Boolean(
+      domainSpell && normalizeSpellName(name) === normalizeSpellName(domainSpell),
+    );
+  };
+  const mysticDomainSpellEntries = mysticDomainSpellLevels.map(({ name, level }) => {
+    const spell = findSpellByName(name);
+    return spell
+      ? { ...spell, level }
+      : {
+          name,
+          level,
+          classes: ["mystic"],
+          description: "Full spell details are not present in the local catalog.",
+          school: "",
+          components: "",
+          castingTime: "",
+          range: "",
+          duration: "",
+          savingThrow: "",
+        };
+  });
+  const classSpells = [
+    ...baseClassSpells,
+    ...mysticDomainSpellEntries.filter((domainSpell) =>
+      !baseClassSpells.some((spell) =>
+        spell.level === domainSpell.level &&
+        normalizeSpellName(spell.name) === normalizeSpellName(domainSpell.name),
+      ),
+    ),
+  ];
   const metamagicModes: PreparedMetamagicMode[] = [];
   for (const extended of hasExtendSpell ? [false, true] : [false]) {
     for (const empowered of hasEmpowerSpell ? [false, true] : [false]) {
@@ -395,6 +583,43 @@ export function SpellSheet({
   const originalClassKnownSpells = new Set(
     levelUpOriginal ? getClassSpellSelections(levelUpOriginal, "knownSpells")[spellcastingClass.id] ?? [] : [],
   );
+  const knownSpellReplacementLevelLimit =
+    levelUpOriginal &&
+    ["bard", "sorcerer", "mystic"].includes(spellcastingClass.id)
+      ? getKnownSpellReplacementLevelLimit(
+          levelUpOriginal,
+          character,
+          spellcastingClass.id,
+        )
+      : undefined;
+  const activeKnownSpellNameKeys = new Set(
+    [...activeClassKnownSpells].map(normalizeSpellName),
+  );
+  const hasUsedKnownSpellReplacement = [...originalClassKnownSpells].some(
+    (name) => {
+      const spell = baseClassSpells.find(
+        (entry) => normalizeSpellName(entry.name) === normalizeSpellName(name),
+      );
+      const isOriginalDomainSpell = Boolean(
+        spell && levelUpOriginal &&
+        normalizeSpellName(getMysticDomainSpell(levelUpOriginal, spell.level) ?? "") ===
+          normalizeSpellName(name),
+      );
+      const isProposedDomainSpell = Boolean(
+        spell && isMysticDomainSpellAtLevel(name, spell.level),
+      );
+      const isDomainSpell = spellcastingClass.id === "mystic" &&
+        (isOriginalDomainSpell || isProposedDomainSpell);
+      return !isDomainSpell &&
+        !activeKnownSpellNameKeys.has(normalizeSpellName(name));
+    },
+  );
+  const canReplaceKnownSpell = (name: string, level: number) =>
+    knownSpellReplacementLevelLimit !== undefined &&
+    level <= knownSpellReplacementLevelLimit &&
+    originalClassKnownSpells.has(name) &&
+    !isMysticDomainSpellAtLevel(name, level) &&
+    !hasUsedKnownSpellReplacement;
   const castingModifier = abilityModifier(
     getEffectiveAbilityScore(character, castingAbility),
   );
@@ -408,7 +633,10 @@ export function SpellSheet({
     const levelSelections = classSpells
       .filter((entry) => entry.level === level)
       .map((entry) => entry.name)
-      .filter((name) => activeClassKnownSpells.has(name));
+      .filter((name) =>
+        activeClassKnownSpells.has(name) &&
+        !isMysticDomainSpellAtLevel(name, level),
+      );
     const nextLevelSelections = [...levelSelections];
     nextLevelSelections[slot] = spell;
     const nextClassSelections = [...activeClassKnownSpells].filter(
@@ -499,8 +727,70 @@ export function SpellSheet({
           {learningMode === "Spellbook" ? " Record learned spells in Spellbook; choose today's copies and track slots in Daily Preparation." :
             learningMode === "Spells Known" ? " Choose spells known; daily slots are shared among this class's spells of the same level. No preparation is required." :
               " Prepare from this class's spell list. Each spell level has its own preparation limit."}</p>
-        {spellcastingClass.id === "cleric" && <p>Daily slots below are ordinary cleric slots. Domain slots are prepared and tracked separately above the ordinary spell list.</p>}
-        {spellcastingClass.id === "mystic" && <p className="spell-rules-notice">Mystic casting is inherited Dragonlance content and has not been source-verified.</p>}
+        {(spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer") && (
+          <p className="spell-rules-notice">
+            {spellcastingClass.id === "sorcerer"
+              ? "At Sorcerer 4 and every even Sorcerer level thereafter, you may replace one known spell with a spell of the same level that is at least two levels below the highest-level spell you can cast."
+              : "At Bard 5 and every three Bard levels thereafter, you may replace one known spell with a spell of the same level that is at least two levels below the highest-level spell you can cast."}{" "}
+            Applying a metamagic feat while casting spontaneously takes a full-round action, or adds a full-round action if the spell already takes longer; Quicken Spell is an exception. Track the adjusted slot and casting time manually.
+          </p>
+        )}
+        {spellcastingClass.id === "cleric" && <>
+          <p>Daily slots below are ordinary cleric slots. Domain slots are prepared and tracked separately above the ordinary spell list.</p>
+          <p>Spontaneous casting: good clerics (and neutral clerics of good deities) may lose a prepared non-domain spell to cast a cure spell of equal or lower level. Evil clerics (and neutral clerics of evil deities) do likewise with inflict spells. Neutral clerics of neutral deities choose one mode permanently. Domain slots cannot be converted; track the replacement manually.</p>
+        </>}
+        {spellcastingClass.id === "paladin" && <p>Paladins prepare spells from their class list and cannot spontaneously replace prepared spells with cure spells. They gain no cleric domain spells or granted powers.</p>}
+        {spellcastingClass.id === "ranger" && <p>Rangers cannot spontaneously replace prepared spells with cure spells and have no domain spells or granted powers.</p>}
+        {spellcastingClass.id === "druid" && <p>Druids can replace a prepared spell with summon nature's ally of the same or lower level, but cannot spontaneously replace prepared spells with cure spells. Druids have no cleric domain spells or granted powers.</p>}
+        {spellcastingClass.id === "mystic" && (
+          <>
+            <label className="mystic-domain-field">
+              Mystic domain
+              <select
+                aria-label="Mystic domain"
+                value={character.mysticDomain ?? ""}
+                disabled={!editable && Boolean(getActiveMysticDomain(character))}
+                onChange={(event) => {
+                  const domain = getMysticDomainOptions(character)
+                    .find(({ id }) => id === event.target.value)?.id;
+                  onCharacterUpdate((current) => ({ ...current, mysticDomain: domain }));
+                }}
+              >
+                <option value="">Choose one domain</option>
+                {character.mysticDomain &&
+                  !getMysticDomainOptions(character).some(({ id }) => id === character.mysticDomain) && (
+                    <option value={character.mysticDomain} disabled>
+                      {getClericDomain(character.mysticDomain).name} (not currently available)
+                    </option>
+                  )}
+                {getMysticDomainOptions(character).map(({ id, name }) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </label>
+            {getMysticDomainWarnings(character).map((warning) => (
+              <p className="spell-rules-notice" role="alert" key={warning}>{warning}</p>
+            ))}
+            <p className="spell-rules-notice">
+              The selected domain automatically adds its spell at each accessible spell level to spells known; it uses no separate slot. Domain powers remain manual.
+            </p>
+            {activeMysticDomainDefinition && mysticDomainPower && (
+              <p className="spell-rules-notice">
+                {activeMysticDomainDefinition.name} domain power (manual): {mysticDomainPower}
+              </p>
+            )}
+            {mysticDomainSpellNotes.map(({ level, name, note }) => (
+              <p className="spell-rules-notice" key={`${level}-${name}`}>
+                Level {level} domain spell restriction for {name}: {note}
+              </p>
+            ))}
+            {missingMysticDomainSpells.map((spell) => (
+              <p className="spell-rules-notice" role="alert" key={spell}>
+                Domain spell {spell} is automatically known, but its details are not in the local spell catalog and must be resolved manually.
+              </p>
+            ))}
+          </>
+        )}
         {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell || hasSilentSpell || hasStillSpell || hasWidenSpell || hasSculptSpell) && <p className="spell-rules-notice">
           {hasHeightenSpell && (learningMode === "Spells Known"
             ? "Heighten Spell for spontaneous casting remains manual, including higher-level slot use and casting time."
@@ -574,6 +864,12 @@ export function SpellSheet({
         preparationComplete={preparationComplete}
         onChange={onClericCastingChange}
       />}
+      {knownSpellReplacementLevelLimit !== undefined && (
+        <p className="spell-rules-notice">
+          This {spellcastingClass.name} level allows one previously known spell to be exchanged for a spell of the same level, at least two levels below the highest spell level available at this level.
+          {spellcastingClass.id === "mystic" && " Automatic domain spells cannot be exchanged."}
+        </p>
+      )}
       {learningMode === "Spellbook" && <div className="spell-class-tabs" role="tablist" aria-label="Wizard spell views">
         {(["spellbook", "preparation"] as const).map((view) => (
           <button key={view} type="button" role="tab" id={`wizard-${view}-tab`}
@@ -610,7 +906,8 @@ export function SpellSheet({
             (spell) =>
               learningMode === "Prepared Spells"
                 ? preparedSpells.includes(spell.name)
-                : activeClassKnownSpells.has(spell.name),
+                : activeClassKnownSpells.has(spell.name) ||
+                  isMysticDomainSpellAtLevel(spell.name, level),
           )
           .map((spell) => spell.name);
         const rowCount = learningMode === "Prepared Spells"
@@ -659,7 +956,7 @@ export function SpellSheet({
               ))}
             </div>
             {getEffectiveAbilityScore(character, castingAbility) < 10 + level && <p className="spell-rules-notice">
-              {castingAbility.toUpperCase()} {10 + level} is required to cast spells of this level.
+              {castingAbility.toUpperCase()} {10 + level} is required to {["bard", "sorcerer"].includes(spellcastingClass.id) ? "learn or cast" : "cast"} spells of this level.
             </p>}
             {preparationCount > dailySlotCount && <p role="alert" className="spell-rules-notice">
               Too many {spellcastingClass.name} spells prepared at level {level}. Reduce preparation to {dailySlotCount}.
@@ -696,6 +993,12 @@ export function SpellSheet({
                         spellName
                       ]
                     : undefined;
+                  const isMysticDomainBonusSpell = Boolean(
+                    spellName && isMysticDomainSpellAtLevel(spellName, level),
+                  );
+                  const canReplaceExistingKnownSpell = Boolean(
+                    spellName && canReplaceKnownSpell(spellName, level),
+                  );
                   const isLevelUpLearned =
                     spellAcquisition === "level-up" ||
                     Boolean(
@@ -704,11 +1007,13 @@ export function SpellSheet({
                         spellName &&
                         !originalClassKnownSpells.has(spellName),
                     );
-                  const spellMarker = isLevelUpLearned
-                    ? " (L)"
-                    : spellAcquisition === "scroll"
-                      ? " (S)"
-                      : "";
+                  const spellMarker = isMysticDomainBonusSpell
+                    ? " (Domain)"
+                    : isLevelUpLearned
+                      ? " (L)"
+                      : spellAcquisition === "scroll"
+                        ? " (S)"
+                        : "";
                   const preparedLevels = spellName
                     ? preparedSlotLevelsBySpell[spellName] ?? []
                     : [];
@@ -889,7 +1194,8 @@ export function SpellSheet({
                       <td>
                         {learningMode === "Prepared Spells" || learningMode === "Spellbook" ? (
                           spellName ?? ""
-                        ) : !editable || (levelUpOriginal && spellName && originalClassKnownSpells.has(spellName)) ? (
+                        ) : isMysticDomainBonusSpell || !editable ||
+                          (levelUpOriginal && spellName && originalClassKnownSpells.has(spellName) && !canReplaceExistingKnownSpell) ? (
                           spellName ? (
                             <>
                               {spellName}
@@ -903,16 +1209,29 @@ export function SpellSheet({
                                 (entry) =>
                                   !selectedForLevel.includes(entry.name) ||
                                   selectedForLevel[slot] === entry.name,
+                              ).filter((entry) =>
+                                !canReplaceExistingKnownSpell ||
+                                !isMysticDomainSpellAtLevel(entry.name, level),
                               )}
                               selected={spellName}
                               placeholder={
-                                levelUpOriginal && !spellName
+                                canReplaceExistingKnownSpell
+                                  ? "Choose a same-level replacement"
+                                  : levelUpOriginal && !spellName
                                   ? "Choose a new spell"
                                   : !levelUpOriginal && slot < limit
                                     ? "Choose a spell"
                                     : ""
                               }
-                              onChange={(name) => setSpellSlot(level, slot, name)}
+                              onChange={(name) => setSpellSlot(
+                                level,
+                                selectedForLevel
+                                  .slice(0, slot)
+                                  .filter((selectedName) =>
+                                    !isMysticDomainSpellAtLevel(selectedName, level),
+                                  ).length,
+                                name,
+                              )}
                               onOpenChange={(open) =>
                                 setOpenSpellLevel(open ? level : null)
                               }
@@ -1447,10 +1766,12 @@ export function SpellSheet({
                             <small>
                               ({spellcastingClass.name})
                             </small>
-                            <ContentSourceLabel
-                              source={srdSpellContentSource}
-                              book={getSrdSpellSourceBook(spell)}
-                            />
+                            {!missingMysticDomainSpells.includes(spell.name) && (
+                              <ContentSourceLabel
+                                source={getSrdSpellContentSource(spell)}
+                                book={getSrdSpellSourceBook(spell)}
+                              />
+                            )}
                           </>
                         )}
                       </td>

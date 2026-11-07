@@ -1,17 +1,24 @@
 import { type Character, classDefinitions } from "../domain";
 import { formatModifier, getArcaneSpellFailure, getCasterLevel, getDailySpellSlots,
-  getSkillCheckModifier, getSkillTotalTooltip, getSpellcastingAbility, getSpellSaveDC,
+  getBaseClassLevels, getSkillCheckModifier, getSkillTotalTooltip, getSpellcastingAbility, getSpellSaveDC,
   type CombatCastingContext } from "../rules";
 import { CombatCastingContextControl, Panel } from "./shared";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
 
-export function CastingSummary({ character, onOpenSpells, combatCastingContext, onCombatCastingContextChange }: {
+export function CastingSummary({
+  character,
+  onOpenSpells,
+  combatCastingContext,
+  onCombatCastingContextChange,
+  onMedallionOfFaithChange,
+}: {
   character: Character;
   onOpenSpells: () => void;
   combatCastingContext?: CombatCastingContext;
   onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
+  onMedallionOfFaithChange: (present: boolean) => void;
 }) {
-  const casters = character.classLevels.filter(({ classId }) => classDefinitions[classId].spellcasting);
+  const casters = getBaseClassLevels(character).filter(({ classId }) => classDefinitions[classId].spellcasting);
   if (!casters.length) return null;
   const concentration = getSkillCheckModifier(character, "Concentration", undefined, undefined, combatCastingContext);
   return <Panel title="Spellcasting" className="casting-summary"
@@ -29,10 +36,13 @@ export function CastingSummary({ character, onOpenSpells, combatCastingContext, 
       const failure = getArcaneSpellFailure(character, classId);
       const levels = Array.from({ length: 10 }, (_, spellLevel) => spellLevel)
         .filter((spellLevel) => getDailySpellSlots(character, classId, level, spellLevel) > 0);
+      const isDragonlanceCleric =
+        character.ruleset !== "core-35-srd" && classId === "cleric";
+      const medallionRequiredLevels = levels.filter((spellLevel) => spellLevel > 3);
       return <div className="casting-class-summary" key={classId} role="group" aria-label={`${classDefinitions[classId].name} casting summary`}>
         <div className="casting-class-heading">
           <strong>{classDefinitions[classId].name}</strong>
-          <span title="Base caster level from this class's existing progression; conditional bonuses and unmodeled prestige advancement are manual.">Caster level <strong>{getCasterLevel(classId, level)}</strong></span>
+          <span title="Caster level from this class's progression, including selected Dragonlance High Sorcery lunar modifiers.">Caster level <strong>{getCasterLevel(classId, level, character)}</strong></span>
           <span title={getAbilityEquipmentBonus(character, getSpellcastingAbility(classId)).detail.join("\n")}>
             {getSpellcastingAbility(classId).toUpperCase()} {getEffectiveAbilityScore(character, getSpellcastingAbility(classId))}
           </span>
@@ -44,8 +54,36 @@ export function CastingSummary({ character, onOpenSpells, combatCastingContext, 
             L{spellLevel} <strong>DC {getSpellSaveDC(character, classId, spellLevel)}</strong>
           </span>) : <span>No castable spell levels with current class level and ability score.</span>}
         </div>
-      </div>;
+          {isDragonlanceCleric && (
+            <>
+              <label className="casting-medallion-control">
+                <input
+                  type="checkbox"
+                  checked={character.hasMedallionOfFaith ?? false}
+                  onChange={(event) =>
+                    onMedallionOfFaithChange(event.currentTarget.checked)
+                  }
+                />
+                Medallion of Faith present
+              </label>
+              {medallionRequiredLevels.length > 0 && !character.hasMedallionOfFaith && (
+                <p className="casting-rule-alert" role="alert">
+                  Cleric spell levels {medallionRequiredLevels.join(", ")} cannot
+                  be cast under Dragonlance rules until a Medallion of Faith is
+                  marked present.
+                </p>
+              )}
+              <p className="casting-rule-note" role="note">
+                Dragonlance Clerics need a Medallion of Faith to cast spells above
+                3rd level. If it is forcibly removed, the Cleric takes 2d4 divine
+                damage with no save or spell resistance. The app tracks possession
+                only; forced-removal damage remains manual (Dragonlance Campaign
+                Setting, p. 46).
+              </p>
+            </>
+          )}
+        </div>;
     })}
-    <p className="casting-summary-note">Base DCs and caster levels; school-specific DCs are shown per spell. Other conditional effects are manual.</p>
+    <p className="casting-summary-note">Current DCs and caster levels include selected Dragonlance High Sorcery lunar modifiers; other conditional effects remain manual.</p>
   </Panel>;
 }

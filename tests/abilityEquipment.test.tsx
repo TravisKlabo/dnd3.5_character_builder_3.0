@@ -23,7 +23,7 @@ describe("ability-enhancement equipment", () => {
     const will = getSavingThrow(character, "will");
     expect(will.total).toBe(1);
     expect(will.detail).toContain("racial +1");
-    expect(will.title).toContain("Select context for situational racial bonuses.");
+    expect(will.title).toContain("Select context for situational bonuses.");
     const fearSave = getSavingThrow(character, "will", ["fear"]);
     expect(fearSave.total).toBe(3);
     expect(fearSave.detail).toContain("fear morale +2");
@@ -201,13 +201,13 @@ describe("ability-enhancement equipment", () => {
 });
 
 describe("situational racial saving throws", () => {
-  it("displays the selected saving throw feat bonus", () => {
+  it("displays the selected saving throw feat bonus", async () => {
     const character = cloneCharacter(initialCharacter);
     character.featSelections["general-1"] = "iron-will";
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     render(<App />);
 
-    const will = screen.getByText("Will", { selector: ".stat > small" }).parentElement!;
+    const will = (await screen.findByText("Will", { selector: ".stat > small" })).parentElement!;
     expect(within(will).getByRole("strong").textContent).toBe("+2");
     expect(will.title).toContain("feat +2");
   });
@@ -223,10 +223,27 @@ describe("situational racial saving throws", () => {
       within(screen.getByText("Will", { selector: ".stat > small" }).parentElement!)
         .getByRole("strong").textContent;
     expect(willSave()).toBe("+1");
-    await screen.findByText("Apply situational racial bonuses");
-    fireEvent.click(screen.getByText("Apply situational racial bonuses"));
+    await screen.findByText("Apply situational bonuses");
+    fireEvent.click(screen.getByText("Apply situational bonuses"));
     fireEvent.click(screen.getByRole("checkbox", { name: "Fear" }));
     expect(willSave()).toBe("+3");
+  });
+
+  it("shows Kender fear immunity when the fear save context is selected", async () => {
+    const character = cloneCharacter(initialCharacter);
+    character.race = "Kender";
+    character.ruleset = "dragonlance-user-pack";
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    await screen.findByText("Fortitude", { selector: ".stat > small" });
+    const fortitude = screen.getByText("Fortitude", { selector: ".stat > small" }).parentElement!;
+    expect(within(fortitude).getByRole("strong").textContent).not.toBe("Immune");
+    await screen.findByText("Apply situational bonuses");
+    fireEvent.click(screen.getByText("Apply situational bonuses"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Fear" }));
+    expect(within(fortitude).getByRole("strong").textContent).toBe("Immune");
+    expect(fortitude.textContent).toContain("no save required");
   });
 
   it("applies dwarf stonecunning only when the Search check context is selected", async () => {

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Character, ClassId, SpellAcquisition, WizardSpellLearning } from "../domain";
-import { getClassSpellSelections, getWizardFreeSpellAllowance, getWizardSpellbookSpells, hasSpellLevelAtClassLevel } from "../rules";
+import { getBaseClassLevel, getCharacterLanguages, getClassSpellSelections, getWizardFreeSpellAllowance, getWizardSpellbookSpells, hasSpellLevelAtClassLevel } from "../rules";
 import { getWizardCopyRequirements } from "../wizardSpellbookRules";
 import { getEffectiveAbilityScore } from "../abilityEquipment";
+import { findSpellByName, isSpellClassAccessAllowed } from "../data/spellCatalog";
 
 type AcquisitionChange = (classId: ClassId, spell: string, source: SpellAcquisition | null, record?: WizardSpellLearning) => void;
 const sourceLabels: Record<SpellAcquisition, string> = {
@@ -20,16 +21,24 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
   const [learning, setLearning] = useState(false);
   const [freeSpell, setFreeSpell] = useState("");
   const addButton = useRef<HTMLButtonElement>(null);
-  const spells = getWizardSpellbookSpells();
+  const spells = getWizardSpellbookSpells(character);
   const known = getClassSpellSelections(character, "knownSpells").wizard ?? [];
   const knownNames = new Set(known.map((name) => name.toLowerCase()));
   const allowance = getWizardFreeSpellAllowance(character, original);
-  const classLevel = character.classLevels.find((entry) => entry.classId === "wizard")?.level ?? 0;
+  const classLevel = getBaseClassLevel(character, "wizard");
   const freeChoices = spells.filter((spell) => !knownNames.has(spell.name.toLowerCase()) && spell.level > 0 &&
     (!allowance.starting || spell.level === 1) && hasSpellLevelAtClassLevel("wizard", classLevel, spell.level) &&
     getEffectiveAbilityScore(character, "int") >= 10 + spell.level);
   const selectedFreeSpell = freeChoices.find((spell) => spell.name === freeSpell);
-  const unknown = known.filter((name) => !spells.some((spell) => spell.name === name));
+  const unavailableByOrder = known.filter((name) => {
+    const spell = findSpellByName(name);
+    return spell?.requiredHighSorceryOrder &&
+      !isSpellClassAccessAllowed(spell, "wizard", character);
+  });
+  const unknown = known.filter((name) =>
+    !spells.some((spell) => spell.name === name) &&
+    !unavailableByOrder.includes(name),
+  );
   const cantrips = spells.filter((spell) => spell.level === 0).map((spell) => spell.name);
   const missingCantrips = cantrips.filter((name) => !knownNames.has(name.toLowerCase()));
   const originalKnown = original ? getClassSpellSelections(original, "knownSpells").wizard ?? [] : [];
@@ -43,8 +52,7 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
         <p>Your spellbook records learned spells; Daily Preparation chooses today's copies.
           Recorded spells: {known.length}. Known page usage: {pageCount}.
           Physical books and their 100-page capacities are not tracked yet.</p>
-        <p className="spell-rules-notice">Specialist schools and prohibited schools are not implemented.
-          Review school restrictions with your DM before adding spells.</p>
+        <p className="spell-rules-notice">Core school specialization is optional and chosen at Wizard 1. A specialist chooses two prohibited schools (one if specializing in Divination; Divination cannot be prohibited), gains one extra prepared spell per spell level each day from the chosen school, and gets +2 on Spellcraft checks to learn spells from that school. These choices, extra slots, Spellcraft bonuses, and barred-school restrictions are not enforced here; manage them manually.</p>
         {editable && (
           <form className="spellbook-free-spells" onSubmit={(event) => {
             event.preventDefault();
@@ -79,6 +87,10 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
       </div>
       {unknown.length > 0 && <div className="spell-rules-notice" role="alert">
         Unrecognized imported spellbook entries: {unknown.join(", ")}. Preserved unchanged; verify names with your DM.
+      </div>}
+      {unavailableByOrder.length > 0 && <div className="spell-rules-notice" role="alert">
+        Currently unavailable under this Wizard's robe order: {unavailableByOrder.join(", ")}.
+        Magius's Light of Truth requires the White Robes; these entries are preserved.
       </div>}
       {Array.from({ length: 10 }, (_, level) => {
         const entries = spells.filter((spell) => spell.level === level && known.includes(spell.name));
@@ -134,14 +146,23 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
   useEffect(() => { dialog.current?.showModal(); }, []);
   const known = getClassSpellSelections(character, "knownSpells").wizard ?? [];
   const knownNames = new Set(known.map((name) => name.toLowerCase()));
-  const choices = getWizardSpellbookSpells().filter((spell) => !knownNames.has(spell.name.toLowerCase()));
+  const choices = getWizardSpellbookSpells(character).filter((spell) => !knownNames.has(spell.name.toLowerCase()));
   const spell = choices.find((entry) => entry.name === name);
   const copying = source === "scroll" || source === "spellbook";
   const requirements = spell ? getWizardCopyRequirements(spell.level) : undefined;
   const decipherNumber = decipherTotal.trim() ? Number(decipherTotal) : undefined;
   const learningNumber = learningTotal.trim() ? Number(learningTotal) : undefined;
-  const deciphered = decipherMethod !== "spellcraft" || (decipherNumber !== undefined &&
-    Number.isInteger(decipherNumber) && requirements !== undefined && decipherNumber >= requirements.decipherDC);
+  const usesDecipherCheck =
+    decipherMethod === "spellcraft" || decipherMethod === "decipher-script";
+  const magiusBonus =
+    source === "scroll" && getCharacterLanguages(character).includes("Magius")
+      ? 2
+      : 0;
+  const decipherSkill =
+    decipherMethod === "spellcraft" ? "Spellcraft" : "Decipher Script";
+  const deciphered = !usesDecipherCheck || (decipherNumber !== undefined &&
+    Number.isInteger(decipherNumber) && requirements !== undefined &&
+    decipherNumber + magiusBonus >= requirements.decipherDC);
   const understood = learningNumber !== undefined && Number.isInteger(learningNumber) &&
     requirements !== undefined && learningNumber >= requirements.learningDC;
   const canLearn = Boolean(spell && (copying ? deciphered && decipherConfirmed && studied && understood && written : approved));
@@ -153,7 +174,10 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
       if (!canLearn || !spell) return;
       onLearn("wizard", spell.name, source, {
         source, learnedAt: new Date().toISOString(),
-        ...(copying ? { decipherMethod, ...(decipherMethod === "spellcraft" ? { decipherTotal: decipherNumber } : {}),
+        ...(copying ? { decipherMethod,
+          ...(usesDecipherCheck && decipherNumber !== undefined
+            ? { decipherTotal: decipherNumber + magiusBonus }
+            : {}),
           spellcraftTotal: learningNumber } : {}),
       });
       close();
@@ -178,14 +202,20 @@ function LearnWizardSpell({ character, onLearn, onClose }: {
           learning Spellcraft DC {requirements.learningDC} after {requirements.studyHours} hours of study.
           Writing takes {requirements.writingHours} hours, uses {requirements.pages} page{requirements.pages > 1 ? "s" : ""},
           and costs {requirements.writingCostGp} gp in materials.</p>
+        {source === "scroll" && magiusBonus > 0 && (
+          <p>Magius grants a +2 competence bonus on Spellcraft or Decipher Script checks to read this arcane scroll.</p>
+        )}
         {source === "spellbook" && <p>A typical access fee is {requirements.usualAccessFeeGp} gp, separate from writing materials; confirm the actual fee with your DM.</p>}
         <label>Deciphering method<select value={decipherMethod} onChange={(event) => {
-          setDecipherMethod(event.target.value as NonNullable<WizardSpellLearning["decipherMethod"]>); setDecipherConfirmed(false);
+          setDecipherMethod(event.target.value as NonNullable<WizardSpellLearning["decipherMethod"]>);
+          setDecipherTotal("");
+          setDecipherConfirmed(false);
         }}>
           <option value="read-magic">Read magic used</option><option value="author">Author helped decipher the writing</option>
-          <option value="previously-deciphered">This writing was already deciphered</option><option value="spellcraft">Spellcraft check</option>
+          <option value="previously-deciphered">This writing was already deciphered</option>
+          <option value="spellcraft">Spellcraft check</option><option value="decipher-script">Decipher Script check</option>
         </select></label>
-        {decipherMethod === "spellcraft" && <label>Deciphering Spellcraft total
+        {usesDecipherCheck && <label>{`Deciphering ${decipherSkill} total${magiusBonus > 0 ? " before Magius bonus" : ""}`}
           <input type="number" step="1" value={decipherTotal} onChange={(event) => setDecipherTotal(event.target.value)} />
         </label>}
         {!deciphered && decipherTotal !== "" && <p role="alert">Deciphering failed. This writing cannot be deciphered again until the next day. No spell will be added.</p>}

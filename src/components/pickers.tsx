@@ -4,7 +4,8 @@ import { handleScrollableMenuKeyDown } from "../menuNavigation";
 import { getSizedWeaponDamage, getWeaponProfile, getWeaponSizeNote, getStoreItemDescription, getSizedStoreWeight, getSizedStorePrice } from "../rules";
 import { createPortal } from "react-dom";
 import { type FeatDefinition, classDefinitions, type ClassId } from "../domain";
-import { getSrdSpellSourceBook, srdSpellContentSource } from "../data/spellCatalog";
+import { getSrdSpellContentSource, getSrdSpellSourceBook } from "../data/spellCatalog";
+import type { SrdSpell } from "../srdSpells";
 import { ContentSourceLabel } from "./shared";
 
 export function EquipmentItemPicker({
@@ -468,13 +469,7 @@ export function SpellPicker({
   disabled = false,
   placeholder = "Choose a spell",
 }: {
-  spells: {
-    name: string;
-    level: number;
-    classes: string[];
-    description: string;
-    sourceBook?: string | null;
-  }[];
+  spells: SrdSpell[];
   selected?: string;
   onChange: (spell: string) => void;
   onOpenChange?: (open: boolean) => void;
@@ -555,7 +550,7 @@ export function SpellPicker({
       </button>
       {selectedSpell && (
         <ContentSourceLabel
-          source={srdSpellContentSource}
+          source={getSrdSpellContentSource(selectedSpell)}
           book={getSrdSpellSourceBook(selectedSpell)}
         />
       )}
@@ -636,7 +631,7 @@ export function SpellPicker({
             >
               {spell.name} (Level {spell.level})
               <ContentSourceLabel
-                source={srdSpellContentSource}
+                source={getSrdSpellContentSource(spell)}
                 book={getSrdSpellSourceBook(spell)}
               />
             </button>

@@ -115,6 +115,38 @@ describe("armor and shield proficiency", () => {
   });
 
   describe("racial weapon familiarity", () => {
+    it("grants Kagonesti their source-listed weapon proficiencies only in Dragonlance", () => {
+      const kagonesti = hero();
+      kagonesti.race = "Kagonesti Elf";
+      kagonesti.ruleset = "dragonlance-user-pack";
+      for (const weapon of [
+        "Short Sword",
+        "Longspear",
+        "Shortbow",
+        "Composite Shortbow",
+        "Longbow",
+        "Composite Longbow",
+      ]) {
+        expect(getItemProficiencyWarning(kagonesti, item(weapon))).toBeNull();
+      }
+
+      kagonesti.ruleset = "core-35-srd";
+      expect(getItemProficiencyWarning(kagonesti, item("Short Sword"))).toContain("not proficient");
+    });
+
+    it("grants sea elves their source-listed trident, longspear, and net proficiencies", () => {
+      const dargonesti = hero();
+      dargonesti.race = "Dargonesti Elf";
+      dargonesti.ruleset = "dragonlance-monster-classes";
+      for (const weapon of ["Trident", "Longspear", "Net"]) {
+        expect(getItemProficiencyWarning(dargonesti, item(weapon))).toBeNull();
+      }
+      expect(getItemProficiencyWarning(dargonesti, item("Longsword"))).toContain("not proficient");
+
+      dargonesti.ruleset = "core-35-srd";
+      expect(getItemProficiencyWarning(dargonesti, item("Trident"))).toContain("not proficient");
+    });
+
     it("grants only the appropriate core racial weapon proficiencies", () => {
       const dwarf = hero();
       dwarf.race = "Dwarf";
@@ -166,8 +198,9 @@ describe("armor and shield proficiency", () => {
     expect(isWeaponProficient(monk, item("Longsword"))).toBe(false);
     const bard = hero("bard");
     expect(isWeaponProficient(bard, item("Whip"))).toBe(true);
+    expect(isWeaponProficient(bard, item("Shortbow"))).toBe(true);
     expect(isWeaponProficient(bard, item("Battleaxe"))).toBe(false);
-    expect(isWeaponProficient(bard, item("Composite Shortbow"))).toBe(true);
+    expect(isWeaponProficient(bard, item("Composite Shortbow"))).toBe(false);
     const fighter = hero("fighter");
     expect(isWeaponProficient(fighter, item("Composite Longbow"))).toBe(true);
     expect(isWeaponProficient(fighter, item("Spiked Chain"))).toBe(false);
@@ -202,6 +235,7 @@ describe("armor and shield proficiency", () => {
     expect(getArmorNonproficiencyPenalties(character)).toEqual([]);
     expect(getItemProficiencyWarning(character, item("Chainmail"))).toContain("Druid restriction");
     expect(getItemProficiencyWarning(character, item("Heavy Steel Shield"))).toContain("24 hours");
+    expect(getItemProficiencyWarning(character, item("Buckler"))).toContain("nonwooden shields");
     expect(getItemProficiencyWarning(character, item("Hide Armor"))).toBeNull();
     character.classLevels.push({ classId: "fighter", level: 1 });
     expect(getItemProficiencyWarning(character, item("Chainmail"))).toContain("Druid restriction");
@@ -293,6 +327,24 @@ describe("armor and shield proficiency", () => {
       .toEqual(["Longsword"]);
   });
 
+  it("offers Improved Critical at BAB +8 for one proficient weapon type", () => {
+    const character = hero("fighter");
+    character.classLevels = [{ classId: "fighter", level: 7 }];
+    expect(getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id))
+      .not.toContain("improved-critical");
+
+    character.classLevels = [{ classId: "fighter", level: 8 }];
+    expect(getAvailableFeats(character, { fighterOnly: false }).map((feat) => feat.id))
+      .toContain("improved-critical");
+    expect(getAvailableFeatWeaponChoices(character, "improved-critical", "fighter-8"))
+      .toContain("Longsword");
+
+    character.featSelections = { "fighter-8": "improved-critical" };
+    character.featWeaponSelections = { "fighter-8": "Longsword" };
+    expect(getAvailableFeatWeaponChoices(character, "improved-critical", "human-1"))
+      .not.toContain("Longsword");
+  });
+
   it("normalizes weapon choices and rejects missing or duplicate weapon types", () => {
     const character = hero("fighter");
     character.classLevels = [{ classId: "fighter", level: 4 }];
@@ -328,8 +380,9 @@ describe("armor and shield proficiency", () => {
     expect(getFeatWeaponSelectionWarnings(character)).toEqual([]);
   });
 
-  it("lets a character choose and display a weapon for Weapon Focus", () => {
+  it("lets a character choose and display a weapon for Weapon Focus", async () => {
     render(<App />);
+    await screen.findAllByText("Choose a feat");
     const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
     if (!featSlot) throw new Error("Missing first feat slot.");
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
@@ -426,8 +479,9 @@ describe("armor and shield proficiency", () => {
     expect(getFeatSpellSchoolSelectionWarnings(duplicateTargetCharacter)).toHaveLength(2);
   });
 
-  it("lets a character choose and display a school for Spell Focus", () => {
+  it("lets a character choose and display a school for Spell Focus", async () => {
     render(<App />);
+    await screen.findAllByText("Choose a feat");
     const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
     if (!featSlot) throw new Error("Missing first feat slot.");
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
@@ -445,34 +499,34 @@ describe("armor and shield proficiency", () => {
     const character = hero();
     character.classLevels = [{ classId: "wizard", level: 6 }];
     character.featSelections = {
-      "general-1": "greater-spell-focus",
-      "general-3": "spell-focus",
+      "general-1": "spell-focus",
+      "general-3": "greater-spell-focus",
       "general-6": "greater-spell-focus",
       "human-1": "spell-focus",
     };
     character.featSpellSchoolSelections = {
       "general-1": "Illusion",
       "general-3": "Evocation",
-      "general-6": "Evocation",
-      "human-1": "Illusion",
+      "general-6": "Illusion",
+      "human-1": "Evocation",
     };
 
     expect(
-      getAvailableFeatSpellSchoolChoices(character, "general-1", "greater-spell-focus"),
-    ).toEqual(["Illusion"]);
+      getAvailableFeatSpellSchoolChoices(character, "general-3", "greater-spell-focus"),
+    ).toEqual(["Evocation"]);
     expect(
       getAvailableFeatSpellSchoolChoices(character, "general-6", "greater-spell-focus"),
-    ).toEqual(["Evocation"]);
+    ).toEqual(["Illusion"]);
     expect(
       getAvailableFeatSpellSchoolChoices(character, "general-9", "greater-spell-focus"),
     ).toEqual([]);
     expect(
-      getAvailableFeats(character, { fighterOnly: false }, "general-1")
+      getAvailableFeats(character, { fighterOnly: false, characterLevel: 3 }, "general-3")
         .map((feat) => feat.id),
     ).toContain("greater-spell-focus");
     expect(normalizeFeatSelections(character, character.featSelections)).toEqual({
-      "general-1": "greater-spell-focus",
-      "general-3": "spell-focus",
+      "general-1": "spell-focus",
+      "general-3": "greater-spell-focus",
       "general-6": "greater-spell-focus",
       "human-1": "spell-focus",
     });
@@ -482,10 +536,10 @@ describe("armor and shield proficiency", () => {
         character.featSpellSchoolSelections,
       ),
     ).toEqual({
-      "human-1": "Illusion",
-      "general-3": "Evocation",
       "general-1": "Illusion",
-      "general-6": "Evocation",
+      "human-1": "Evocation",
+      "general-3": "Evocation",
+      "general-6": "Illusion",
     });
     expect(getFeatSpellSchoolSelectionWarnings(character)).toEqual([]);
     expect(
@@ -634,8 +688,9 @@ describe("armor and shield proficiency", () => {
     expect(greaterSpellPenetration?.sourceBook).toBe("Player's Handbook (3.5)");
   });
 
-  it("lets a character choose Greater Spell Focus for a school already selected", () => {
+  it("lets a character choose Greater Spell Focus for a school already selected", async () => {
     render(<App />);
+    await screen.findAllByText("Choose a feat");
     const generalSlot = screen.getByRole("button", {
       name: "General feat (level 1)",
     }).closest("label");
@@ -664,8 +719,9 @@ describe("armor and shield proficiency", () => {
     expect(screen.getByText("Greater Spell Focus (Illusion)")).toBeDefined();
   });
 
-  it("lets a character choose and display a skill for Skill Focus", () => {
+  it("lets a character choose and display a skill for Skill Focus", async () => {
     render(<App />);
+    await screen.findAllByText("Choose a feat");
     const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
     if (!featSlot) throw new Error("Missing first feat slot.");
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));
@@ -683,8 +739,9 @@ describe("armor and shield proficiency", () => {
     ).toBe("+3");
   });
 
-  it("lets a character choose a specific exotic weapon for Exotic Weapon Proficiency", () => {
+  it("lets a character choose a specific exotic weapon for Exotic Weapon Proficiency", async () => {
     render(<App />);
+    await screen.findAllByText("Choose a feat");
     const featSlot = document.querySelector<HTMLElement>(".feat-choices label");
     if (!featSlot) throw new Error("Missing first feat slot.");
     fireEvent.click(within(featSlot).getByRole("button", { name: "General feat (level 1)" }));

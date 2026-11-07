@@ -1,0 +1,29 @@
+.pdf-library-content { display: grid; gap: 16px; padding: 17px; text-align: left; }
+.pdf-library-notice, .pdf-library-filter-note { color: #68736f; font-size: .78rem; line-height: 1.5; }
+.pdf-library-import { display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr); align-items: end; gap: 12px; }
+.pdf-library-import label { min-width: 0; }
+.pdf-library-import input { padding: 7px; font-size: .75rem; }
+.pdf-library-list { display: grid; gap: 8px; }
+.pdf-library-list-heading, .pdf-library-document, .pdf-library-viewer-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pdf-library-list-heading { border-bottom: 2px solid #243447; padding-bottom: 7px; }
+.pdf-library-list-heading h3, .pdf-library-viewer-heading h3 { margin: 0; color: #243447; font-size: .9rem; }
+.pdf-library-list-heading span, .pdf-library-document small { color: #68736f; font-size: .72rem; }
+.pdf-library-show-all { display: flex; align-items: center; gap: 7px; text-transform: none; }
+.pdf-library-show-all input { width: auto; margin: 0; }
+.pdf-library-document { border: 1px solid #d6d7d1; background: #fff; padding: 10px 12px; }
+.pdf-library-document > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.pdf-library-document strong { color: #243447; font-size: .78rem; overflow-wrap: anywhere; }
+.pdf-library-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; justify-content: end; gap: 7px; }
+.pdf-library-actions button { padding: 5px 8px; }
+.pdf-library-actions button:disabled { cursor: not-allowed; opacity: .6; }
+.pdf-library-error, .pdf-library-status { border-left: 3px solid #9a322d; padding: 8px 11px; color: #7d2420; background: #fff; font-size: .78rem; }
+.pdf-library-status { border-color: #477454; color: #345b3e; }
+.pdf-library-viewer { display: grid; gap: 8px; min-width: 0; }
+.pdf-library-viewer-heading a { color: #243447; font-size: .75rem; }
+.pdf-library-viewer iframe { width: 100%; height: min(72vh, 900px); min-height: 440px; border: 1px solid #b9bbb4; background: #fff; }
+@media (max-width: 640px) {
+  .pdf-library-import { grid-template-columns: 1fr; }
+  .pdf-library-document { align-items: start; flex-direction: column; }
+  .pdf-library-actions { justify-content: start; }
+  .pdf-library-viewer iframe { min-height: 360px; }
+}

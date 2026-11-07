@@ -9,9 +9,9 @@ to inherited rules calculations are documented below.
 
 - Rebuilds the authorized examples as a data-bound layout, not as background images.
 - Hard print requirement: exactly two portrait Letter pages (8.5 × 11 inches),
-  with no extra page, clipping, or overflow. Dense character data must fit those
-  pages. Browser preview containers fit; generated-PDF page-count and dense-data
-  validation are still pending.
+  with no extra page, clipping, or overflow. A headless Chromium regression test
+  generates PDFs for a simple Fighter and a dense, level-20 Dragonlance Mystic,
+  then checks page count, Letter dimensions, and content bounds.
 - The Handwritten toggle defaults on and changes generated character data to
   Marck Script. Fixed labels, layout, and the Skills area stay in their original
   style.
@@ -41,10 +41,21 @@ npm run benchmark
 ```
 
 `check` runs warning-free lint, regression tests, application and test type checks,
-and a production build. The build fails if initial JavaScript exceeds 478,500
+and a production build. The build fails if initial JavaScript exceeds 515,000
 uncompressed bytes. Tests cover draft isolation, progression, combat calculations,
 catalog matching and invalidation, persistence, malformed imports, lazy loading,
 screen navigation, custom items, and printable-sheet integration and data binding.
+Run `npm run test:print` for real-browser PDF regressions and mobile sheet
+coverage. Printable PDFs include two Letter character-record pages and a
+variable number of level-organized spell pages per casting class. Spell levels
+stay together, rows are uniform, and each castable level includes write-in rows.
+An asterisk in the Conc. column marks spells requiring concentration; Duration
+omits that requirement. The attack table lists elemental weapon damage separately
+from physical damage.
+Character layout is checked at 320px, 390px, 560px, and 561px;
+Equipment, Spells, Notes, Store, Forge, Wands & Scrolls, and Rules Library are
+checked at 320px and 561px, including delayed Notes, Equipment, and Spells
+loading. Install Chromium once with `npx playwright install chromium`.
 
 The catalog benchmark compares the old per-lookup sorting algorithm with the new
 index, checks equivalent results for every catalog entry and decorated variant,
@@ -57,6 +68,8 @@ and requires at least a 2x lookup improvement. Timings vary by machine.
 - Spell data is downloaded once, only when a caster, spell-bearing inventory, or
   the Wands & Scrolls screen requires it. Loading failures have a visible retry.
 - Equipment, store, forge, crafting, and spell screens are loaded on demand.
+- Secondary character-sheet panels and selection pickers are deferred from the
+  initial JavaScript entry chunk.
 - Equipment names use an exact-match index and a longest-name fallback sorted once
   per catalog revision, rather than sorting the catalog for every inventory row.
 - Spell lists are indexed by class and name. Picker search results are memoized.
@@ -68,7 +81,8 @@ and requires at least a 2x lookup improvement. Timings vary by machine.
   indexes, and notify the open store so additions/deletions appear immediately.
 
 The original 2.0 build loaded approximately 611 KB of JavaScript at startup.
-The optimized build is approximately 375 KB before compression (about 39% less).
+The optimized initial JavaScript is approximately 511 KB before compression
+(about 16% less).
 Full spellcasting sessions still load the spell catalog and their requested screens;
 code splitting reduces initial work, not the size of the rules content itself.
 
@@ -80,14 +94,44 @@ file containing the character and custom item catalog; Import accepts well-forme
 between application origins or desktop installations.
 
 Level-up choices remain provisional until confirmation. Confirming a valid level-up
-rolls and applies the new level's HP gain together with its other changes; cancelling
-the draft does not roll HP or alter the saved character. Save and Export are disabled
-during a level-up draft so unvalidated choices cannot be persisted or transferred.
+lets the app roll the new Hit Die or accepts a manual roll from 1 through the die's
+maximum. HP gains by level are recorded, and Constitution and Toughness bonuses are
+applied automatically. The first Hit Die uses its maximum value. Cancelling the draft
+does not roll HP or alter the saved character. Save and Export are disabled during a
+level-up draft so unvalidated choices cannot be persisted or transferred. Existing
+characters keep their saved HP totals; past rolls that were not recorded cannot be
+reconstructed.
+
+Under the Dragonlance ruleset, the 12 prestige classes in *Dragonlance Campaign
+Setting* are available during level-up after their implemented mechanical
+prerequisites are met. The builder tracks Hit Dice, skills, attack/save
+progression, class features, and spellcasting advancement. Wizard of High Sorcery
+also records robe order, specialist school, and barred schools. Solamnic and
+Nerakan sponsorship and tests are confirmed in the level-up flow; their
+roleplaying requirements still need the player's judgment. Knight of the Crown's
+timed Strength of Honor and Crown of Knighthood effects are tracked. Most other
+prestige features, including companion/follower management and effects on other
+characters, are presented for manual tracking rather than automatically applied.
+Baaz and Kapak draconians are separate race options with two racial Hit Dice and
+level adjustment; select the Dragonlance Monster Classes ruleset to show
+level-adjusted races. Racial Hit Dice affect attack/save progression and skill
+limits, but their hit points must be entered manually. Legacy generic Draconian
+and Deep Dwarf entries remain available only to characters already using them.
 Saving during initial setup stores a resumable draft; reopening it returns to setup,
 where the usual validation still applies before the character can be finalized.
 
 The application still has one active locally saved character. Use separate JSON
 exports to keep multiple characters. There is no cloud synchronization.
+
+### Rules PDF library
+
+The Rules Library tab stores user-added PDFs in the device's local app/browser
+profile. PDFs are not uploaded, included in character exports, or bundled with
+the application. Each PDF can be tagged for all rulesets, Core SRD, or
+Dragonlance; the library shows only sources applicable to the active character's
+ruleset. Open a PDF in the viewer and use its Find command to look up text.
+Scanned PDFs without a text layer may not support text search. Clearing local app
+data also removes the saved PDFs.
 
 Age, height, and body weight are free-form text fields in setup and on the finalized
 sheet. Values such as `about 30`, `180 lb.`, or `82.5 kg` are saved exactly as entered,
@@ -139,6 +183,14 @@ timing remain adjudicated manually. The preset for bless applies its attack bonu
 its save bonus against fear is situational and must be tracked separately.
 Great Fortitude, Lightning Reflexes, and Iron Will are included in their
 respective saving throw totals and breakdowns.
+
+Equipped defensive items contribute their listed typed bonuses to AC and saving
+throws. Duplicate bonuses of the same type use only the highest value; Bracers
+of Armor and the Robe of the Archmagi likewise use the highest armor bonus.
+These totals and AC components carry through to the printable sheet. Conditional
+item requirements other than the Ring of Force Shield's tracked activation, and
+non-defense effects such as the Stone of Good Luck's ability- and skill-check
+bonuses, remain manual.
 
 Feat, spell, class, and prestige-class entries display their broad catalog
 source (Core SRD or Dragonlance user content pack). Feats and verified classes
@@ -253,7 +305,10 @@ ammunition count as magic for DR. Ammunition selection is session-only and does
 not consume inventory. Alchemical-silver melee/thrown weapons and selected
 silver ammunition apply the -1 damage penalty (minimum 1). Damage is not
 automatically reduced by target DR; alignment, epic, and other qualifiers remain
-manual. See the
+manual. The standard catalog includes no adamantine equipment; custom weapons
+can be tagged as adamantine for DR bypass, but their price and weight are entered
+manually. Object hardness and adamantine armor's damage reduction are not
+modeled. See the
 SRD [damage reduction](https://www.d20srd.org/srd/specialAbilities.htm#damageReduction)
 and [special materials](https://www.d20srd.org/srd/specialMaterials.htm) rules.
 Custom thrown weapons use Strength for
@@ -297,7 +352,8 @@ Dexterity checks, which cannot succeed above DC 10 except to hide an object on t
 body. Appraise's untrained results, Open Lock's separate force-open option, and
 the language and Trapfinding restrictions for Forgery and Disable Device are
 explained in the skill-name tooltips. Speak Language leaves the modifier blank;
-its tooltip explains that it has no skill check and points to the Languages section.
+its tooltip explains that each full rank learns one language in the Languages
+section and that no skill check is required.
 At 5 ranks, Handle Animal, Knowledge (history), and Knowledge (religion) also
 show their +2 synergy bonuses for Wild Empathy, Bardic Knowledge, and turning
 checks in the Special Abilities list; those feature checks remain manual.
@@ -438,12 +494,71 @@ returns. Shield spikes are available as light/heavy wooden and steel shield
 variants for an additional 10 gp and 5 lb. A spiked bash deals piercing damage
 as if the shield were designed for a creature one size larger; the shield's
 handedness, off-hand penalties, and AC loss remain unchanged. Bucklers and
-tower shields cannot be used for shield bashes or equipped with spikes.
-Independent weapon enhancements on shields, including the bashing property, are
-not modeled.
+tower shields cannot be used for shield bashes or equipped with spikes. The
+Bashing property increases bash damage by two size categories and makes the
+shield a +1 weapon for attack and damage while bashing. A shield's numeric AC
+enhancement does not improve its bash attack or damage.
 
 References: SRD [shield bash](https://www.d20srd.org/srd/equipment/armor.htm#shieldBashAttacks)
 and [shield spikes](https://www.d20srd.org/srd/equipment/armor.htm#shieldSpikes).
+
+### Animated shields
+
+An Animated shield can be activated as a standard action. While active, it
+floats within 2 feet, grants its shield AC bonus, and frees both hands; shield
+check penalties, arcane spell failure, and nonproficiency still apply. An
+animated shield cannot bash while floating. The Equipment sheet tracks
+activation until manually cleared or the shield is changed or removed, and
+allows two-handed grips and off-hand weapons while active.
+
+Reference: SRD [animated shield](https://www.d20srd.org/srd/magicItems/magicArmor.htm#shieldSpecialAbilities).
+
+### Blinding shields
+
+A Blinding shield can flash twice per day when commanded. Creatures within 20
+feet other than the wielder make a DC 14 Reflex save or are blinded for 1d4
+rounds. The Equipment sheet tracks uses per equipped shield and provides a
+manual daily reset; resolve affected creatures and saving throws separately.
+The SRD does not specify the action type for the command.
+
+Reference: SRD [shield special abilities](https://www.d20srd.org/srd/magicItems/magicArmor.htm#shieldSpecialAbilities).
+
+### Arrow-catching shields
+
+An Arrow Catching shield grants a +1 deflection bonus to AC against ranged
+weapons; it does not stack with a higher deflection bonus. Its ranged-weapon AC
+is shown in the character and print sheets. Projectile and thrown-weapon attacks
+aimed at another creature within 5 feet of the wielder are redirected to the
+wielder, except when the wielder has total cover. The builder does not track
+party spacing or incoming attacks, so resolve redirection manually.
+
+Reference: SRD [shield special abilities](https://www.d20srd.org/srd/magicItems/magicArmor.htm#shieldSpecialAbilities).
+
+### Forge armor properties
+
+Slick armor grants a +5 competence bonus on Escape Artist checks; its armor
+check penalty still applies, and the bonus does not stack with the higher
+competence bonus from a Vest of Escape. Escape Artist checks to escape a grapple
+use this bonus. Fortification in the Forge is light fortification: it has a 25%
+chance to negate the extra damage from a critical hit or sneak attack. Since the
+builder does not resolve incoming damage, resolve that percentile roll manually.
+Glamered armor appears as ordinary clothing or other garb on command while
+retaining its properties and weight.
+
+Reference: SRD [magic armor special abilities](https://www.d20srd.org/srd/magicItems/magicArmor.htm).
+
+### Forge pricing
+
+Forged weapons include the 300 gp masterwork cost unless the selected weapon is
+already masterwork, and armor/shields include 150 gp unless already masterwork.
+Cold iron weapon enhancements add 2,000 gp; Mithral weapons include masterwork
+quality in their material cost. The combined enhancement and special-ability
+equivalent bonus cannot exceed +10. Keen is offered only for piercing or slashing
+weapons, and Bashing only for light or heavy shields.
+
+References: SRD [magic weapons](https://www.d20srd.org/srd/magicItems/magicWeapons.htm),
+[magic armor](https://www.d20srd.org/srd/magicItems/magicArmor.htm), and
+[special materials](https://www.d20srd.org/srd/specialMaterials.htm).
 
 ### Carried load and movement
 
@@ -577,9 +692,10 @@ with a notice rather than silently removed.
 
 ### Cleric domains
 
-The Cleric subtab offers all 22 core SRD domains with their nine domain spells
-at the domain-specific levels. Choose two different domains; Chaos, Evil, Good,
-and Law require matching cleric alignment. Domain-granted class skills (Animal,
+The Cleric subtab offers all 22 core SRD domains plus supported Dragonlance
+Chapter 3 domains with their nine domain spells at the domain-specific levels.
+Choose two different domains; Chaos, Evil, Good, and Law require matching
+cleric alignment. Domain-granted class skills (Animal,
 Plant, Knowledge, Travel, Trickery) apply automatically to cleric rank costs and
 class-skill indicators, not to unrelated classes. They do not grant ranks.
 Powers are in compact expandable sections with **Applied automatically** and
@@ -611,19 +727,23 @@ requires confirmation that this is a DM-approved lasting change, not daily
 preparation.
 
 Core 3.5 deity-domain associations are recorded for the 12 supported core
-deities, and unavailable domains are disabled with warnings for invalid saved
-choices. Unmapped deities, including Dragonlance, remain manual and require DM
+deities. Verified Dragonlance domain associations are applied for supported
+deities; deity-linked domains are disabled for other Clerics, and Mystic-only
+domains are not Cleric choices. Unmapped deity entries still require DM
 confirmation. War's favored-weapon effects are automated only for supported
 core mappings (Corellon Larethian and Heironeous: longsword; Hextor: flail;
-Erythnul: morningstar); other deity mappings remain manual. Dragonlance-specific
-domains are not included. This pass does not certify the full deity catalog,
-enforce every ordinary cleric spell's alignment descriptor, or enforce
-druid/other class restrictions on multiclass casting.
+Erythnul: morningstar); other deity mappings remain manual. This pass does not
+certify the full deity catalog, enforce every ordinary cleric spell's alignment
+descriptor, or enforce druid/other class restrictions on multiclass casting.
 
 Sources: SRD [Cleric](https://www.d20srd.org/srd/classes/cleric.htm) and
 [Cleric Domains](https://www.d20srd.org/srd/spellLists/clericDomains.htm);
 core deity associations use the *Player's Handbook* (3.5), pp. 106–108, and
-the [3.5 deity listings](https://dnd3-5.wikidot.com/deities1).
+the [3.5 deity listings](https://dnd3-5.wikidot.com/deities1). Dragonlance
+domain entries and associations use the *Dragonlance Campaign Setting*,
+Chapter 3, pp. 102–104; the supported deity alignments, domains, and favored
+weapons are cross-checked against the deity profiles on pp. 129–131. The five
+domain spells defined in the setting are summarized from Chapter 3, pp. 108–113.
 
 ### Wizard spellbook
 
@@ -640,10 +760,14 @@ Copied/researched/reward spells never satisfy the free-spell allowance.
 **Learn a spell** opens a modal instead of immediately adding a scroll:
 
 - **Scroll / another spellbook:** confirm deciphering via read magic, the author's
-  help, previously deciphered writing, or a Spellcraft total against DC 20 + spell
-  level. Read magic bypasses deciphering checks, not the later learning check.
+  help, previously deciphered writing, or a Spellcraft or Decipher Script total
+  against DC 20 + spell level. For arcane scrolls, knowing Magius applies +2
+  competence to either check; enter the total before this bonus. This bonus does
+  not apply when copying another spellbook. Read magic bypasses deciphering
+  checks, not the later learning check.
 - Confirm 8 hours of study and enter the actual learning Spellcraft total against
-  DC 15 + spell level. No rolls or skill modifiers are applied automatically.
+  DC 15 + spell level. No rolls or modifiers are applied automatically to this
+  learning check.
 - Resolve 24 hours of writing and 100 gp per page of materials with the DM.
   Spells use one page per level, with a minimum of one page for a cantrip.
   Another wizard's usual access fee (50 gp per spell level) is shown separately.
@@ -654,11 +778,11 @@ Failed checks cannot add a spell. The dialog explains the next-day restriction o
 failed deciphering and the additional-Spellcraft-rank restriction on failed
 learning; failed attempts and retry eligibility remain manually tracked with the
 DM, not persisted or automatically enforced. Cancel/Escape discards pending
-results. Successful learning saves the source, recording date, and entered check
-totals alongside the character. Copying from a scroll consumes its source spell
-under the rules, but **gold, inventory, and elapsed campaign time are not changed
-automatically**. Handle those separately; removing a learned spell does not refund
-them.
+results. Successful learning saves the source, recording date, and deciphering
+and learning check totals alongside the character. Copying from a scroll consumes
+the source scroll under the rules, but **gold, inventory, and elapsed campaign
+time are not changed automatically**. Handle those separately; removing a learned
+spell does not refund them.
 
 The spellbook can record higher-level spells without granting preparation access.
 Unknown imported names are preserved with a warning. Specialization, prohibited
@@ -688,6 +812,9 @@ correctness pass intentionally corrects inherited calculations:
 
 - Magical weapon enhancement affects both attack and physical damage; masterwork
   attack enhancement does not stack with it.
+- Improved Critical doubles the selected proficient weapon's threat range at
+  BAB +8; it does not stack with Keen, which only affects piercing and slashing
+  weapons.
 - Weapon Finesse applies to eligible, appropriately sized melee weapon attacks,
   not damage. Shield check penalties are included when choosing Finesse.
 - Two-handed melee weapons add 1.5 times a positive Strength modifier; off-hand
@@ -729,9 +856,24 @@ References: SRD [sorcerers and wizards](https://www.d20srd.org/srd/classes/sorce
 [ranger](https://www.d20srd.org/srd/classes/ranger.htm).
 
 The special-abilities list displays core class features by class level based on
-the [SRD class tables](https://www.d20srd.org/srd/classes/). Feature choices and
-mechanical effects remain manual; optional Dragonlance class progression is not
-verified.
+the [SRD class tables](https://www.d20srd.org/srd/classes/). Monk Fast Movement
+is listed at 2nd level; its first +10-foot speed increase begins at 3rd level.
+Monk AC bonuses, Fast Movement, flurry attacks, and size- and level-based
+unarmed damage use Monk class levels and their armor, shield, and load limits.
+Monk AC applies to touch and flat-footed AC and is suppressed for HP-tracked
+unconsciousness; other immobilizing conditions are not tracked. Unarmed strikes default to nonlethal damage; choosing lethal
+damage, its attack penalty for non-monks, and other conditional class features
+remain manual. Monk bonus-feat and alignment eligibility are modeled; optional
+Dragonlance class progression is not verified.
+
+Rogue sneak-attack progression appears as potential precision damage on weapon
+attacks, separate from base damage. Concealment and ranged attacks beyond 30 ft.
+suppress it; flanking, denied Dexterity, target immunity, other class sources of sneak attack,
+and other conditions remain manual. Evasion descriptions show their armor and helplessness limits,
+but save outcomes and damage are adjudicated manually. Uncanny Dodge retains
+Dexterity while flat-footed and is suppressed for HP-tracked unconsciousness;
+other immobilization is not tracked. Improved Uncanny Dodge's flanking defense
+and rogue-level exception remain manual.
 
 Core race data now records base size and speed, racial skill bonuses, and
 race-appropriate bonus-language options. The Halfling's unconditional +1
@@ -759,13 +901,134 @@ resolved. Optional Dragonlance race data is not verified. See the SRD
 
 Remaining gaps include complete racial-feature automation and full bonus stacking.
 Handedness `Ranged` and placement in the ranged slot select Dexterity attacks.
-Ammunition consumption, custom ammunition, and non-material damage-reduction
-qualifiers or special shield/material cases need further verification. Spellcasting still
+Ammunition consumption, custom ammunition, non-material damage-reduction
+qualifiers, and adamantine armor/object-hardness effects are not automated.
+Spellcasting still
 needs additional domain-power automation and broader deity mapping, wizard
-specialization/prohibited schools, spontaneous known-spell replacement,
+specialization/prohibited schools, Bard and Sorcerer known-spell replacement,
 prestige-class casting advancement, and feat/item caster-level/DC/slot
 adjustments. Slot expenditure is manual rather than automatically linked to
 casting a specific prepared spell.
-Dragonlance content remains unverified.
+Dragonlance High Sorcery Moon Magic can be entered manually on the spell page.
+Selected phases and conjunctions adjust caster level and save DC only for the
+character's Dragonlance High Sorcery wizard or sorcerer spells; other
+Dragonlance mechanics remain unverified.
+Dragonlance Mystics can choose one Core or Chapter 3 domain except Magic,
+subject to the Chaos/Evil/Good/Law alignment restrictions but not deity
+restrictions. Its spell is automatically known at each accessible spell level
+and is included in the known spell count; it uses no separate domain slot.
+Domain powers remain manual; the Chapter 3 Mystic power text is shown for the
+Dragonlance domains that define a separate power.
+During level-up at 4th Mystic level and every even level thereafter, one
+individually selected known spell can be exchanged for another of the same
+level, at least two levels below the highest spell level available. Automatic
+domain spells cannot be exchanged.
+Five Chapter 3 domain spells now have sourced details from the setting book.
+Random Action is also available as a Dragonlance domain-only spell: the
+setting's 3.5 Passion domain list includes it, while its mechanics are drawn
+from the Player's Handbook (3.0), p. 242. It is not added to Core class spell
+lists or treated as a conversion of the 3.5 SRD's
+[Lesser Confusion](https://www.d20srd.org/srd/spells/confusionLesser.htm).
+The Chapter 3 spell audit found that all 13 Dragonlance domain lists are
+represented, including Pestilence's restricted 2nd-level Summon Monster II.
+All 26 spells in the book's New Spells section are now cataloged with class
+access and class-specific levels where needed. Mystics inherit the new cleric
+spells, Hardening and Unbinding are available on their listed class and domain
+lists, and Magius's Light of Truth is restricted to White Robe Wizards.
+Source-verified racial corrections so far cover Kagonesti, Qualinesti, and
+Silvanesti elves; Dargonesti and Dimernesti sea elves (*Dragonlance Campaign
+Setting*, pp. 16–18 and 24–25); Irda; minotaurs (pp. 39 and 43); and
+Dragonlance half-elf elvensight. Sea-elf alternate forms and surface
+sensitivity remain descriptive traits rather than automated effects; the
+broader race catalog remains under audit.
+The character model now supports source-gated racial Hit Dice for BAB, saves,
+skill budgets and ranks, feat thresholds, ability-score increases, Hit-Dice-based
+Constitution adjustments, and ECL display. Hit points remain manually entered;
+include racial Hit Dice in the total. Baaz and Kapak Draconians use this model;
+their racial Hit Dice must be included in the entered HP total.
+
+### Dragonlance source-audit TODO
+
+- [x] Check prestige-class progressions and prerequisites; review selected
+  feature descriptions against the setting.
+- [x] Correct selected source-specific race data, including Baaz, Kapak, Dark
+  Dwarf, and Gully Dwarf mechanics.
+- [x] Correct the Mystic skill-point rate and enforce Noble's 1st-level entry
+  restriction in level-up.
+- [x] Mark Paladine and Takhisis as former deities with no cleric domains in
+  the setting's post-War of Souls state.
+- [x] Audit remaining represented Dragonlance base-class rules against the
+  setting; apply the Bard Healing-subschool restriction and alignment-matched
+  Druid patron requirement, and document the rules that remain manual.
+  Dragonlance Bards cannot cast Conjuration (Healing) spells (p. 45). Druids
+  must follow Habbakuk for good, Chislev for neutral, or Zeboim for evil
+  alignment (p. 46); spellcasting is gated until the patron is correct.
+  Paladins are normally unavailable unless the DM permits a rare champion
+  (p. 52), and Wizards must take the Test of High Sorcery and join an order to
+  advance beyond Wizard 4 unless they become renegades (p. 53); the app shows
+  guidance rather than enforcing those DM/roleplay paths. The spellcasting
+  summary reminds Dragonlance Clerics that a Medallion of Faith is required to
+  cast spells above 3rd level, and forcibly removing one deals 2d4 divine damage
+  with no save or spell resistance (p. 46). The spellcasting summary tracks
+  whether a Medallion is marked present and warns when the Cleric has castable
+  spell levels above 3rd without one; forced-removal damage remains manual.
+- [x] Complete Noble class-feature display with the sourcebook's Favor, Inspire
+  Confidence, Inspire Greatness, and Coordinate level progression (pp. 50–51).
+- [x] Enforce Dragonlance Ranger patron rules: by 4th level choose Habbakuk,
+  Chislev, or Zeboim to match moral alignment before casting divine spells
+  (p. 52).
+- [x] Track and display Ranger favored-enemy choices and bonuses at levels 1, 5,
+  10, 15, and 20, including Dragonlance organizations; bonuses are not applied
+  automatically (p. 52).
+- [x] Cross-check the domain lists for currently supported Dragonlance deities.
+- [x] Cross-check Chapter 3's 13 Dragonlance domain spell lists and the
+  Pestilence Summon Monster II restriction (pp. 102–105).
+- [x] Add all 26 Chapter 3 New Spells with class-specific levels and class-list
+  access; preserve Mystic access to the book's additional cleric/mystic spells
+  (pp. 48, 104–113).
+- [x] Restrict Magius's Light of Truth to powerful Wizards of the White Robes,
+  as specified in Chapter 3 (pp. 104, 108–109).
+- [x] Add omitted deities from the setting, including Chislev, Shinare,
+  Solinari, and Lunitari, then verify their player-facing details and domain
+  data (pp. 119–130).
+- [x] Verify Honor-bound's description against the source.
+- [x] Add and verify all 13 *Dragonlance Campaign Setting* feats (pp. 85–88),
+  including the Resist Dragonfear prerequisite for Dragon Rider. The builder
+  enforces modeled race, base attack, base save, skill, and feat prerequisites.
+  Hulking Brute is restricted to 1st-level feat slots. Confirm dragon
+  encounters/damage manually. Flyby Breath and Strafing Breath enforce Flyby
+  Attack, Flyby Breath, and Draconian Breath Weapon when applicable; fly speed
+  and non-draconian breath weapon sources remain manual. Level-based feat slots
+  only count prerequisite feats from the same or earlier character levels.
+  Within a character level, only earlier displayed feat slots count toward
+  prerequisites. Fighter, Ranger, and Monk bonus-feat slots are ordered by
+  character level when level-up history is available; older saves without
+  complete per-level history may not establish that chronology. Historical
+  ability prerequisites account for recorded level-up increases; older history
+  without those choices cannot reconstruct them. Skill prerequisites use recorded
+  per-level rank snapshots when available; older saves without them may not
+  establish historical ranks. Base-attack prerequisites use per-level BAB
+  snapshots when available; older saves without them may not establish historical
+  BAB. Class-level, base-save, caster-level, and arcane spell-level prerequisites
+  use recorded per-level class advancement when available; older saves without
+  that history may not establish those checks.
+  The history respects multiclass order, prestige spellcasting advancement, and
+  racial Hit Dice offsets; missing level records cannot reconstruct those details.
+  Class-feature prerequisites use recorded per-level class advancement when
+  available; older saves without that history cannot establish when a feature
+  was gained.
+- [x] Add the setting's listed living, regional, monster, and dead languages;
+  correct the Qualinesti and Silvanesti automatic/bonus language lists.
+- [x] Add a regional-language choice for Dragonlance humans and setting-specific
+  bonus-language lists for reused Dwarf and Gnome entries.
+- [x] Apply Magius's +2 competence bonus to Spellcraft and Decipher Script checks
+  for arcane scrolls; grant secret Druidic automatically to Druids and keep it
+  unavailable as a bonus-language choice for others.
+- [x] Model each full Speak Language rank as a separate language choice, without
+  conflating those choices with automatic, regional, or Intelligence bonus
+  languages; keep Magius unavailable because it has no spoken form.
+- [ ] As the audit finds manual rules, restrictions, or unsupported behavior,
+  add clear player-facing guidance in the relevant UI or documentation, and
+  include regression tests for source-backed mechanical corrections.
 
 See [the design notes](docs/3.0-design.md) for retained goals and unfinished work.

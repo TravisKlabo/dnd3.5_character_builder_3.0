@@ -1,5 +1,6 @@
-import type { AbilityName, Character } from "./domain";
+import { getTotalHitDice, type AbilityName, type Character } from "./domain";
 import type { StoreItem } from "./data/itemTypes";
+import { getCombatEffectAbilityModifier } from "./combatEffects";
 
 const families: { name: string; ability: AbilityName; slot: string; category: StoreItem["category"]; weight: string; bonuses: number[]; includeBonusInName?: boolean }[] = [
   { name: "Belt of Giant Strength", ability: "str", slot: "Waist", category: "Waist", weight: "1 lb.", bonuses: [2, 4, 6] },
@@ -43,12 +44,14 @@ export function getAbilityEquipmentBonus(character: Character, ability: AbilityN
 }
 
 export function getEffectiveAbilityScore(character: Character, ability: AbilityName) {
-  return character.abilities[ability] + getAbilityEquipmentBonus(character, ability).bonus;
+  return character.abilities[ability] +
+    getAbilityEquipmentBonus(character, ability).bonus +
+    getCombatEffectAbilityModifier(character, ability);
 }
 
 export function getConstitutionHitPointAdjustment(character: Character) {
   const baseModifier = Math.floor((character.abilities.con - 10) / 2);
   const effectiveModifier = Math.floor((getEffectiveAbilityScore(character, "con") - 10) / 2);
-  const hitDice = character.classLevels.reduce((total, entry) => total + entry.level, 0);
+  const hitDice = getTotalHitDice(character);
   return (effectiveModifier - baseModifier) * hitDice;
 }

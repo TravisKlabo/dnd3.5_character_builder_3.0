@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { PrintableCharacterSheet } from "../src/components/PrintableCharacterSheet";
 import { cloneCharacter, initialCharacter } from "../src/domain";
@@ -9,6 +9,8 @@ import { loadSpellCatalog } from "../src/data/spellCatalog";
 import { customStoreItemsStorageKey, loadSavedCharacter, savedCharacterSetupDraftStorageKey, savedCharacterStorageKey } from "../src/storage";
 import { parseCharacter } from "../src/validation";
 import { readStoredCharacter } from "./storageTestHelpers";
+
+beforeAll(loadSpellCatalog);
 
 function savedHero() {
   const character = cloneCharacter(initialCharacter);
@@ -19,6 +21,364 @@ function savedHero() {
 }
 
 describe("application workflows", () => {
+  it("persists Dragonlance Cleric Medallion of Faith state", async () => {
+    const character = savedHero();
+    character.ruleset = "dragonlance-user-pack";
+    character.abilities.wis = 14;
+    character.classLevels = [{ classId: "cleric", level: 7 }];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    const medallion = await screen.findByRole("checkbox", {
+      name: "Medallion of Faith present",
+    });
+    expect(screen.getByRole("alert").textContent).toContain("spell levels 4");
+
+    await user.click(medallion);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().hasMedallionOfFaith).toBe(true);
+  });
+
+  it("explains that Noble is only available as a first-level class choice", async () => {
+    const character = savedHero();
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "fighter", level: 1 }];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    render(<App />);
+    await userEvent.setup().click(
+      await screen.findByRole("button", { name: "Enter Level-Up Mode" }),
+    );
+
+    expect(
+      (await screen.findByRole("option", { name: "Noble (1st-level only)" }))
+        .hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("adds a Knight of the Crown level after confirming eligibility and sponsorship", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const character = cloneCharacter(initialCharacter);
+    character.name = "Crown Knight";
+    character.ruleset = "dragonlance-user-pack";
+    character.alignment = "Lawful Good";
+    character.classLevels = [{ classId: "fighter", level: 4 }];
+    character.skills = {
+      ...character.skills,
+      Diplomacy: 2,
+      "Knowledge (religion)": 2,
+      Ride: 2,
+    };
+    character.feats = ["Honor-bound"];
+    character.featSelections = { "general-1": "honor-bound" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    const classSelector = await screen.findByRole("combobox", { name: "Class" });
+    await user.selectOptions(classSelector, "prestige:knight-of-the-crown");
+
+    const sponsorship = screen.getByRole("checkbox", {
+      name: /Knightly Council with sponsorship/,
+    });
+    expect(screen.getByRole("button", { name: "Confirm Level-Up" }).hasAttribute("disabled"))
+      .toBe(true);
+    await user.click(sponsorship);
+    for (const skill of ["Diplomacy", "Knowledge (religion)", "Ride"]) {
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+    }
+
+    const hitPointRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    hitPointRoll.mockRestore();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().classLevels).toContainEqual({
+      classId: "fighter",
+      prestigeClassId: "knight-of-the-crown",
+      level: 1,
+    });
+  });
+
+  it("collects High Sorcery order and school choices in a prestige level-up draft", async () => {
+    const character = cloneCharacter(initialCharacter);
+    character.name = "High Sorcery Wizard";
+    character.ruleset = "dragonlance-user-pack";
+    character.alignment = "Lawful Good";
+    character.abilities.int = 14;
+    character.classLevels = [{ classId: "wizard", level: 7 }];
+    character.skills = { ...character.skills, Spellcraft: 7 };
+    character.feats = ["Spell Focus", "brew-potion", "scribe-scroll"];
+    character.featSelections = { "general-1": "spell-focus" };
+    character.featSpellSchoolSelections = { "general-1": "Abjuration" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    const classSelector = await screen.findByRole("combobox", { name: "Class" });
+    await user.selectOptions(classSelector, "prestige:wizard-of-high-sorcery");
+
+    const order = await screen.findByRole("combobox", { name: "High Sorcery order" });
+    await user.selectOptions(order, "white");
+    const specialization = screen.getByRole("combobox", {
+      name: "Specialist school",
+    });
+    await user.selectOptions(specialization, "Abjuration");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "First barred school" }),
+      "Illusion",
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Second barred school" }),
+      "Enchantment",
+    );
+
+    expect((order as HTMLSelectElement).value).toBe("white");
+    expect((specialization as HTMLSelectElement).value).toBe("Abjuration");
+    expect(screen.getByRole("combobox", { name: "Second barred school" })).toHaveProperty(
+      "value",
+      "Enchantment",
+    );
+  });
+
+  it("tracks Strength of Honor uses and its timed Strength effect", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [
+      { classId: "fighter", level: 4 },
+      { classId: "fighter", prestigeClassId: "knight-of-the-crown", level: 1 },
+    ];
+    character.abilities.cha = 14;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+
+    const user = userEvent.setup();
+    render(<App />);
+    const activate = await screen.findByRole("button", {
+      name: "Activate Strength of Honor (+4 STR)",
+    });
+    expect(activate.hasAttribute("disabled")).toBe(false);
+    await user.click(activate);
+    expect(await screen.findByText(/Strength of Honor: 0 of 1 uses remaining/))
+      .toBeDefined();
+    expect(screen.getByRole("button", {
+      name: "Activate Strength of Honor (+4 STR)",
+    }).hasAttribute("disabled")).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const saved = readStoredCharacter();
+    expect(saved.knightOfTheCrownState?.strengthOfHonorUsesUsed).toBe(1);
+    expect(saved.combatEffects).toContainEqual(expect.objectContaining({
+      name: "Strength of Honor",
+      remainingRounds: 5,
+      abilityModifiers: { str: 4 },
+    }));
+  });
+
+  it("persists the selected ruleset and keeps Dragonlance races out of SRD creation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const view = render(<App />);
+    await screen.findByRole("button", { name: "Race" });
+    const rulesetSelect = document.querySelector<HTMLSelectElement>(".ruleset-control select");
+    if (!rulesetSelect) throw new Error("Missing ruleset selector.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Race" }));
+    const raceChoices = screen.getByRole("listbox", { name: "Race choices" });
+    expect(within(raceChoices).queryByRole("option", { name: "Kender" })).toBeNull();
+
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
+    expect(within(raceChoices).getByRole("option", { name: "Kender" })).toBeDefined();
+    expect(within(raceChoices).queryByRole("option", { name: "Draconian" })).toBeNull();
+    expect(within(raceChoices).queryByRole("option", { name: "Deep Dwarf" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().ruleset).toBe("dragonlance-user-pack");
+
+    view.unmount();
+    render(<App />);
+    expect(document.querySelector<HTMLSelectElement>(".ruleset-control select")?.value)
+      .toBe("dragonlance-user-pack");
+  });
+
+  it("offers and saves the newly supported Dragonlance deities", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+    await screen.findByRole("button", { name: "Race" });
+
+    const rulesetSelect = document.querySelector<HTMLSelectElement>(".ruleset-control select");
+    if (!rulesetSelect) throw new Error("Missing ruleset selector.");
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
+    fireEvent.click(screen.getByRole("button", { name: "Deity" }));
+
+    const deityChoices = screen.getByRole("listbox", { name: "Deity choices" });
+    for (const name of ["Zivilyn", "Sirrion", "Hiddukel", "Chislev", "Shinare", "Solinari", "Lunitari"])
+      expect(within(deityChoices).getByRole("option", { name: new RegExp(name) })).toBeDefined();
+
+    fireEvent.click(within(deityChoices).getByRole("option", { name: /Chislev/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().deity).toBe("chislev");
+  });
+
+  it("offers only divine-spell deities with a matching alignment to Dragonlance clerics", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+    await screen.findByRole("button", { name: "Race" });
+
+    const rulesetSelect = document.querySelector<HTMLSelectElement>(".ruleset-control select");
+    if (!rulesetSelect) throw new Error("Missing ruleset selector.");
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
+    fireEvent.click(screen.getByRole("button", { name: "Class" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: /^Cleric/ },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Alignment" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Lawful Neutral" },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Deity" }));
+
+    const deityChoices = screen.getByRole("listbox", { name: "Deity choices" });
+    expect(within(deityChoices).getByRole("option", { name: /Chislev/ })).toBeDefined();
+    expect(within(deityChoices).getByRole("option", { name: /Shinare/ })).toBeDefined();
+    expect(within(deityChoices).queryByRole("option", { name: /Solinari/ })).toBeNull();
+    expect(within(deityChoices).queryByRole("option", { name: /Lunitari/ })).toBeNull();
+  });
+
+  it("limits Dragonlance Ranger deity choices to the patron matching moral alignment", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+    await screen.findByRole("button", { name: "Race" });
+
+    const rulesetSelect = document.querySelector<HTMLSelectElement>(".ruleset-control select");
+    if (!rulesetSelect) throw new Error("Missing ruleset selector.");
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
+    fireEvent.click(screen.getByRole("button", { name: "Class" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: /^Ranger/ },
+      ),
+    );
+    const creatureType = screen.getByRole("combobox", {
+      name: "Ranger level 1 creature type",
+    });
+    expect(within(creatureType).getByRole("option", { name: "Humanoid" })).toBeDefined();
+    fireEvent.change(creatureType, { target: { value: "Humanoid" } });
+    expect(screen.getByRole("textbox", {
+      name: "Ranger level 1 associated subtype",
+    })).toBeDefined();
+    const enemyType = screen.getByRole("combobox", {
+      name: "Ranger level 1 enemy type",
+    });
+    expect(within(enemyType).getByRole("option", {
+      name: "Organization (Dragonlance)",
+    })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Alignment" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Lawful Good" },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Deity" }));
+
+    const deityChoices = screen.getByRole("listbox", { name: "Deity choices" });
+    expect(within(deityChoices).getByRole("option", { name: /Habbakuk/ })).toBeDefined();
+    expect(within(deityChoices).queryByRole("option", { name: /Chislev/ })).toBeNull();
+    expect(within(deityChoices).queryByRole("option", { name: /Zeboim/ })).toBeNull();
+  });
+
+  it("limits Dragonlance Druid deity choices to the patron matching moral alignment", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+    await screen.findByRole("button", { name: "Race" });
+
+    const rulesetSelect = document.querySelector<HTMLSelectElement>(".ruleset-control select");
+    if (!rulesetSelect) throw new Error("Missing ruleset selector.");
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
+    fireEvent.click(screen.getByRole("button", { name: "Class" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
+        "option",
+        { name: /^Druid/ },
+      ),
+    );
+    await screen.findByRole("button", { name: "Alignment" });
+    fireEvent.click(screen.getByRole("button", { name: "Alignment" }));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Alignment choices" })).getByRole(
+        "option",
+        { name: "Neutral Good" },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Deity" }));
+
+    const deityChoices = screen.getByRole("listbox", { name: "Deity choices" });
+    expect(within(deityChoices).getByRole("option", { name: /Habbakuk/ })).toBeDefined();
+    expect(within(deityChoices).queryByRole("option", { name: /Chislev/ })).toBeNull();
+    expect(within(deityChoices).queryByRole("option", { name: /Zeboim/ })).toBeNull();
+  });
+
+  it("lets a Dragonlance Druid set a missing nature patron during level-up", async () => {
+    const character = cloneCharacter(initialCharacter);
+    character.name = "Druid Patron";
+    character.ruleset = "dragonlance-user-pack";
+    character.alignment = "Neutral Good";
+    character.deity = undefined;
+    character.classLevels = [{ classId: "druid", level: 1 }];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    window.localStorage.removeItem(savedCharacterSetupDraftStorageKey);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "druid");
+
+    const patron = screen.getByRole("combobox", { name: "Nature patron" });
+    await user.selectOptions(patron, "habbakuk");
+    expect((patron as HTMLSelectElement).value).toBe("habbakuk");
+  });
+
+  it("requires and saves a domain choice for a new Dragonlance Mystic", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(<App />);
+    await screen.findByRole("button", { name: "Race" });
+
+    const rulesetSelect = document.querySelector<HTMLSelectElement>(".ruleset-control select");
+    const classTrigger = document.querySelector<HTMLButtonElement>(".class-field .race-trigger");
+    if (!rulesetSelect || !classTrigger) throw new Error("Missing character setup controls.");
+    fireEvent.change(rulesetSelect, { target: { value: "dragonlance-user-pack" } });
+    fireEvent.click(classTrigger);
+    const classChoices = screen.getByRole("listbox", { name: "Class choices" });
+    fireEvent.change(within(classChoices).getByRole("textbox", { name: "Search classes" }), {
+      target: { value: "Mystic" },
+    });
+    fireEvent.click(within(classChoices).getByRole("option", { name: /Mystic/ }));
+
+    const domainSelect = await screen.findByRole<HTMLSelectElement>("combobox", { name: "Mystic domain" });
+    expect(domainSelect.value).toBe("");
+    fireEvent.change(domainSelect, { target: { value: "animal" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter()).toMatchObject({
+      ruleset: "dragonlance-user-pack",
+      classLevels: [{ classId: "mystic" }],
+      mysticDomain: "animal",
+    });
+  });
+
   it("shows catalog sources for selected class and prestige class", () => {
     const character = savedHero();
     character.prestigeClass = "arcane-trickster";
@@ -171,7 +531,8 @@ describe("application workflows", () => {
     expect(combatNotes?.textContent).toContain("Wounds / Current HP");
     expect(combatNotes?.textContent).toContain("Nonlethal Damage");
     expect(combatNotes?.textContent).toContain("Temporary HP");
-    expect(screen.getByText("Print Regression")).toBeDefined();
+    expect(pageOne.querySelector(".reference-identity")?.textContent)
+      .toContain("Print Regression");
     expect(screen.getByText("Longsword", { exact: false })).toBeDefined();
     expect(pageOne.querySelector(".reference-attack-table thead th:last-child")?.textContent)
       .toBe("Range / Reach");
@@ -241,8 +602,8 @@ describe("application workflows", () => {
     const handwrittenSwitch = screen.getByRole("switch", { name: "Handwritten" });
     expect(handwrittenSwitch.getAttribute("aria-checked")).toBe("true");
     expect(document.querySelector(".print-sheet-view")?.classList.contains("print-handwritten")).toBe(true);
-    expect(screen.getByText("Print Regression").closest(".print-field-value")).not.toBeNull();
-    expect(screen.getByText("Character Name").closest(".print-field-value")).toBeNull();
+    expect(within(pageOne).getByText("Print Regression").closest(".print-field-value")).not.toBeNull();
+    expect(within(pageOne).getByText("Character Name").closest(".print-field-value")).toBeNull();
     await user.click(handwrittenSwitch);
     expect(handwrittenSwitch.getAttribute("aria-checked")).toBe("false");
     expect(document.querySelector(".print-sheet-view")?.classList.contains("print-handwritten")).toBe(false);
@@ -252,19 +613,99 @@ describe("application workflows", () => {
     expect(within(screen.getByRole("region", { name: "Character record sheet, page 1" }))
       .getByText("Hit Points").closest(".print-field")?.querySelector(".print-field-value")?.textContent)
       .toMatch(/^\d+$/);
-    expect(document.querySelectorAll(".reference-sheet-page")).toHaveLength(2);
+    await screen.findAllByRole("region", { name: /^Spell record/ });
+    expect(document.querySelectorAll(".reference-page-one, .reference-page-two")).toHaveLength(2);
+    expect(document.querySelectorAll(".spell-form-page")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Print / Save as PDF" })).toBeDefined();
   });
 
   it("shows known-spell limits for spontaneous casters on the printable sheet", () => {
     const character = savedHero();
     character.classLevels = [{ classId: "sorcerer", level: 1 }];
+    character.abilities.cha = 11;
     render(<PrintableCharacterSheet character={character} />);
 
     const knownSpellValues = [...document.querySelectorAll(".reference-spell-tracker tbody tr td:first-child .reference-spell-tracker-box")]
       .map((box) => box.textContent?.trim());
     expect(knownSpellValues.slice(0, 2)).toEqual(["4", "2"]);
     expect(knownSpellValues.slice(2).every((value) => !value)).toBe(true);
+  });
+
+  it("prints elemental weapon damage separately from physical damage", () => {
+    const character = savedHero();
+    character.equipment = {
+      ...character.equipment,
+      "Main Weapon": "Flaming Frost Shock Keen +5 Longsword (Medium)",
+    };
+    render(<PrintableCharacterSheet character={character} />);
+
+    const mainWeaponRow = document.querySelector(".reference-attack-table tbody tr");
+    expect(mainWeaponRow?.querySelector(".reference-attack-damage-value")?.textContent)
+      .toBe("1d8+5");
+    expect(mainWeaponRow?.querySelector(".reference-attack-damage-type")?.textContent)
+      .toBe("slashing");
+    expect(mainWeaponRow?.querySelector(".reference-attack-enchantment-damage")?.textContent)
+      .toBe("Flaming: 1d6 fire damage · Frost: 1d6 cold damage · Shock: 1d6 electricity damage");
+    expect(mainWeaponRow?.textContent).toContain("17–20/x2");
+  });
+
+  it("prints Arrow Catching's ranged weapon AC", () => {
+    const character = savedHero();
+    character.equipment = {
+      ...character.equipment,
+      Shield: "Arrow Catching +1 Heavy Steel Shield (Medium)",
+    };
+    render(<PrintableCharacterSheet character={character} />);
+
+    const rangedAc = [...document.querySelectorAll(".reference-ac-components .print-field")]
+      .find((field) => field.querySelector(".print-field-label")?.textContent === "Ranged AC");
+    expect(rangedAc?.querySelector(".print-field-value")?.textContent).toBe("14");
+  });
+
+  it("paginates spell details by whole levels with prepared states", async () => {
+    await loadSpellCatalog();
+    const character = savedHero();
+    character.classLevels = [
+      { classId: "wizard", level: 5 },
+      { classId: "cleric", level: 3 },
+    ];
+    character.knownSpellsByClass = { wizard: ["Fireball", "Detect Magic"] };
+    character.preparedSpellsByClass = { cleric: ["Cure Light Wounds"] };
+    render(<PrintableCharacterSheet character={character} />);
+
+    const wizardPage = screen.getByRole("region", {
+      name: "Spell record, Wizard, levels 0 to 3",
+    });
+    const clericPage = screen.getByRole("region", {
+      name: "Spell record, Cleric, levels 0 to 2",
+    });
+    expect(within(wizardPage).getByText("Fireball")).toBeDefined();
+    const detectMagicRow = within(wizardPage).getByText("Detect Magic").closest("tr");
+    expect(detectMagicRow?.querySelector(".print-spell-concentration")?.textContent)
+      .toBe("*");
+    expect(detectMagicRow?.cells[8].textContent).toBe("up to 1 min./level (D)");
+    expect(detectMagicRow?.cells[8].textContent).not.toContain("Concentration");
+    expect(detectMagicRow?.closest("table")?.querySelector("colgroup col:nth-child(4)")?.getAttribute("style"))
+      .toBe("width: 4%;");
+    expect(detectMagicRow?.closest("table")?.querySelector("colgroup col:nth-child(10)")?.getAttribute("style"))
+      .toBe("width: 3.3%;");
+    expect(within(wizardPage).getByText("Long (400 ft. + 40 ft./level)")).toBeDefined();
+    expect(within(wizardPage).getAllByText("Std. action").length).toBeGreaterThan(0);
+    expect(within(wizardPage).getByText(/^0: \d+ · 1: \d+ · 2: \d+ · 3: \d+$/)).toBeDefined();
+    expect(within(clericPage).getByText("Cure Light Wounds")).toBeDefined();
+    const cureLightWoundsRow = within(clericPage).getByText("Cure Light Wounds").closest("tr");
+    const cureLightWoundsTable = cureLightWoundsRow?.closest("table");
+    expect(cureLightWoundsTable?.querySelector("thead th:first-child")?.textContent)
+      .toBe("Qty.");
+    expect(cureLightWoundsTable?.querySelector("thead th:last-child")?.textContent)
+      .toBe("Sch.");
+    expect(cureLightWoundsTable?.querySelectorAll("thead th")).toHaveLength(10);
+    expect(cureLightWoundsRow?.querySelector(".spell-quantity-cell")?.textContent).toBe("");
+    expect(cureLightWoundsRow?.querySelector(".spell-prepared-box")).toBeNull();
+    expect(document.querySelectorAll(".spell-form-page")).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: "Print / Save as PDF" }).getAttribute("disabled"),
+    ).toBeNull();
   });
 
   it("shows positive skill modifiers without plus signs and keeps negative signs", () => {
@@ -316,6 +757,71 @@ describe("application workflows", () => {
       .toBe("Saved Setup Draft");
     expect(screen.getByRole("button", { name: "Finalize Character" }).hasAttribute("disabled"))
       .toBe(true);
+  });
+
+  it("lets Dragonlance humans select a regional language independently", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+    await screen.findAllByRole("textbox", { name: "Character name" });
+
+    await user.selectOptions(
+      screen.getByDisplayValue("Core 3.5 SRD"),
+      "dragonlance-user-pack",
+    );
+
+    const regionalLanguageLabel = screen.getAllByText("Regional language")[0]
+      .closest("label");
+    expect(regionalLanguageLabel).not.toBeNull();
+    await user.click(
+      within(regionalLanguageLabel!).getByRole("button"),
+    );
+    await user.click(
+      within(regionalLanguageLabel!).getByRole("option", {
+        name: "Icespeak",
+      }),
+    );
+
+    expect(screen.getAllByText("Icespeak").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Common, Icespeak/).length).toBeGreaterThan(0);
+  });
+
+  it("lets a full Speak Language rank learn a separate language during creation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findAllByRole("textbox", { name: "Character name" });
+
+    const addFullRank = screen.queryByRole("button", {
+      name: "Add rank to Speak Language",
+    });
+    if (addFullRank) {
+      await user.click(addFullRank);
+    } else {
+      const addHalfRank = screen.getByRole("button", {
+        name: "Add half rank to Speak Language",
+      });
+      await user.click(addHalfRank);
+      await user.click(
+        screen.getByRole("button", { name: "Add half rank to Speak Language" }),
+      );
+    }
+
+    const creationPanel = document.querySelector<HTMLElement>(".creation-panel");
+    if (!creationPanel) throw new Error("Missing character creation panel.");
+    const languageLabel = await within(creationPanel).findByText("Speak Language rank 1");
+    const languageControl = languageLabel.closest("label");
+    if (!languageControl) throw new Error("Missing Speak Language selector.");
+    await user.click(within(languageControl).getByRole("button"));
+    await user.click(
+      within(languageControl!).getByRole("option", { name: "Elven" }),
+    );
+
+    const displayedLanguages = Array.from(
+      document.querySelectorAll<HTMLElement>(".languages-panel .language-chip"),
+      (language) => language.textContent,
+    );
+    expect(displayedLanguages).toEqual(expect.arrayContaining(["Common", "Elven"]));
+    expect(screen.queryByText("Select at least one starting language.")).toBeNull();
   });
 
   it("round-trips unfinished setup state through character export and import", async () => {
@@ -458,7 +964,7 @@ describe("application workflows", () => {
     expect(finalize.hasAttribute("disabled")).toBe(false);
     await user.click(finalize);
     expect(screen.getByRole("heading", { name: "Audit Fighter (Audit Player)" })).toBeDefined();
-    expect(screen.getByText("12 / 12", { exact: true })).toBeDefined();
+    expect(screen.getByText("15 / 15", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (16/16)", { exact: true })).toBeDefined();
     expect(screen.getByText("Attack +2", { exact: true })).toBeDefined();
 
@@ -472,13 +978,35 @@ describe("application workflows", () => {
       );
     }
     await chooseFeat("Fighter bonus feat (fighter level 2)", "Cleave");
-    const random = vi.spyOn(Math, "random").mockReturnValue(0.999999);
+    await user.selectOptions(screen.getByLabelText("HP roll method"), "manual");
+    const hitDieResult = screen.getByRole<HTMLInputElement>("spinbutton", {
+      name: "Hit die result",
+    });
+    expect(hitDieResult.min).toBe("1");
+    expect(hitDieResult.max).toBe("10");
+    const confirmLevelUp = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Confirm Level-Up",
+    });
+    fireEvent.change(hitDieResult, { target: { value: "11" } });
+    expect(hitDieResult.getAttribute("aria-invalid")).toBe("true");
+    expect(confirmLevelUp.disabled).toBe(true);
+    fireEvent.change(hitDieResult, { target: { value: "0" } });
+    expect(hitDieResult.getAttribute("aria-invalid")).toBe("true");
+    expect(confirmLevelUp.disabled).toBe(true);
+    fireEvent.change(hitDieResult, { target: { value: "6" } });
+    expect(hitDieResult.getAttribute("aria-invalid")).toBe("false");
+    expect(confirmLevelUp.disabled).toBe(false);
+    expect(screen.getByText("Calculated HP increase: +8")).toBeDefined();
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
-    random.mockRestore();
 
-    expect(screen.getByText("24 / 24", { exact: true })).toBeDefined();
+    expect(screen.getByText("23 / 23", { exact: true })).toBeDefined();
     expect(screen.getByText("Attack +3", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (20/20)", { exact: true })).toBeDefined();
+    await user.click(screen.getByText("HP gains by level"));
+    const hpHistory = screen.getByRole("table", { name: "HP gained by level" });
+    expect(hpHistory.textContent).toContain("10/10");
+    expect(hpHistory.textContent).toContain("6/10");
+    expect(hpHistory.textContent).toContain("+8");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(alert).toHaveBeenCalledWith("Character saved.");
     const saved = readStoredCharacter();
@@ -488,7 +1016,29 @@ describe("application workflows", () => {
       race: "Human",
       abilities: { str: 13, con: 14, int: 12 },
       classLevels: [{ classId: "fighter", level: 2 }],
-      hitPoints: 24,
+      hitPoints: 20,
+      hitPointRolls: [
+        { characterLevel: 1, classId: "fighter", classLevel: 1, hitDie: 10, roll: 10, hpIncrease: 15 },
+        { characterLevel: 2, classId: "fighter", classLevel: 2, hitDie: 10, roll: 6, hpIncrease: 8 },
+      ],
+      skillRanksByLevel: {
+        "1": {
+          Climb: 4,
+          Craft: 4,
+          "Handle Animal": 4,
+          Intimidate: 4,
+        },
+        "2": {
+          Climb: 5,
+          Craft: 5,
+          "Handle Animal": 5,
+          Intimidate: 5,
+        },
+      },
+      baseAttackBonusByLevel: {
+        "1": 1,
+        "2": 2,
+      },
       featSelections: {
         "general-1": "toughness",
         "human-1": "improved-initiative",
@@ -536,7 +1086,11 @@ describe("application workflows", () => {
       readStoredCharacter(),
     ).toMatchObject({
       classLevels: [{ classId: "fighter", level: 2 }],
-      hitPoints: 24,
+      hitPoints: 20,
+      hitPointRolls: [
+        { characterLevel: 1, classId: "fighter", classLevel: 1, hitDie: 10, roll: 10, hpIncrease: 15 },
+        { characterLevel: 2, classId: "fighter", classLevel: 2, hitDie: 10, roll: 6, hpIncrease: 8 },
+      ],
       skills: { Climb: 5, Craft: 5, "Handle Animal": 5, Intimidate: 5 },
     });
     importedView.unmount();
@@ -600,7 +1154,7 @@ describe("application workflows", () => {
     const thirdLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
     thirdLevelRoll.mockRestore();
-    expect(screen.getByText("33 / 33", { exact: true })).toBeDefined();
+    expect(screen.getByText("36 / 36", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (24/24)", { exact: true })).toBeDefined();
 
     await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
@@ -617,7 +1171,7 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
     fourthLevelRoll.mockRestore();
 
-    expect(screen.getByText("48 / 48", { exact: true })).toBeDefined();
+    expect(screen.getByText("51 / 51", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (28/28)", { exact: true })).toBeDefined();
     const constitution = screen.getByText("CON").parentElement;
     if (!constitution) throw new Error("Missing Constitution score summary.");
@@ -635,6 +1189,7 @@ describe("application workflows", () => {
       player: "Milestone Player",
       classLevels: [{ classId: "fighter", level: 4 }],
       abilities: { str: 13, con: 14, int: 12 },
+      abilityScoreIncreasesByLevel: { 4: "con" },
       hitPoints: 48,
       feats: ["toughness", "endurance", "improved-initiative", "power-attack", "cleave", "blind-fight"],
       featSelections: {
@@ -652,7 +1207,6 @@ describe("application workflows", () => {
         Intimidate: 7,
       },
     });
-
     let exportedBlob: Blob | undefined;
     class TestURL extends URL {
       static createObjectURL(blob: Blob) {
@@ -698,7 +1252,7 @@ describe("application workflows", () => {
     expect(await screen.findByRole("heading", {
       name: "Milestone Fighter (Milestone Player)",
     })).toBeDefined();
-    expect(screen.getByText("48 / 48", { exact: true })).toBeDefined();
+    expect(screen.getByText("51 / 51", { exact: true })).toBeDefined();
     expect(alert).toHaveBeenLastCalledWith("Character imported.");
     importedView.unmount();
   });
@@ -792,7 +1346,7 @@ describe("application workflows", () => {
     const thirdLevelRoll = vi.spyOn(Math, "random").mockReturnValue(0.999999);
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
     thirdLevelRoll.mockRestore();
-    expect(screen.getByText("33 / 33", { exact: true })).toBeDefined();
+    expect(screen.getByText("36 / 36", { exact: true })).toBeDefined();
 
     await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "paladin");
@@ -818,7 +1372,7 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
     fourthLevelRoll.mockRestore();
 
-    expect(screen.getByText("44 / 44", { exact: true })).toBeDefined();
+    expect(screen.getByText("47 / 47", { exact: true })).toBeDefined();
     const strength = screen.getByText("STR").parentElement;
     if (!strength) throw new Error("Missing Strength score summary.");
     expect(within(strength).getByText("14", { exact: true })).toBeDefined();
@@ -915,7 +1469,7 @@ describe("application workflows", () => {
     await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
     random.mockRestore();
 
-    expect(screen.getByText("20 / 20", { exact: true })).toBeDefined();
+    expect(screen.getByText("23 / 23", { exact: true })).toBeDefined();
     expect(screen.getByText("Attack +2", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (26/26)", { exact: true })).toBeDefined();
     const reflex = screen.getByText("Reflex", { selector: ".stat > small" }).parentElement;
@@ -993,7 +1547,7 @@ describe("application workflows", () => {
     Object.defineProperty(file, "text", { value: async () => exportedJson });
     fireEvent.change(input, { target: { files: [file] } });
     expect(await screen.findByRole("heading", { name: "Multiclass Hero (Player)" })).toBeDefined();
-    expect(screen.getByText("20 / 20", { exact: true })).toBeDefined();
+    expect(screen.getByText("23 / 23", { exact: true })).toBeDefined();
     expect(screen.getByText("Skills (26/26)", { exact: true })).toBeDefined();
     expect(alert).toHaveBeenLastCalledWith("Character imported.");
     importedView.unmount();
@@ -1147,6 +1701,12 @@ describe("application workflows", () => {
     const user = userEvent.setup();
     const original = savedHero();
     original.classLevels = [{ classId: "ranger", level: 1 }];
+    original.rangerFavoredEnemies = [{
+      classLevel: 1,
+      kind: "creature",
+      target: "Dragon",
+      bonusTargetLevel: 1,
+    }];
     original.hitPoints = 8;
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
     const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -1194,6 +1754,41 @@ describe("application workflows", () => {
       featSelections: { "ranger-style-2": "rapid-shot" },
     });
     expect(alert).toHaveBeenLastCalledWith("Character saved.");
+  });
+
+  it("records the new Ranger favored enemy and bonus increase at level five", async () => {
+    const user = userEvent.setup();
+    const original = savedHero();
+    original.classLevels = [{ classId: "ranger", level: 4 }];
+    original.rangerFavoredEnemies = [{
+      classLevel: 1,
+      kind: "creature",
+      target: "Dragon",
+      bonusTargetLevel: 1,
+    }];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Character sheets" });
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "ranger");
+
+    const banner = document.querySelector<HTMLElement>(".level-banner");
+    if (!banner) throw new Error("Missing level-up controls.");
+    const levelUp = within(banner);
+    await user.selectOptions(
+      levelUp.getByRole("combobox", { name: "Ranger level 5 creature type" }),
+      "Aberration",
+    );
+    await user.selectOptions(
+      levelUp.getByRole("combobox", {
+        name: "Ranger level 5 bonus increase target",
+      }),
+      "1",
+    );
+
+    expect(
+      levelUp.queryByText("Choose a favored enemy at level 5."),
+    ).toBeNull();
   });
 
   it("warns when Ranger combat-style benefits are disabled by medium armor", async () => {

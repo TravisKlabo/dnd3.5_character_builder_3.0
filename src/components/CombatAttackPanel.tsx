@@ -150,6 +150,14 @@ export function CombatAttackPanel({
                   {formatModifier(stats.rapidShotPenalty)} Rapid Shot
                 </span>}
                 <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
+                {stats.sneakAttackDamage && (
+                  <span className="combat-note" title={stats.sneakAttackNote}>
+                    Potential Sneak Attack +{stats.sneakAttackDamage} (conditional; not included in Damage)
+                  </span>
+                )}
+                {stats.sneakAttackWarning && (
+                  <span className="combat-warning" role="status">{stats.sneakAttackWarning}</span>
+                )}
                 {stats.powerAttackDamageBonus > 0 && <span>
                   +{stats.powerAttackDamageBonus} Power Attack damage
                 </span>}

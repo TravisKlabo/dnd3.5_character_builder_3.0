@@ -7,6 +7,22 @@ import { type StoreCategory, type StoreItem } from "./itemTypes";
 export type { StoreCategory, StoreItem } from "./itemTypes";
 
 export const storeItems: StoreItem[] = [
+  {
+    name: "Unarmed Strike",
+    category: "Weapons",
+    price: 0,
+    weight: "—",
+    damage: "1d3",
+    damageSmall: "1d2",
+    damageMedium: "1d3",
+    damageLarge: "1d4",
+    damageType: "bludgeoning",
+    critical: "x2",
+    proficiency: "Simple",
+    handedness: "Light",
+    finesse: true,
+    description: "Unarmed strikes deal nonlethal damage by default; lethal damage and its attack penalty are resolved manually.",
+  },
   { name: "Longsword", category: "Weapons", price: 15, weight: "4 lb." },
   { name: "Rapier", category: "Weapons", price: 20, weight: "2 lb." },
   { name: "Dagger", category: "Weapons", price: 2, weight: "1 lb." },
@@ -112,6 +128,7 @@ storeItems.push(
   { name: "Halberd", category: "Weapons", price: 10, weight: "12 lb." },
   { name: "Guisarme", category: "Weapons", price: 9, weight: "12 lb." },
   { name: "Lance", category: "Weapons", price: 10, weight: "10 lb." },
+  { name: "Longspear", category: "Weapons", price: 5, weight: "9 lb." },
   { name: "Spear", category: "Weapons", price: 2, weight: "6 lb." },
   { name: "Heavy Crossbow", category: "Weapons", price: 50, weight: "8 lb." },
   { name: "Light Crossbow", category: "Weapons", price: 35, weight: "4 lb." },
@@ -145,9 +162,9 @@ storeItems.push(
   { name: "Masterwork Breastplate", category: "Armor", price: 350, weight: "30 lb." },
   { name: "Masterwork Full Plate", category: "Armor", price: 1650, weight: "50 lb." },
   { name: "Masterwork Heavy Steel Shield", category: "Shields", price: 170, weight: "15 lb." },
-  { name: "Cold Iron Longsword", category: "Weapons", price: 315, weight: "4 lb.", material: "cold-iron" },
+  { name: "Cold Iron Longsword", category: "Weapons", price: 30, weight: "4 lb.", material: "cold-iron" },
   { name: "Silver Dagger", category: "Weapons", price: 22, weight: "1 lb.", material: "alchemical-silver" },
-  { name: "Mithral Longsword", category: "Weapons", price: 1015, weight: "4 lb." },
+  { name: "Mithral Longsword", category: "Weapons", price: 2015, weight: "2 lb." },
   { name: "Ring of Feather Falling", category: "Rings", price: 2200, weight: "—", description: "You always fall as though from 60 feet or less." },
   { name: "Ring of Energy Resistance (Minor)", category: "Rings", price: 12000, weight: "—", description: "Resists 10 points of one energy type chosen when the ring is created." },
   { name: "Ring of Chameleon Power", category: "Rings", price: 12700, weight: "—", description: "Grants +10 competence on Hide checks and allows disguise self at will." },
@@ -328,6 +345,7 @@ export const weaponProfiles: Record<string, WeaponProfile> = {
   Glaive: { damage: "1d10", crit: "x3" },
   Halberd: { damage: "1d10", crit: "x3" },
   Guisarme: { damage: "2d4", crit: "x3" },
+  Longspear: { damage: "1d8", crit: "x3" },
   "Spiked Chain": { damage: "2d4", crit: "x2" },
   Falchion: { damage: "2d4", crit: "18–20/x2" },
   Lance: { damage: "1d8", crit: "x3" },
@@ -384,6 +402,7 @@ export const weaponDamageTypes: Record<string, string> = {
   "Light Mace": "bludgeoning",
   "Light Hammer": "bludgeoning",
   Spear: "piercing",
+  Longspear: "piercing",
   Glaive: "slashing",
   Halberd: "slashing",
   Guisarme: "slashing",
@@ -1013,7 +1032,7 @@ storeItems.push(
   { name: "Light Steel Shield with Spikes", category: "Shields", price: 19, weight: "11 lb.", shieldBonus: 1, shieldCheckPenalty: -1, shieldSpellFailure: 5, shieldType: "Light" },
   { name: "Heavy Steel Shield with Spikes", category: "Shields", price: 30, weight: "20 lb.", shieldBonus: 2, shieldCheckPenalty: -2, shieldSpellFailure: 15, shieldType: "Heavy" },
   { name: "Ring of Counterspells", category: "Rings", price: 4000, weight: "—" },
-  { name: "Ring of Force Shield", category: "Rings", price: 8500, weight: "—" },
+  { name: "Ring of Force Shield", category: "Rings", price: 8500, weight: "—", description: "When active, grants a +2 shield bonus to AC as a heavy shield." },
   { name: "Ring of Ram", category: "Rings", price: 8600, weight: "—" },
   { name: "Ring of Energy Resistance (Major)", category: "Rings", price: 28000, weight: "—", description: "Resists 20 points of one energy type chosen when the ring is created." },
   { name: "Ring of Protection +2", category: "Rings", price: 8000, weight: "—" },
@@ -1029,21 +1048,21 @@ storeItems.push(
   { name: "Necklace of Fireballs V", category: "Body & Wondrous Items", price: 5850, weight: "—", description: "Its detachable beads can be thrown to create fireball effects; it does not occupy a neck slot." },
   { name: "Necklace of Fireballs VI", category: "Body & Wondrous Items", price: 8100, weight: "—", description: "Its detachable beads can be thrown to create fireball effects; it does not occupy a neck slot." },
   { name: "Necklace of Fireballs VII", category: "Body & Wondrous Items", price: 8700, weight: "—", description: "Its detachable beads can be thrown to create fireball effects; it does not occupy a neck slot." },
-  { name: "Robe of the Archmagi", category: "Body", price: 75000, weight: "1 lb.", description: "For arcane spellcasters: +5 armor bonus to AC, spell resistance 18, +4 on saves, and +2 caster-level checks to overcome spell resistance; alignment restrictions apply." },
+  { name: "Robe of the Archmagi", category: "Body", price: 75000, weight: "1 lb.", description: "For arcane spellcasters: +5 armor bonus to AC, spell resistance 18, +4 resistance bonus on saving throws, and +2 caster-level checks to overcome spell resistance; alignment restrictions apply." },
   { name: "Robe of Blending", category: "Body", price: 30000, weight: "1 lb.", description: "+10 competence bonus on Hide checks and at-will disguise self." },
   { name: "Robe of Bones", category: "Body", price: 2400, weight: "1 lb.", description: "Embroidered patches can be detached to create undead, which are not initially under the wearer's control." },
   { name: "Robe of Eyes", category: "Body", price: 120000, weight: "1 lb.", description: "Grants all-around vision, 120-foot darkvision, and bonuses to Search and Spot; also reveals invisible and ethereal creatures." },
   { name: "Robe of Scintillating Colors", category: "Body", price: 27000, weight: "1 lb.", description: "Creates a dazzling gaze effect, increasing concealment and shedding light for up to 10 rounds per day." },
-  { name: "Robe of Stars", category: "Body", price: 58000, weight: "1 lb.", description: "Allows travel to the Astral Plane, grants +1 on saves, and provides six +5 shuriken." },
+  { name: "Robe of Stars", category: "Body", price: 58000, weight: "1 lb.", description: "Grants a +1 luck bonus on saving throws, allows travel to the Astral Plane, and provides six +5 shuriken." },
   { name: "Robe of Useful Items", category: "Body", price: 7000, weight: "1 lb.", description: "Detachable cloth patches transform into useful items." },
   { name: "Vest of Escape", category: "Torso", price: 5200, weight: "—", description: "+4 competence bonus on Open Lock checks and +6 on Escape Artist checks." },
   { name: "Vestment, Druid's", category: "Torso", price: 10000, weight: "—", description: "Grants one additional daily use of wild shape to a wearer with that ability." },
-  { name: "Stone of Good Luck", category: "Body & Wondrous Items", price: 20000, weight: "—" },
+  { name: "Stone of Good Luck", category: "Body & Wondrous Items", price: 20000, weight: "—", description: "Grants a +1 luck bonus on saving throws, ability checks, and skill checks." },
   { name: "Sling Bullets (10)", category: "Ammunition", price: 0.1, weight: "5 lb." },
   { name: "Masterwork Bolts (10)", category: "Ammunition", price: 51, weight: "1 lb." },
-  { name: "Silver Arrows (20)", category: "Ammunition", price: 22, weight: "3 lb.", material: "alchemical-silver" },
-  { name: "Silver Bolts (10)", category: "Ammunition", price: 11, weight: "1 lb.", material: "alchemical-silver" },
-  { name: "Cold Iron Bolts (10)", category: "Ammunition", price: 1, weight: "1 lb.", material: "cold-iron" },
+  { name: "Silver Arrows (20)", category: "Ammunition", price: 41, weight: "3 lb.", material: "alchemical-silver" },
+  { name: "Silver Bolts (10)", category: "Ammunition", price: 21, weight: "1 lb.", material: "alchemical-silver" },
+  { name: "Cold Iron Bolts (10)", category: "Ammunition", price: 2, weight: "1 lb.", material: "cold-iron" },
   { name: "Darts (10)", category: "Ammunition", price: 0.5, weight: "5 lb." },
   { name: "Blowgun Needles (10)", category: "Ammunition", price: 1, weight: "—" },
   { name: "Masterwork Sling Bullets (10)", category: "Ammunition", price: 30.1, weight: "5 lb." },
@@ -1083,10 +1102,16 @@ storeItems.push(
   { name: "Winter Blanket", category: "Adventuring Gear", price: 0.5, weight: "3 lb." },
 );
 
-type CatalogItemRow = readonly [name: string, price: number, weight: string];
+type CatalogItemRow = readonly [name: string, price: number, weight: string, description?: string];
 
 function makeCatalogItems(category: StoreCategory, rows: readonly CatalogItemRow[]): StoreItem[] {
-  return rows.map(([name, price, weight]) => ({ name, category, price, weight }));
+  return rows.map(([name, price, weight, description]) => ({
+    name,
+    category,
+    price,
+    weight,
+    ...(description ? { description } : {}),
+  }));
 }
 
 const srdSlotlessWondrousItems = makeCatalogItems("Body & Wondrous Items", [
@@ -1134,7 +1159,7 @@ const srdSlotlessWondrousItems = makeCatalogItems("Body & Wondrous Items", [
     ["Manual of Golems, Greater Stone", 44000, "5 lb."],
     ["Instant Fortress", 55000, "—"],
     ["Ioun Stone, Clear Spindle", 4000, "—"],
-    ["Ioun Stone, Dusty Rose Prism", 5000, "—"],
+    ["Ioun Stone, Dusty Rose Prism", 5000, "—", "Grants a +1 insight bonus to AC while orbiting your head."],
     ["Ioun Stone, Deep Red Sphere", 8000, "—"],
     ["Ioun Stone, Incandescent Blue Sphere", 8000, "—"],
     ["Ioun Stone, Pale Blue Rhomboid", 8000, "—"],
@@ -1276,16 +1301,16 @@ export const forgeWeaponProperties = [
 ];
 
 export const forgeArmorProperties = [
-  { name: "Fortification", bonus: 1, description: "50% chance to ignore extra damage from critical hits and sneak attacks." },
-  { name: "Glamered", bonus: 0, flatCost: 4000, description: "Allows the armor to appear as normal clothing." },
-  { name: "Slick", bonus: 0, flatCost: 3750, description: "Slick armor helps the wearer escape grapples." },
+  { name: "Fortification", bonus: 1, description: "Light fortification: 25% chance to negate extra damage from critical hits and sneak attacks." },
+  { name: "Glamered", bonus: 0, flatCost: 2700, description: "On command, the armor appears as ordinary clothing or other garb without changing its properties or weight." },
+  { name: "Slick", bonus: 0, flatCost: 3750, description: "+5 competence bonus on Escape Artist checks; the armor check penalty still applies." },
 ];
 
 export const forgeShieldProperties = [
-  { name: "Arrow Catching", bonus: 1, description: "+1 AC against ranged attacks." },
-  { name: "Bashing", bonus: 1, description: "Deals damage as though two size categories larger." },
-  { name: "Blinding", bonus: 1, description: "Can blind an opponent once per day." },
-  { name: "Animated", bonus: 2, description: "Can defend the wielder without being held." },
+  { name: "Arrow Catching", bonus: 1, description: "+1 deflection AC against ranged weapons; projectile/thrown attacks aimed at a creature within 5 ft. redirect to the wielder unless the wielder has total cover." },
+  { name: "Bashing", bonus: 1, description: "Deals damage as though two size categories larger and acts as a +1 weapon when bashing." },
+  { name: "Blinding", bonus: 1, description: "Twice per day, creatures within 20 ft. must make a DC 14 Reflex save or be blinded for 1d4 rounds." },
+  { name: "Animated", bonus: 2, description: "Floats within 2 feet when activated as a standard action, freeing both hands while retaining shield penalties." },
 ];
 
 let revision = 0;

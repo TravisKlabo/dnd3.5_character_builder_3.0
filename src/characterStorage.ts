@@ -29,13 +29,7 @@ export function loadSavedCharacter(): {
     }
     const character = parseCharacter(versioned ? data[1] : data);
     return {
-      character: {
-        ...character,
-        classLevels: character.classLevels.filter(
-          (level) =>
-            !("prestigeClassId" in level && level.prestigeClassId === "wizard-of-high-sorcery"),
-        ),
-      },
+      character,
       saved: true,
       setupDraft: versioned
         ? data[2] === true
@@ -49,6 +43,6 @@ export function loadSavedCharacter(): {
 }
 
 export function saveCharacter(character: Character, setupDraft = false) {
-  parseCharacter(character);
-  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify([storageVersion, character, setupDraft]));
+  const normalizedCharacter = parseCharacter(character);
+  window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify([storageVersion, normalizedCharacter, setupDraft]));
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type Character } from "../domain";
+import { classDefinitions, type Character, getTotalHitDice } from "../domain";
 import { type HitPointAction, getCurrentHitPoints, getHitPointStatus, getMaximumHitPoints } from "../hitPoints";
 
 export function HitPointTracker({ character, enabled, onAction }: {
@@ -9,6 +9,7 @@ export function HitPointTracker({ character, enabled, onAction }: {
 }) {
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
+  const hitPointRolls = character.hitPointRolls ?? [];
   const apply = (action: HitPointAction) => {
     const value = Number(amount);
     if (!amount.trim() || !Number.isSafeInteger(value) || value < 0 ||
@@ -41,5 +42,34 @@ export function HitPointTracker({ character, enabled, onAction }: {
     </fieldset>
     {error && <p id="hp-amount-error" role="alert">{error}</p>}
     <p className="hp-tracker-hint">Use Save to keep changes. Track stabilization, ongoing effects, and ability exceptions manually. Temp HP replaces the pool, not stacks.</p>
+    <details className="hp-roll-history">
+      <summary>HP gains by level</summary>
+      {hitPointRolls.length ? (
+        <>
+          {hitPointRolls.length < getTotalHitDice(character) && (
+            <p className="hp-tracker-hint">
+              Earlier or racial Hit Dice are not included; their old rolls cannot be recovered from the saved total.
+            </p>
+          )}
+          <table aria-label="HP gained by level">
+            <thead>
+              <tr><th>Level</th><th>Class</th><th>Roll</th><th>HP increase</th></tr>
+            </thead>
+            <tbody>
+              {hitPointRolls.map((entry) => (
+                <tr key={`${entry.characterLevel}-${entry.classId}-${entry.classLevel}`}>
+                  <td>{entry.characterLevel}</td>
+                  <td>{classDefinitions[entry.classId].name} {entry.classLevel}</td>
+                  <td>{entry.roll}/{entry.hitDie}</td>
+                  <td>+{entry.hpIncrease}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : (
+        <p className="hp-tracker-hint">Per-level rolls will be recorded from the next Hit Die gained.</p>
+      )}
+    </details>
   </div>;
 }

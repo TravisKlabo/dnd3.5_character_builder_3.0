@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { storeItems, findStoreItem, addCustomStoreItems, deleteCustomStoreItem,
-  type StoreItem } from "../src/data/equipmentCatalog";
+  forgeArmorProperties, type StoreItem } from "../src/data/equipmentCatalog";
 import { getInventoryEntryDetails, getSizedStorePrice, getSizedStoreWeight } from "../src/rules";
 
 afterEach(() => {
@@ -31,6 +31,69 @@ describe("indexed equipment catalog", () => {
     expect(details.description).toContain("+1 enhancement bonus on attack rolls");
     expect(details.numericWeight).toBe(4);
     expect(findStoreItem("Masterwork Longsword", "Armor")).toBeUndefined();
+  });
+
+  it("uses the SRD base prices for cold iron and mithral longswords", () => {
+    expect(findStoreItem("Cold Iron Longsword")).toMatchObject({
+      price: 30,
+      material: "cold-iron",
+    });
+    expect(findStoreItem("Mithral Longsword")).toMatchObject({
+      price: 2015,
+      weight: "2 lb.",
+    });
+  });
+
+  it("prices silver and cold iron ammunition by bundle quantity", () => {
+    expect(findStoreItem("Silver Arrows (20)")).toMatchObject({
+      price: 41,
+      weight: "3 lb.",
+      material: "alchemical-silver",
+    });
+    expect(findStoreItem("Silver Bolts (10)")).toMatchObject({
+      price: 21,
+      weight: "1 lb.",
+      material: "alchemical-silver",
+    });
+    expect(findStoreItem("Silver Sling Bullets (10)")).toMatchObject({
+      price: 20.1,
+      weight: "5 lb.",
+      material: "alchemical-silver",
+    });
+    expect(findStoreItem("Cold Iron Arrows (20)")).toMatchObject({
+      price: 2,
+      weight: "3 lb.",
+      material: "cold-iron",
+    });
+    expect(findStoreItem("Cold Iron Bolts (10)")).toMatchObject({
+      price: 2,
+      weight: "1 lb.",
+      material: "cold-iron",
+    });
+  });
+
+  it("uses the correct Forge armor property costs and describes their effects", () => {
+    expect(forgeArmorProperties).toContainEqual(expect.objectContaining({
+      name: "Glamered",
+      bonus: 0,
+      flatCost: 2700,
+    }));
+    expect(forgeArmorProperties).toContainEqual(expect.objectContaining({
+      name: "Slick",
+      flatCost: 3750,
+      description: expect.stringContaining("+5 competence bonus on Escape Artist checks"),
+    }));
+    expect(forgeArmorProperties).toContainEqual(expect.objectContaining({
+      name: "Fortification",
+      bonus: 1,
+      description: expect.stringContaining("25%"),
+    }));
+    expect(getInventoryEntryDetails("Fortification +1 Chain Shirt (Medium)").description)
+      .toContain("Light Fortification: 25% chance");
+    expect(getInventoryEntryDetails("Glamered +1 Chain Shirt (Medium)").description)
+      .toContain("Glamered: on command");
+    expect(getInventoryEntryDetails("Slick +1 Chain Shirt (Medium)").description)
+      .toContain("Slick: +5 competence bonus");
   });
 
   it("includes SRD torso-slot items with their prices and effects", () => {

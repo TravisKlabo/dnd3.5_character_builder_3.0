@@ -1,17 +1,17 @@
 import { useState, useMemo, lazy, Suspense } from "react";
-import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, initialCharacter, classDefinitions, beginLevelUp, type AbilityName, rollHitDie, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, raceDefinitions, abilityModifier, type MagicSchool } from "./domain";
+import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, type PrestigeClassId, initialCharacter, classDefinitions, dragonlancePrestigeClasses, beginLevelUp, beginPrestigeLevelUp, type AbilityName, rollHitDie, isValidHitDieRoll, validateLevelUp, levelUpHitPointGain, type SpellAcquisition, type WizardSpellLearning, changeRace, abilityModifier, type MagicSchool, type SkillRankSourceId, getTotalHitDice } from "./domain";
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
 import { customItemsLoadFailed } from "./customItemsStorage";
 import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
-import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, type CombatAttackMode, type CombatCastingContext } from "./rules";
+import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getLevelUpSkillSourceId, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getPrestigeClassEligibilityErrors, getPrestigeClassLevelUpSelectionErrors, getPrestigeSpellcastingClassOptions, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, getBaseAttackBonus, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getAvailableSkillCountForSource, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, getSpentSkillPointsForSource, getSpeakLanguageRankCount, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getAnimatedShieldState, getForceShieldState, getBlindingShieldState, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, type CombatAttackMode, type CombatCastingContext } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
 import { storeItems, addCustomStoreItems, type StoreItem } from "./data/equipmentCatalog";
-import { CharacterSheet } from "./components/CharacterSheet";
 import { ScreenBoundary } from "./components/ScreenBoundary";
+import { ClassFeatureProgressionBoundary } from "./components/ClassFeatureProgressionBoundary";
 import "./App.css";
 import { formatNoteDate } from "./noteDates";
-import { type HitPointAction, applyHitPointAction, getStoredCurrentHitPoints } from "./hitPoints";
+import { type HitPointAction, applyHitPointAction, getMaximumHitPoints, getStoredCurrentHitPoints } from "./hitPoints";
 import { type CombatEffect } from "./combatEffects";
 import { CombatTargetContextProvider } from "./combatTargetDefenseContext";
 
@@ -21,12 +21,20 @@ const ForgePanel = lazy(() => import("./components/ForgePanel").then((module) =>
 const WandsScrollPanel = lazy(() => import("./components/WandsScrollPanel").then((module) => ({ default: module.WandsScrollPanel })));
 const SpellSheets = lazy(() => import("./components/SpellSheet").then((module) => ({ default: module.SpellSheets })));
 const CreationPanel = lazy(() => import("./components/CreationPanel").then((module) => ({ default: module.CreationPanel })));
+const CharacterSheet = lazy(() =>
+  import("./components/CharacterSheet").then((module) => ({
+    default: module.CharacterSheet,
+  })),
+);
 const PrintableCharacterSheet = lazy(() =>
   import("./components/PrintableCharacterSheet").then((module) => ({
     default: module.PrintableCharacterSheet,
   })),
 );
+const PdfLibrary = lazy(() => import("./components/PdfLibrary").then((module) => ({ default: module.PdfLibrary })));
 const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItemsWarning"));
+const HighSorceryChoices = lazy(() => import("./components/HighSorceryChoices").then((module) => ({ default: module.HighSorceryChoices })));
+const RangerFavoredEnemies = lazy(() => import("./components/RangerFavoredEnemies").then((module) => ({ default: module.RangerFavoredEnemies })));
 const characterExportMetadataKey = "__dnd35CharacterBuilder";
 
 const customItemKey = (item: StoreItem) =>
@@ -65,9 +73,6 @@ export function App() {
   );
   const [creationOpen, setCreationOpen] = useState(!savedState.saved || savedState.setupDraft);
   const [creationLocked, setCreationLocked] = useState(savedState.saved && !savedState.setupDraft);
-  const [ruleset, setRuleset] = useState<
-    "core-35-srd" | "dragonlance-user-pack" | "dragonlance-monster-classes"
-  >("core-35-srd");
   const [abilityMethod, setAbilityMethod] = useState<
     "roll" | "pointBuy" | "manual"
   >("manual");
@@ -78,13 +83,15 @@ export function App() {
   const creationDraft = useMemo(() => {
     if (abilityMethod !== "roll" || !rolledScores || !rolledAssignments) return creationState;
     const abilities = { ...creationState.abilities };
-    const raceModifiers = raceDefinitions[creationState.race.toLowerCase().replaceAll(" ", "-")]?.abilityModifiers;
+    const raceModifiers = getRaceDefinitionForCharacter(creationState)?.abilityModifiers;
     abilityNames.forEach((ability, index) => {
       abilities[ability] = rolledScores[rolledAssignments[index]] + (raceModifiers?.[ability] ?? 0);
     });
     return { ...creationState, abilities };
   }, [creationState, abilityMethod, rolledScores, rolledAssignments]);
   const [levelUpDraft, setLevelUpDraft] = useState<LevelUpDraft | null>(null);
+  const [hitPointRollMode, setHitPointRollMode] = useState<"app" | "manual">("app");
+  const [manualHitPointRoll, setManualHitPointRoll] = useState("");
   const [lastLevelUpClassId, setLastLevelUpClassId] = useState<ClassId>(
     initialCharacter.classLevels.at(-1)?.classId ?? "fighter",
   );
@@ -112,10 +119,7 @@ export function App() {
     setRolledScores(null);
     setRolledAssignments(null);
     setCreationDraft((current) => {
-      const raceModifiers =
-        raceDefinitions[
-          current.race.toLowerCase().replaceAll(" ", "-")
-        ]?.abilityModifiers;
+      const raceModifiers = getRaceDefinitionForCharacter(current)?.abilityModifiers;
       const abilities = { ...current.abilities };
       abilityNames.forEach((ability) => {
         abilities[ability] = 10 + (raceModifiers?.[ability] ?? 0);
@@ -124,10 +128,45 @@ export function App() {
     });
   };
 
-  const startLevelUp = (classId: ClassId) => {
-    setLastLevelUpClassId(classId);
-    if (classDefinitions[classId].spellcasting) setActiveSheet("spells");
-    const freshDraft = beginLevelUp(cloneCharacter(character), classId);
+  const startLevelUp = (
+    choice: ClassId | { prestigeClassId: PrestigeClassId },
+  ) => {
+    const spellcastingClassId = typeof choice === "string"
+      ? undefined
+      : getPrestigeSpellcastingClassOptions(character, choice.prestigeClassId)[0];
+    const freshDraft = typeof choice === "string"
+      ? beginLevelUp(cloneCharacter(character), choice)
+      : beginPrestigeLevelUp(
+          cloneCharacter(character),
+          choice.prestigeClassId,
+          spellcastingClassId,
+        );
+    if (freshDraft.prestigeClassId) {
+      const eligibilityErrors = getPrestigeClassLevelUpSelectionErrors(
+        character,
+        freshDraft.prestigeClassId,
+      );
+      if (eligibilityErrors.length) {
+        setOperationError(eligibilityErrors.join(" "));
+        return;
+      }
+    } else {
+      setLastLevelUpClassId(freshDraft.classId);
+    }
+    const needsNaturePatronChoice =
+      freshDraft.proposed.ruleset !== "core-35-srd" &&
+      (freshDraft.classId === "druid"
+        ? getDragonlanceDruidWarnings(freshDraft.proposed).length > 0
+        : freshDraft.classId === "ranger" &&
+          getDragonlanceRangerWarnings(
+            freshDraft.proposed,
+            getBaseClassLevel(freshDraft.proposed, "ranger"),
+          ).length > 0);
+    setOperationError(undefined);
+    setHitPointRollMode("app");
+    setManualHitPointRoll("");
+    if (!freshDraft.prestigeClassId && classDefinitions[freshDraft.classId].spellcasting)
+      setActiveSheet(needsNaturePatronChoice ? "character" : "spells");
     setLevelUpDraft({
       ...freshDraft,
       abilityIncrease: null,
@@ -138,24 +177,48 @@ export function App() {
     if (!levelUpDraft) return;
     const abilities = { ...levelUpDraft.original.abilities };
     if (ability) abilities[ability] += 1;
+    const characterLevel = getTotalHitDice(levelUpDraft.proposed);
+    const abilityScoreIncreasesByLevel = {
+      ...(levelUpDraft.original.abilityScoreIncreasesByLevel ?? {}),
+    };
+    if (ability) abilityScoreIncreasesByLevel[characterLevel] = ability;
+    else delete abilityScoreIncreasesByLevel[characterLevel];
     setLevelUpDraft({
       ...levelUpDraft,
       abilityIncrease: ability,
-      proposed: { ...levelUpDraft.proposed, abilities },
+      proposed: {
+        ...levelUpDraft.proposed,
+        abilities,
+        abilityScoreIncreasesByLevel,
+      },
       validationErrors: [],
     });
   };
   const confirmLevelUp = () => {
     if (!levelUpDraft) return;
     const validationErrors = [
-      ...getLevelUpAlignmentWarnings(
-        levelUpDraft.original,
-        levelUpDraft.classId,
-      ),
+      ...(levelUpDraft.prestigeClassId
+        ? getPrestigeClassEligibilityErrors(
+            {
+              ...levelUpDraft.original,
+              highSorceryOrder: levelUpDraft.proposed.highSorceryOrder,
+              wizardSpecializationSchool:
+                levelUpDraft.proposed.wizardSpecializationSchool,
+              wizardBarredSchools:
+                levelUpDraft.proposed.wizardBarredSchools,
+            },
+            levelUpDraft.prestigeClassId,
+            true,
+          )
+        : getLevelUpAlignmentWarnings(
+            levelUpDraft.original,
+            levelUpDraft.classId,
+          )),
       ...validateLevelUp(levelUpDraft),
       ...getLevelUpSkillWarnings(
         levelUpDraft.original,
         levelUpDraft.proposed,
+        levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
       ),
       ...getNewLevelUpFeatSlots(
         levelUpDraft.original,
@@ -184,17 +247,73 @@ export function App() {
       setLevelUpDraft({ ...levelUpDraft, validationErrors });
       return;
     }
+    const hitDie = levelUpDraft.prestigeClassId
+      ? dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].hitDie
+      : classDefinitions[levelUpDraft.classId].hitDie;
+    if (!hitDie) {
+      setOperationError("The selected prestige class does not define a Hit Die.");
+      return;
+    }
+    const hitPointRoll = hitPointRollMode === "app"
+      ? rollHitDie(hitDie)
+      : Number(manualHitPointRoll);
+    if (hitPointRollMode === "manual" && !isValidHitDieRoll(hitPointRoll, hitDie)) {
+      setLevelUpDraft({
+        ...levelUpDraft,
+        validationErrors: [`Enter a whole-number d${hitDie} roll from 1 to ${hitDie}.`],
+      });
+      return;
+    }
     const hpGain = levelUpHitPointGain(
       levelUpDraft.original,
       levelUpDraft.proposed,
-      rollHitDie(classDefinitions[levelUpDraft.classId].hitDie),
+      hitPointRoll,
     );
-    const proposed = {
+    const updatedCharacter = {
       ...levelUpDraft.proposed,
       ...(character.currentHitPoints !== undefined ? {
         currentHitPoints: getStoredCurrentHitPoints(character) + hpGain,
       } : {}),
       hitPoints: character.hitPoints + hpGain,
+    };
+    const characterLevel = getTotalHitDice(updatedCharacter);
+    const previousCharacterLevel = getTotalHitDice(levelUpDraft.original);
+    const hpIncrease = getMaximumHitPoints(updatedCharacter) - getMaximumHitPoints(character);
+    const classLevel = updatedCharacter.classLevels.find((level) =>
+      levelUpDraft.prestigeClassId
+        ? "prestigeClassId" in level &&
+          level.prestigeClassId === levelUpDraft.prestigeClassId
+        : !("prestigeClassId" in level) && level.classId === levelUpDraft.classId,
+    )?.level ?? 1;
+    const proposed = {
+      ...updatedCharacter,
+      skillRanksByLevel: {
+        ...(updatedCharacter.skillRanksByLevel ?? {}),
+        [characterLevel]: { ...updatedCharacter.skills },
+      },
+      baseAttackBonusByLevel: {
+        ...(updatedCharacter.baseAttackBonusByLevel ?? {}),
+        ...(updatedCharacter.baseAttackBonusByLevel?.[previousCharacterLevel] === undefined
+          ? {
+              [previousCharacterLevel]: getBaseAttackBonus(levelUpDraft.original),
+            }
+          : {}),
+        [characterLevel]: getBaseAttackBonus(updatedCharacter),
+      },
+      hitPointRolls: [
+        ...(character.hitPointRolls ?? []),
+        {
+          characterLevel,
+          classId: levelUpDraft.classId,
+          ...(levelUpDraft.prestigeClassId
+            ? { prestigeClassId: levelUpDraft.prestigeClassId }
+            : {}),
+          classLevel,
+          hitDie,
+          roll: hitPointRoll,
+          hpIncrease,
+        },
+      ],
     };
     setCharacter(proposed);
     setLevelUpDraft(null);
@@ -224,18 +343,35 @@ export function App() {
       ...current,
       abilities: { ...current.abilities, [ability]: value },
     }));
-  const updateSkillRanks = (skill: string, change: number) => {
+  const updateSkillRanks = (
+    skill: string,
+    change: number,
+    requestedSourceId?: SkillRankSourceId,
+  ) => {
     const update = (current: Character) => {
-      const classId = levelUpDraft?.classId ?? current.classLevels.at(-1)?.classId;
-      const classSkill = isClassSkill(current, skill, classId);
+      const lastLevel = current.classLevels.at(-1);
+      const sourceId: SkillRankSourceId | undefined = levelUpDraft
+        ? levelUpDraft.prestigeClassId ?? levelUpDraft.classId
+        : requestedSourceId ?? (lastLevel && "prestigeClassId" in lastLevel
+          ? lastLevel.prestigeClassId
+          : lastLevel?.classId);
+      if (!sourceId) return current;
+      const classSkill = isClassSkill(current, skill, sourceId);
       const currentRanks = Number(current.skills[skill] || 0);
       const minimumRanks = levelUpDraft
         ? Number(levelUpDraft.original.skills[skill] || 0)
         : 0;
-      const maxRanks = creationOpen
+      const currentSourceRanks =
+        current.skillRanksByClass?.[sourceId]?.[skill] ?? 0;
+      const maxRanks = creationOpen && !getRacialHitDiceForCharacter(current)
         ? (classSkill ? 4 : 2)
         : getSkillMaximum(current, skill);
       const rankChange = classSkill ? change : change / 2;
+      const sourceMaxRanks = sourceId === "racial-hit-dice"
+        ? getSkillMaximum(current, skill, sourceId)
+        : Number.POSITIVE_INFINITY;
+      if (change > 0 && currentSourceRanks + rankChange > sourceMaxRanks)
+        return current;
       const nextRanks = Math.max(
         minimumRanks,
         Math.min(maxRanks, currentRanks + rankChange),
@@ -244,34 +380,45 @@ export function App() {
       const pointCost = Math.abs(change);
       const availableSkillPoints = levelUpDraft
         ? getAvailableSkillCount(levelUpDraft.original) +
-          getSkillPointsPerLevel(levelUpDraft.original, levelUpDraft.classId)
-        : getAvailableSkillCount(current);
+          getSkillPointsPerLevel(
+            levelUpDraft.original,
+            levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
+          )
+        : creationOpen
+          ? getAvailableSkillCountForSource(current, sourceId)
+          : getAvailableSkillCount(current);
       const currentSpent = levelUpDraft
         ? getLevelUpSpentSkillPoints(
             levelUpDraft.original,
             current,
-            levelUpDraft.classId,
+            levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
           )
-        : getSpentSkillPoints(current);
+        : creationOpen
+          ? getSpentSkillPointsForSource(current, sourceId)
+          : getSpentSkillPoints(current);
       if (
         change > 0 &&
-        currentSpent + pointCost > availableSkillPoints
+        (currentSpent + pointCost > availableSkillPoints ||
+          currentRanks + rankChange > maxRanks)
       )
         return current;
-      if (!classId) return current;
-      const currentClassRanks =
-        current.skillRanksByClass?.[classId]?.[skill] ?? 0;
-      const nextClassRanks = Math.max(
-        0,
-        currentClassRanks + (nextRanks - currentRanks),
-      );
+      const nextClassRanks = currentSourceRanks + (nextRanks - currentRanks);
+      if (nextClassRanks < 0) return current;
+      const speakLanguages =
+        skill === "Speak Language" && nextRanks < currentRanks
+          ? (current.speakLanguages ?? []).slice(
+              0,
+              Math.floor(Math.max(0, nextRanks)),
+            )
+          : current.speakLanguages;
       return {
         ...current,
         skills: { ...current.skills, [skill]: nextRanks },
+        ...(skill === "Speak Language" ? { speakLanguages } : {}),
         skillRanksByClass: {
           ...(current.skillRanksByClass ?? {}),
-          [classId]: {
-            ...(current.skillRanksByClass?.[classId] ?? {}),
+          [sourceId]: {
+            ...(current.skillRanksByClass?.[sourceId] ?? {}),
             [skill]: nextClassRanks,
           },
         },
@@ -394,13 +541,54 @@ export function App() {
     featWeaponSelections: {},
     featSkillSelections: {},
     featSpellSchoolSelections: {},
+    speakLanguages: [],
     skills: {},
     skillRanksByClass: {},
+    skillRanksByLevel: undefined,
+    baseAttackBonusByLevel: undefined,
   });
   const updateLanguages = (languages: string[]) => {
     const update = (current: Character) => ({
       ...current,
       languages: [...new Set(languages)],
+      speakLanguages: (current.speakLanguages ?? []).filter(
+        (language) => !languages.includes(language),
+      ),
+    });
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+      });
+    else setCharacter(update);
+  };
+  const updateSpeakLanguages = (languages: string[]) => {
+    const update = (current: Character) => ({
+      ...current,
+      speakLanguages: [...new Set(languages)].slice(
+        0,
+        getSpeakLanguageRankCount(current),
+      ),
+    });
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+      });
+    else setCharacter(update);
+  };
+  const updateRegionalLanguage = (regionalLanguage: string | undefined) => {
+    const update = (current: Character) => ({
+      ...current,
+      regionalLanguage,
+      languages: (current.languages ?? []).filter(
+        (language) => language !== regionalLanguage,
+      ),
+      speakLanguages: (current.speakLanguages ?? []).filter(
+        (language) => language !== regionalLanguage,
+      ),
     });
     if (creationOpen && !creationLocked) setCreationDraft(update);
     else if (levelUpDraft)
@@ -655,8 +843,10 @@ export function App() {
   };
   const withUpdatedEquipment = (current: Character, equipment: Record<string, string>) => {
     const next = { ...current, equipment };
+    if (!getForceShieldState(next).equipped) next.forceShieldActive = false;
     if (current.equipment.Shield !== equipment.Shield) {
       next.towerShieldTotalCover = false;
+      next.animatedShieldMode = false;
     }
     if (
       current.equipment.Shield !== equipment.Shield ||
@@ -737,7 +927,8 @@ export function App() {
   };
   const updateTowerShieldTotalCover = (towerShieldTotalCover: boolean) => {
     const update = (current: Character) =>
-      towerShieldTotalCover && !getTowerShieldState(current).equipped
+      towerShieldTotalCover &&
+      (!getTowerShieldState(current).equipped || getAnimatedShieldState(current).active)
         ? current
         : { ...current, towerShieldTotalCover };
     if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
@@ -750,6 +941,60 @@ export function App() {
       shieldBashMode && !getShieldBashState(current).canBash
         ? current
         : { ...current, shieldBashMode };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateForceShieldActive = (forceShieldActive: boolean) => {
+    const update = (current: Character) =>
+      forceShieldActive && !getForceShieldState(current).equipped
+        ? current
+        : { ...current, forceShieldActive };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateAnimatedShieldMode = (animatedShieldMode: boolean) => {
+    const update = (current: Character) => {
+      if (animatedShieldMode && !getAnimatedShieldState(current).equipped) return current;
+      const next = { ...current, animatedShieldMode };
+      if (animatedShieldMode) {
+        next.shieldBashMode = false;
+        next.towerShieldTotalCover = false;
+      } else {
+        const gripState = getMainWeaponGripState(next);
+        if (next.mainWeaponGrip === "two-handed" && gripState && !gripState.canUseTwoHands) {
+          next.mainWeaponGrip = "one-handed";
+        }
+        const doubleWeaponState = getDoubleWeaponModeState(next);
+        if (next.doubleWeaponMode && (!doubleWeaponState || !doubleWeaponState.canUseBothEnds)) {
+          next.doubleWeaponMode = false;
+          next.doubleWeaponPrimaryEnd = "first";
+        }
+      }
+      return next;
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
+    else if (levelUpDraft)
+      setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
+    else setCharacter(update(character));
+  };
+  const updateBlindingShieldUse = (action: "use" | "reset") => {
+    const update = (current: Character) => {
+      const state = getBlindingShieldState(current);
+      const shieldName = current.equipment?.Shield;
+      if (!shieldName || !state.equipped || (action === "use" && !state.canUse)) return current;
+      const usesUsed = action === "use" ? state.usesUsed + 1 : 0;
+      return {
+        ...current,
+        shieldBlindingUsesByItem: {
+          ...current.shieldBlindingUsesByItem,
+          [shieldName]: usesUsed,
+        },
+      };
+    };
     if (creationOpen && !creationLocked) setCreationDraft(update(creationDraft));
     else if (levelUpDraft)
       setLevelUpDraft((current) => current ? { ...current, proposed: update(current.proposed) } : current);
@@ -799,7 +1044,20 @@ export function App() {
       setOperationError("Finish setup or discard/commit the level-up draft before changing combat effects.");
       return;
     }
-    setCharacter((current) => ({ ...current, combatRound: round, combatEffects: effects }));
+    setCharacter((current) => {
+      const expiredTemporaryHitPointsEffect = current.combatEffects?.some(
+        (effect) => effect.expiresTemporaryHitPoints &&
+          !effects.some((next) =>
+            next.name === effect.name && next.expiresTemporaryHitPoints,
+          ),
+      );
+      return {
+        ...current,
+        combatRound: round,
+        combatEffects: effects,
+        ...(expiredTemporaryHitPointsEffect ? { temporaryHitPoints: 0 } : {}),
+      };
+    });
     setOperationError(undefined);
   };
   const updateInventory = (inventory: Record<string, number>) => {
@@ -837,6 +1095,12 @@ export function App() {
         alignment: "",
         deity: undefined,
         highSorceryOrder: undefined,
+        dragonlanceMoonState: undefined,
+        mysticDomain: undefined,
+        rangerFavoredEnemies:
+          creationDraft.classLevels[0].classId === classId
+            ? creationDraft.rangerFavoredEnemies
+            : undefined,
       }),
     );
   const createCharacter = () => {
@@ -852,7 +1116,8 @@ export function App() {
         wizard: [...new Set([...(nextCharacter.knownSpellsByClass?.wizard ?? []), ...cantrips])],
       };
     }
-    setCharacter({
+    const hitDie = classDefinitions[classId].hitDie;
+    const createdCharacter = {
       ...nextCharacter,
       currentHitPoints: undefined,
       temporaryHitPoints: 0,
@@ -861,9 +1126,34 @@ export function App() {
       classFeatures: startingClassFeatures[classId] ?? [],
       hitPoints: Math.max(
         1,
-        classDefinitions[classId].hitDie +
+        hitDie +
           abilityModifier(creationDraft.abilities.con),
       ),
+    };
+    const characterLevel = getTotalHitDice(createdCharacter);
+    const hitPointRolls = createdCharacter.hitPointRolls?.length
+      ? createdCharacter.hitPointRolls
+      : getTotalHitDice(createdCharacter) === 1
+        ? [{
+            characterLevel: 1,
+            classId,
+            classLevel: 1,
+            hitDie,
+            roll: hitDie,
+            hpIncrease: getMaximumHitPoints(createdCharacter),
+          }]
+        : undefined;
+    setCharacter({
+      ...createdCharacter,
+      skillRanksByLevel: {
+        ...(createdCharacter.skillRanksByLevel ?? {}),
+        [characterLevel]: { ...createdCharacter.skills },
+      },
+      baseAttackBonusByLevel: {
+        ...(createdCharacter.baseAttackBonusByLevel ?? {}),
+        [characterLevel]: getBaseAttackBonus(createdCharacter),
+      },
+      ...(hitPointRolls ? { hitPointRolls } : {}),
     });
     setLevelUpDraft(null);
     setCreationLocked(true);
@@ -881,6 +1171,8 @@ export function App() {
     setCreationLocked(false);
     setCreationOpen(true);
     setLevelUpDraft(null);
+    setHitPointRollMode("app");
+    setManualHitPointRoll("");
     setAbilityMethod("manual");
     setRolledScores(null);
     setRolledAssignments(null);
@@ -904,7 +1196,7 @@ export function App() {
       }
     : character;
   const displayedCharacter = levelUpDraft?.proposed ?? calculatedCharacter;
-  const hasSpellcasting = displayedCharacter.classLevels.some(
+  const hasSpellcasting = getBaseClassLevels(displayedCharacter).some(
     (level) => classDefinitions[level.classId as ClassId]?.spellcasting,
   );
   const spellCatalog = useSpellCatalog(
@@ -913,14 +1205,25 @@ export function App() {
   );
   const levelUpWarnings = levelUpDraft && spellCatalog.ready
     ? [
-        ...getLevelUpAlignmentWarnings(
-          levelUpDraft.original,
-          levelUpDraft.classId,
-        ),
-        ...(levelUpDraft.proposed.classLevels.reduce(
-          (total, entry) => total + entry.level,
-          0,
-        ) % 4 === 0 && !levelUpDraft.abilityIncrease
+        ...(levelUpDraft.prestigeClassId
+          ? getPrestigeClassEligibilityErrors(
+              levelUpDraft.original,
+              levelUpDraft.prestigeClassId,
+              true,
+            )
+          : getLevelUpAlignmentWarnings(
+              levelUpDraft.original,
+              levelUpDraft.classId,
+            )),
+        ...(levelUpDraft.prestigeClassId &&
+            !levelUpDraft.specialPrerequisiteConfirmed &&
+            !levelUpDraft.original.classLevels.some((entry) =>
+              "prestigeClassId" in entry &&
+              entry.prestigeClassId === levelUpDraft.prestigeClassId,
+            )
+          ? ["Confirm the prestige class's special prerequisite before confirming."]
+          : []),
+        ...(getTotalHitDice(levelUpDraft.proposed) % 4 === 0 && !levelUpDraft.abilityIncrease
           ? [
               "Choose an ability score to increase by +1 before confirming the level-up.",
             ]
@@ -928,6 +1231,7 @@ export function App() {
         ...getLevelUpSkillWarnings(
           levelUpDraft.original,
           levelUpDraft.proposed,
+          levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
         ),
         ...getNewLevelUpFeatSlots(
           levelUpDraft.original,
@@ -953,15 +1257,43 @@ export function App() {
         ),
       ]
     : [];
+  const levelUpHitDie = levelUpDraft
+    ? levelUpDraft.prestigeClassId
+      ? dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].hitDie
+      : classDefinitions[levelUpDraft.classId].hitDie
+    : undefined;
+  const manualHitPointRollValue = Number(manualHitPointRoll);
+  const manualHitPointRollIsValid =
+    manualHitPointRoll.trim() !== "" &&
+    levelUpHitDie !== undefined &&
+    isValidHitDieRoll(manualHitPointRollValue, levelUpHitDie);
+  const manualHitPointRollError = hitPointRollMode === "manual" &&
+    !manualHitPointRollIsValid && levelUpHitDie !== undefined
+    ? `Enter a whole-number d${levelUpHitDie} roll from 1 to ${levelUpHitDie}.`
+    : "";
+  const manualHpIncrease = levelUpDraft && manualHitPointRollIsValid
+    ? getMaximumHitPoints({
+        ...levelUpDraft.proposed,
+        hitPoints: levelUpDraft.original.hitPoints + levelUpHitPointGain(
+          levelUpDraft.original,
+          levelUpDraft.proposed,
+          manualHitPointRollValue,
+        ),
+      }) - getMaximumHitPoints(levelUpDraft.original)
+    : undefined;
   const canConfirmLevelUp =
     levelUpDraft !== null &&
-    levelUpWarnings.length === 0;
-  const levelUpTotalLevel = levelUpDraft?.proposed.classLevels.reduce(
-    (total, entry) => total + entry.level,
-    0,
-  );
+    levelUpWarnings.length === 0 &&
+    (hitPointRollMode === "app" || manualHitPointRollIsValid);
+  const levelUpTotalLevel = levelUpDraft
+    ? getTotalHitDice(levelUpDraft.proposed)
+    : undefined;
   const gainsAbilityIncrease =
     levelUpTotalLevel !== undefined && levelUpTotalLevel % 4 === 0;
+  const levelUpNaturePatron = levelUpDraft &&
+    (levelUpDraft.classId === "ranger" || levelUpDraft.classId === "druid")
+    ? getDragonlanceRangerPatron(levelUpDraft.proposed.alignment)
+    : undefined;
   const saveCharacter = () => {
     try {
       persistCharacter(displayedCharacter, !creationLocked);
@@ -1123,18 +1455,222 @@ export function App() {
             <label className="draft-class">
               Class
               <select
-                value={levelUpDraft.classId}
-                onChange={(event) =>
-                  startLevelUp(event.target.value as ClassId)
-                }
+                value={levelUpDraft.prestigeClassId
+                  ? `prestige:${levelUpDraft.prestigeClassId}`
+                  : levelUpDraft.classId}
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  const prestigeClassId = value.startsWith("prestige:")
+                    ? value.slice("prestige:".length) as PrestigeClassId
+                    : undefined;
+                  if (prestigeClassId && Object.hasOwn(dragonlancePrestigeClasses, prestigeClassId)) {
+                    const eligibilityErrors = getPrestigeClassLevelUpSelectionErrors(
+                      character,
+                      prestigeClassId,
+                    );
+                    if (eligibilityErrors.length) {
+                      setOperationError(eligibilityErrors.join(" "));
+                      return;
+                    }
+                    startLevelUp({ prestigeClassId });
+                  } else if (Object.hasOwn(classDefinitions, value)) {
+                    startLevelUp(value as ClassId);
+                  } else {
+                    setOperationError("The selected level-up class is not supported.");
+                  }
+                }}
               >
-                {Object.values(classDefinitions).map((definition) => (
-                  <option key={definition.id} value={definition.id}>
-                    {definition.name}
-                  </option>
-                ))}
+                <optgroup label="Base classes">
+                  {Object.values(classDefinitions).map((definition) => {
+                    const lockedNoble = definition.id === "noble" &&
+                      !levelUpDraft.original.classLevels.some(
+                        (entry) => !("prestigeClassId" in entry) && entry.classId === "noble",
+                      );
+                    return (
+                      <option
+                        key={definition.id}
+                        value={definition.id}
+                        disabled={lockedNoble}
+                        title={lockedNoble ? "The Noble class can only be taken at 1st character level." : undefined}
+                      >
+                        {definition.name}{lockedNoble ? " (1st-level only)" : ""}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="Prestige classes">
+                  {Object.values(dragonlancePrestigeClasses)
+                    .filter((definition) => definition.levelUpEnabled)
+                    .map((definition) => {
+                      const eligibilityErrors = getPrestigeClassLevelUpSelectionErrors(
+                        levelUpDraft.original,
+                        definition.id,
+                      );
+                      return (
+                        <option
+                          key={definition.id}
+                          value={`prestige:${definition.id}`}
+                          disabled={eligibilityErrors.length > 0}
+                          title={eligibilityErrors.join(" ")}
+                        >
+                          {definition.name}
+                        </option>
+                      );
+                    })}
+                </optgroup>
               </select>
             </label>
+            {levelUpDraft.prestigeClassId === "wizard-of-high-sorcery" && (
+              <HighSorceryChoices
+                order={levelUpDraft.proposed.highSorceryOrder}
+                specializationSchool={
+                  levelUpDraft.proposed.wizardSpecializationSchool
+                }
+                barredSchools={levelUpDraft.proposed.wizardBarredSchools}
+                onChange={(choices) =>
+                  setLevelUpDraft((current) =>
+                    current
+                      ? {
+                          ...current,
+                          proposed: { ...current.proposed, ...choices },
+                        }
+                      : current,
+                  )
+                }
+              />
+            )}
+            {levelUpDraft.classId === "ranger" && !levelUpDraft.prestigeClassId && (
+              <RangerFavoredEnemies
+                character={levelUpDraft.proposed}
+                editableLevels={getRangerFavoredEnemyChoiceLevels(
+                  getBaseClassLevel(levelUpDraft.proposed, "ranger"),
+                ).filter((classLevel) => {
+                  const previousChoice = levelUpDraft.original.rangerFavoredEnemies
+                    ?.find((choice) => choice.classLevel === classLevel);
+                  return !previousChoice || !previousChoice.target.trim() ||
+                    (classLevel > 1 && !previousChoice.bonusTargetLevel);
+                })}
+                onChange={(choices) =>
+                  setLevelUpDraft((current) =>
+                    current
+                      ? {
+                          ...current,
+                          proposed: {
+                            ...current.proposed,
+                            rangerFavoredEnemies: choices,
+                          },
+                        }
+                      : current,
+                  )
+                }
+              />
+            )}
+            {!levelUpDraft.prestigeClassId &&
+              levelUpDraft.proposed.ruleset !== "core-35-srd" &&
+              (levelUpDraft.classId === "ranger" || levelUpDraft.classId === "druid") && (
+                <label className="draft-class">
+                  Nature patron
+                  <select
+                    value={levelUpDraft.proposed.deity ?? ""}
+                    onChange={(event) => {
+                      const deity = event.currentTarget.value || undefined;
+                      setLevelUpDraft((current) =>
+                        current
+                          ? {
+                              ...current,
+                              proposed: {
+                                ...current.proposed,
+                                deity,
+                              },
+                            }
+                          : current,
+                      );
+                    }}
+                  >
+                    <option value="">
+                      {levelUpDraft.classId === "druid"
+                        ? "Choose a nature patron"
+                        : "Choose a nature patron by Ranger level 4"}
+                    </option>
+                    {levelUpNaturePatron && (
+                      <option value={levelUpNaturePatron.id}>
+                        {levelUpNaturePatron.name}
+                      </option>
+                    )}
+                  </select>
+                </label>
+              )}
+            {!levelUpDraft.prestigeClassId &&
+              levelUpDraft.proposed.ruleset !== "core-35-srd" &&
+              levelUpDraft.classId === "paladin" && (
+                <p className="level-class-rule-note" role="note">
+                  Paladins are not normally available in Dragonlance; confirm DM approval for this rare champion of a good deity (Dragonlance Campaign Setting, p. 52).
+                </p>
+              )}
+            {!levelUpDraft.prestigeClassId &&
+              levelUpDraft.proposed.ruleset !== "core-35-srd" &&
+              levelUpDraft.classId === "wizard" && (
+                <p className="level-class-rule-note" role="note">
+                  Advancement beyond Wizard level 4 requires the Test of High Sorcery and an order, or a renegade path (Dragonlance Campaign Setting, p. 53).
+                </p>
+              )}
+            {levelUpDraft.prestigeClassId &&
+              getPrestigeSpellcastingClassOptions(
+                levelUpDraft.original,
+                levelUpDraft.prestigeClassId,
+              ).length > 1 && (
+                <label className="draft-class">
+                  Advance spellcasting in
+                  <select
+                    value={levelUpDraft.classId}
+                    onChange={(event) => {
+                      const classId = event.currentTarget.value as ClassId;
+                      setLevelUpDraft({
+                        ...levelUpDraft,
+                        classId,
+                        proposed: {
+                          ...levelUpDraft.proposed,
+                          classLevels: levelUpDraft.proposed.classLevels.map((entry) =>
+                            "prestigeClassId" in entry &&
+                            entry.prestigeClassId === levelUpDraft.prestigeClassId
+                              ? { ...entry, classId }
+                              : entry,
+                          ),
+                        },
+                      });
+                    }}
+                  >
+                    {getPrestigeSpellcastingClassOptions(
+                      levelUpDraft.original,
+                      levelUpDraft.prestigeClassId,
+                    ).map((classId) => (
+                      <option key={classId} value={classId}>
+                        {classDefinitions[classId].name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            {levelUpDraft.prestigeClassId &&
+              dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].roleplayPrerequisite &&
+              !levelUpDraft.original.classLevels.some((entry) =>
+                "prestigeClassId" in entry &&
+                entry.prestigeClassId === levelUpDraft.prestigeClassId,
+              ) && (
+                <label className="draft-class level-prestige-prerequisite">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(levelUpDraft.specialPrerequisiteConfirmed)}
+                    onChange={(event) =>
+                      setLevelUpDraft({
+                        ...levelUpDraft,
+                        specialPrerequisiteConfirmed: event.currentTarget.checked,
+                      })
+                    }
+                  />
+                  Confirm: {dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].roleplayPrerequisite}
+                </label>
+              )}
             {gainsAbilityIncrease && (
               <label className="draft-class level-ability-choice">
                 Ability score increase at level {levelUpTotalLevel}
@@ -1160,9 +1696,53 @@ export function App() {
               </label>
             )}
             <div className="level-roll-controls">
-              <span>
-                Hit die: d{classDefinitions[levelUpDraft.classId].hitDie}. HP is rolled when you confirm.
-              </span>
+              <label>
+                HP roll method
+                <select
+                  aria-label="HP roll method"
+                  value={hitPointRollMode}
+                  onChange={(event) => {
+                    setHitPointRollMode(event.target.value as "app" | "manual");
+                    setManualHitPointRoll("");
+                    setLevelUpDraft({ ...levelUpDraft, validationErrors: [] });
+                  }}
+                >
+                  <option value="app">Roll for me</option>
+                  <option value="manual">Enter my roll</option>
+                </select>
+              </label>
+              {hitPointRollMode === "manual" ? (
+                <label>
+                  Your d{levelUpHitDie} roll (1–{levelUpHitDie})
+                  <input
+                    aria-label="Hit die result"
+                    type="number"
+                    min="1"
+                    max={levelUpHitDie}
+                    step="1"
+                    value={manualHitPointRoll}
+                    aria-invalid={Boolean(manualHitPointRollError)}
+                    aria-describedby={manualHitPointRollError ? "hit-die-roll-error" : undefined}
+                    onChange={(event) => {
+                      setManualHitPointRoll(event.target.value);
+                      setLevelUpDraft({ ...levelUpDraft, validationErrors: [] });
+                    }}
+                  />
+                </label>
+              ) : (
+                <span>
+                  The app rolls d{levelUpHitDie} (1–{levelUpHitDie}) when you confirm.
+                </span>
+              )}
+              {manualHitPointRollError && (
+                <small className="validation-error" id="hit-die-roll-error" role="alert">
+                  {manualHitPointRollError}
+                </small>
+              )}
+              {manualHpIncrease !== undefined && (
+                <strong>Calculated HP increase: +{manualHpIncrease}</strong>
+              )}
+              <small>HP increases include Constitution and Toughness bonuses.</small>
             </div>
             <div className="level-todo-list">
               {levelUpWarnings.map((warning) => (
@@ -1204,6 +1784,7 @@ export function App() {
           ["forge", "Forge"],
           ["crafting", "Wands & Scrolls"],
           ...(hasSpellcasting ? [["spells", "Spells"]] : []),
+          ["rules", "Rules Library"],
           ["print", "Print"],
         ].map(([id, label]) => (
           <button
@@ -1217,10 +1798,11 @@ export function App() {
         ))}
       </nav>
       {visibleSheet === "character" && (
-        <>
-          {!creationLocked && (
-            <Suspense fallback={<section className="panel status-message" role="status">Loading character setup...</section>}>
-              <CreationPanel
+        <ClassFeatureProgressionBoundary>
+          <>
+            {!creationLocked && (
+              <Suspense fallback={<section className="panel status-message" role="status">Loading character setup...</section>}>
+                <CreationPanel
                 draft={creationDraft}
                 open={creationOpen}
                 locked={creationLocked}
@@ -1234,31 +1816,35 @@ export function App() {
                 onChange={updateCreationDraft}
                 onClassChange={updateCreationClass}
                 onRaceChange={updateCreationRace}
-                ruleset={ruleset}
                 onRulesetChange={(nextRuleset) => {
                   if (
-                    nextRuleset !== ruleset &&
+                    nextRuleset !== creationDraft.ruleset &&
                     !window.confirm(
                       "Changing the ruleset will reset all character creation choices, including abilities, class, race, deity, skills, feats, and spells. Continue?",
                     )
                   ) {
                     return;
                   }
-                  setRuleset(nextRuleset);
-                  setCreationDraft(cloneCharacter(initialCharacter));
+                  setCreationDraft({
+                    ...cloneCharacter(initialCharacter),
+                    ruleset: nextRuleset,
+                  });
                   setAbilityMethod("manual");
                   setRolledScores(null);
                   setRolledAssignments(null);
                 }}
                 onAbilityChange={updateCreationAbility}
                 onCreate={createCharacter}
-              />
-            </Suspense>
-          )}
-          <CharacterSheet
+                />
+              </Suspense>
+            )}
+            <CharacterSheet
             onOpenSpells={() => setActiveSheet("spells")}
             onHitPointAction={updateHitPoints}
             onCombatEffectsChange={updateCombatEffects}
+            onCharacterFeatureChange={(update) =>
+              setCharacter((current) => ({ ...current, ...update }))
+            }
             rangedTargetDistanceFeet={rangedTargetDistanceFeet}
             onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
             combatAttackMode={combatAttackMode}
@@ -1271,12 +1857,20 @@ export function App() {
             onDodgeTargetSelectedChange={setDodgeTargetSelected}
             combatCastingContext={combatCastingContext}
             onCombatCastingContextChange={setCombatCastingContext}
+            onMedallionOfFaithChange={(present) =>
+              updateSpellcastingCharacter((current) => ({
+                ...current,
+                hasMedallionOfFaith: present,
+              }))
+            }
             selectedRangedAmmunitionKey={selectedRangedAmmunitionKey}
             onRangedAmmunitionChange={setSelectedRangedAmmunitionKey}
             onAddNote={addCharacterNote}
             character={displayedCharacter}
             levelUpOriginal={levelUpDraft?.original}
-            levelUpClassId={levelUpDraft?.classId}
+            levelUpClassId={levelUpDraft
+              ? getLevelUpSkillSourceId(levelUpDraft.original, levelUpDraft.proposed)
+              : undefined}
             creationMode={creationOpen && !creationLocked}
             onSkillRankChange={updateSkillRanks}
             onFeatChange={updateFeatSelection}
@@ -1284,6 +1878,8 @@ export function App() {
             onFeatSkillChange={updateFeatSkillSelection}
             onFeatSpellSchoolChange={updateFeatSpellSchoolSelection}
             onLanguagesChange={updateLanguages}
+            onSpeakLanguagesChange={updateSpeakLanguages}
+            onRegionalLanguageChange={updateRegionalLanguage}
             allowFeatSelection={!creationLocked || levelUpMode}
             finalized={creationLocked && !levelUpMode}
             editable={!creationLocked && !levelUpMode}
@@ -1292,12 +1888,20 @@ export function App() {
             onCharacterAgeChange={(age) => setCharacter((current) => ({ ...current, age }))}
             onCharacterWeightChange={(weight) => setCharacter((current) => ({ ...current, weight }))}
             onCharacterHeightChange={(height) => setCharacter((current) => ({ ...current, height }))}
-          />
-        </>
+            />
+          </>
+        </ClassFeatureProgressionBoundary>
       )}
       {visibleSheet === "print" && (
-        <Suspense fallback={<section className="panel status-message" role="status">Preparing printable character sheet...</section>}>
-          <PrintableCharacterSheet character={displayedCharacter} />
+        <ClassFeatureProgressionBoundary>
+          <Suspense fallback={<section className="panel status-message" role="status">Preparing printable character sheet...</section>}>
+            <PrintableCharacterSheet character={displayedCharacter} />
+          </Suspense>
+        </ClassFeatureProgressionBoundary>
+      )}
+      {visibleSheet === "rules" && (
+        <Suspense fallback={<section className="panel status-message" role="status">Loading rules library...</section>}>
+          <PdfLibrary ruleset={displayedCharacter.ruleset} />
         </Suspense>
       )}
       {visibleSheet === "equipment" && (
@@ -1322,6 +1926,9 @@ export function App() {
           onDoubleWeaponPrimaryEndChange={updateDoubleWeaponPrimaryEnd}
           onTowerShieldTotalCoverChange={updateTowerShieldTotalCover}
           onShieldBashModeChange={updateShieldBashMode}
+          onForceShieldActiveChange={updateForceShieldActive}
+          onAnimatedShieldModeChange={updateAnimatedShieldMode}
+          onBlindingShieldUseChange={updateBlindingShieldUse}
           onCompositeBowStrengthRatingChange={updateCompositeBowStrengthRating}
           onEquipmentAndInventoryChange={updateEquipmentAndInventory}
         />
@@ -1351,7 +1958,9 @@ export function App() {
               key={levelUpDraft?.classId ?? "finalized"}
               character={displayedCharacter}
               levelUpOriginal={levelUpDraft?.original}
-              levelUpClassId={levelUpDraft?.classId}
+              levelUpClassId={
+                levelUpDraft?.prestigeClassId ? undefined : levelUpDraft?.classId
+              }
               onKnownSpellsChange={updateKnownSpells}
               onSpellAcquisitionChange={updateSpellAcquisition}
               onPreparedSpellsChange={updatePreparedSpells}

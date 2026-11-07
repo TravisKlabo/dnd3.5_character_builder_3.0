@@ -1,7 +1,7 @@
-import { type Character, raceDefinitions } from "../domain";
+import { type Character } from "../domain";
 import { useState } from "react";
 import { storeItems, type StoreItem, type StoreCategory, addCustomStoreItems, deleteCustomStoreItem, useCatalogRevision } from "../data/equipmentCatalog";
-import { getInventoryEntryDetails, formatCustomItemName, unequipInventoryItem, equipInventoryItem as equipItem } from "../rules";
+import { getInventoryEntryDetails, formatCustomItemName, unequipInventoryItem, equipInventoryItem as equipItem, getRaceDefinitionForCharacter } from "../rules";
 import { EquipmentItemPicker } from "./pickers";
 
 export function EquipmentStore({
@@ -60,8 +60,7 @@ export function EquipmentStore({
   const [customShieldCheckPenalty, setCustomShieldCheckPenalty] = useState("0");
   const [customShieldSpellFailure, setCustomShieldSpellFailure] = useState("0");
   const [customTowerShield, setCustomTowerShield] = useState(false);
-  const playerRaceId = character.race.toLowerCase().replaceAll(" ", "-");
-  const playerSize = raceDefinitions[playerRaceId]?.size ?? "Medium";
+  const playerSize = getRaceDefinitionForCharacter(character)?.size ?? "Medium";
   const [itemSize, setItemSize] = useState<string>(playerSize);
   const sizeOptions = ["Small", "Medium", "Large"];
   const inventory = character.inventory ?? {};

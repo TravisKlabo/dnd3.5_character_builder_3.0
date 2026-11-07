@@ -20,12 +20,57 @@ function caster(): Character {
 
 describe("casting summary", () => {
   it("omits the panel for noncasters", () => {
-    const { container } = render(<CastingSummary character={initialCharacter} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+    const { container } = render(<CastingSummary character={initialCharacter} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
     expect(container.childElementCount).toBe(0);
   });
 
+  it("shows Dragonlance Clerics the Medallion of Faith reminder", () => {
+    const character = caster();
+    const view = render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
+    expect(screen.queryByText(/Medallion of Faith/)).toBeNull();
+
+    character.ruleset = "dragonlance-user-pack";
+    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
+    const cleric = within(screen.getByRole("group", { name: "Cleric casting summary" }));
+    expect(cleric.getByRole("checkbox", { name: "Medallion of Faith present" })).toBeDefined();
+    expect(cleric.getByText(/2d4 divine damage with no save or spell resistance/)).toBeDefined();
+    expect(cleric.getByText(/tracks possession only; forced-removal damage remains manual/)).toBeDefined();
+    expect(cleric.getByRole("checkbox", { name: "Medallion of Faith present" })).toBeDefined();
+  });
+
+  it("warns when a Dragonlance Cleric lacks a Medallion for spell levels above 3rd", () => {
+    const character = caster();
+    character.ruleset = "dragonlance-user-pack";
+    character.classLevels = [{ classId: "cleric", level: 7 }];
+    const onMedallionOfFaithChange = vi.fn();
+    const view = render(
+      <CastingSummary
+        character={character}
+        onOpenSpells={vi.fn()}
+        onCombatCastingContextChange={vi.fn()}
+        onMedallionOfFaithChange={onMedallionOfFaithChange}
+      />,
+    );
+    const cleric = within(screen.getByRole("group", { name: "Cleric casting summary" }));
+    expect(cleric.getByRole("alert").textContent).toContain("spell levels 4");
+
+    fireEvent.click(cleric.getByRole("checkbox", { name: "Medallion of Faith present" }));
+    expect(onMedallionOfFaithChange).toHaveBeenCalledWith(true);
+    character.hasMedallionOfFaith = true;
+    view.rerender(
+      <CastingSummary
+        character={character}
+        onOpenSpells={vi.fn()}
+        onCombatCastingContextChange={vi.fn()}
+        onMedallionOfFaithChange={onMedallionOfFaithChange}
+      />,
+    );
+    expect(cleric.queryByRole("alert")).toBeNull();
+    expect((cleric.getByRole("checkbox", { name: "Medallion of Faith present" }) as HTMLInputElement).checked).toBe(true);
+  });
+
   it("separates multiclass caster levels, abilities and spell DCs", () => {
-    render(<CastingSummary character={caster()} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+    render(<CastingSummary character={caster()} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
     const wizard = within(screen.getByRole("group", { name: "Wizard casting summary" }));
     const cleric = within(screen.getByRole("group", { name: "Cleric casting summary" }));
     expect(wizard.getByText("3", { selector: "strong" })).toBeDefined();
@@ -72,14 +117,14 @@ describe("casting summary", () => {
   it("does not advertise spell levels blocked by ability or lack of bonus slots", () => {
     const character = caster();
     character.classLevels = [{ classId: "paladin", level: 3 }];
-    const view = render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+    const view = render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
     expect(screen.getByText(/No castable spell levels/)).toBeDefined();
     character.classLevels = [{ classId: "paladin", level: 4 }];
     character.abilities.wis = 10;
-    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
     expect(screen.getByText(/No castable spell levels/)).toBeDefined();
     character.abilities.wis = 12;
-    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+    view.rerender(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
     expect(screen.getByText("DC 12")).toBeDefined();
     expect(screen.queryByText(/No castable/)).toBeNull();
   });
@@ -121,7 +166,7 @@ describe("casting summary", () => {
       character.equipment.Armor = "Unrecorded armor";
       expect(getArcaneSpellFailure(character, "wizard")).toMatchObject({ percent: null });
       expect(getArcaneSpellFailure(character, "wizard")?.detail).toContain("Unrecorded armor: spell failure not recorded");
-      render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} />);
+      render(<CastingSummary character={character} onOpenSpells={vi.fn()} onCombatCastingContextChange={vi.fn()} onMedallionOfFaithChange={vi.fn()} />);
       expect(screen.getByText("Unknown")).toBeDefined();
     } finally {
       deleteCustomStoreItem(armorName);

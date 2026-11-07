@@ -63,7 +63,7 @@
 .reference-logo::after { right: 0; transform: rotate(8deg); }
 .reference-sheet-name { margin-top: .06in; font-size: .85em; letter-spacing: .16em; }
 .reference-page-one-body { display: grid; min-height: 0; grid-template-columns: 1.32fr .92fr; gap: .1in; }
-.reference-page-one-main { display: grid; min-height: 0; grid-template-rows: 1.55fr .82fr 1.05fr 1fr; gap: .07in; }
+.reference-page-one-main { display: grid; min-height: 0; grid-template-rows: 1.45fr .82fr 1.15fr 1fr; gap: .07in; }
 .reference-combat-summary { display: grid; min-height: 0; grid-template-columns: .92fr 1.08fr; gap: .07in; }
 .reference-ability-table, .reference-sheet-page table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .reference-sheet-page th, .reference-sheet-page td { padding: .025in .025in; border: 1px solid #111; text-align: center; vertical-align: middle; }
@@ -106,12 +106,13 @@
 .reference-conditions .print-field-value { min-height: .26in; border: 0; font-size: .9em; }
 .reference-attacks { grid-template-rows: auto minmax(0, 1fr) auto; }
 .reference-attack-table, .reference-protection table { height: 100%; }
-.reference-attack-table tbody tr { height: .5625in; }
+.reference-attack-table tbody tr { height: .625in; }
 .reference-attack-table tbody th { text-align: left; vertical-align: top; }
 .reference-attack-slot { display: block; font-size: .72em; font-weight: 700; text-transform: uppercase; }
 .reference-attack-item { display: block; }
 .reference-attack-damage-value, .reference-attack-damage-type { display: block; }
 .reference-attack-damage-type { font-size: .75em; }
+.reference-attack-enchantment-damage { display: block; font-size: .72em; line-height: 1.05; }
 .reference-attack-distance { display: block; font-size: .75em; line-height: 1.05; }
 .reference-attack-distance-label { display: block; font-size: .85em; font-weight: 700; text-transform: uppercase; }
 .reference-attack-distance-value { display: block; font-size: 2.6em; line-height: 1.05; }
@@ -217,6 +218,43 @@
 .reference-feats-details .reference-money { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto; align-items: end; padding: .01in; }
 .reference-feats-details .reference-money .print-section-title { grid-column: 1 / -1; }
 .reference-feats-details .reference-money .print-section-title { grid-column: 1 / -1; }
+
+.spell-form-page {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: .045in;
+  font-size: 8px;
+}
+.spell-form-header { display: grid; gap: .04in; padding-bottom: .04in; border-bottom: 2px solid #274c5e; }
+.spell-form-title { display: flex; justify-content: space-between; align-items: end; }
+.spell-form-title > span, .spell-form-identity > div > span, .spell-form-calculations > div > span {
+  font-size: .7em;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.spell-form-title h2 { margin: 0; font-size: 1.55em; line-height: 1; }
+.spell-form-identity { display: grid; grid-template-columns: 1.4fr 1fr 1.15fr .85fr .85fr; gap: .08in; }
+.spell-form-identity > div, .spell-form-calculations > div { display: grid; min-width: 0; gap: .02in; padding: .025in .04in; border-bottom: 1px solid #777; }
+.spell-form-identity strong, .spell-form-calculations strong { min-width: 0; overflow-wrap: anywhere; font-size: 1.05em; }
+.spell-form-calculations { display: grid; grid-template-columns: 1.8fr repeat(4, minmax(0, 1fr)); gap: .04in; }
+.spell-form-levels { display: grid; min-height: 0; align-content: start; gap: .045in; }
+.spell-level-section { display: grid; min-width: 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+.print-spell-level-heading { display: grid; min-width: 0; min-height: .18in; grid-template-columns: minmax(0, 1fr) max-content max-content; gap: .08in; align-items: center; padding: .02in .045in; background: #274c5e; color: #fff; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.print-spell-level-heading h3 { margin: 0; font-size: 1em; letter-spacing: .06em; text-transform: uppercase; }
+.spell-level-slot-count { display: flex; align-items: center; gap: .04in; font-size: .75em; font-weight: 700; text-transform: uppercase; }
+.spell-level-slot-boxes { display: flex; gap: .02in; }
+.spell-slot-box { width: .105in; height: .105in; border: 1px solid #fff; }
+.spell-level-dc { font-size: .72em; font-weight: 700; white-space: nowrap; }
+.print-spell-level-table { width: 100%; max-width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 1.008em; }
+.print-spell-level-table th, .print-spell-level-table td { min-width: 0; padding: .006in .015in; border: 1px solid #777; overflow-wrap: anywhere; vertical-align: middle; }
+.print-spell-level-table thead th { height: .12in; background: #e8eef1; color: #111; font-size: .78em; line-height: 1.05; text-align: center; text-transform: uppercase; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.print-spell-level-table tbody tr, .print-spell-level-table tbody td { height: .28in; }
+.print-spell-cell-content { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.15; }
+.spell-level-section-compact .print-spell-level-table tbody td { height: auto; }
+.spell-level-section-compact .print-spell-cell-content { -webkit-line-clamp: 1; }
+.print-spell-concentration { text-align: center; white-space: nowrap; }
+.spell-quantity-cell { text-align: center; }
+.spell-form-footer { display: flex; justify-content: space-between; padding-top: .025in; border-top: 1px solid #777; font-size: .68em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 
 @media (max-width: 900px) {
   .print-sheet-actions { align-items: stretch; flex-direction: column; }

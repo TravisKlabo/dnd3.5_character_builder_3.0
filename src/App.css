@@ -11,7 +11,7 @@
 .import-file-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; padding: 0; opacity: 0; cursor: pointer; }
 .sheet-tabs { display: flex; gap: 4px; margin: 25px 0 18px; border-bottom: 3px solid #243447; } .sheet-tabs button { border-bottom: 0; color: #68736f; } .sheet-tabs button.active { background: #243447; color: #fff; }
 .level-banner { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 20px; padding: 16px 18px; border-left: 5px solid #b16d38; background: #f8f1df; } .level-banner strong, .level-banner span { display: block; } .level-banner span { margin-top: 3px; color: #68736f; font-size: .9rem; }
-.level-roll-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; } .level-todo-list { display: grid; gap: 3px; margin-top: 8px; }
+.level-roll-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; } .level-roll-controls label { display: grid; gap: 4px; color: #68736f; font-size: .75rem; } .level-roll-controls input, .level-roll-controls select { min-width: 90px; padding: 5px 7px; } .level-roll-controls [role="alert"] { flex-basis: 100%; } .level-todo-list { display: grid; gap: 3px; margin-top: 8px; }
 .sheet-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; } .single-column { grid-template-columns: 1fr; } .panel { min-width: 0; border: 1px solid #b9bbb4; background: #f8f7f2; box-shadow: 0 8px 24px #39444c12; } .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 17px; border-bottom: 3px solid #243447; background: #fff; } .panel-title h2 { margin: 0; font-size: 1rem; color: #243447; } .rule-status { color: #738178; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
 .creation-panel { margin-bottom: 18px; } .creation-intro { padding: 15px 18px 0; color: #68736f; } .creation-grid { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 1.2fr 1.2fr; gap: 12px; padding: 18px 18px 12px; } .creation-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 0 18px 16px; } .creation-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-top: 1px solid #d6d7d1; color: #68736f; font-size: .85rem; }
 .creation-validation-errors { flex: 1; margin: 0; padding-left: 18px; color: #914b3d; font-size: .75rem; }
@@ -23,11 +23,16 @@
 .prestige-creation-field .race-trigger { white-space: nowrap; }
 .high-sorcery-creation-field { grid-column: span 2; }
 .high-sorcery-creation-field select { white-space: nowrap; }
+.mystic-domain-creation-field { grid-column: span 2; }
+.mystic-domain-field { max-width: 360px; margin-bottom: 12px; }
 .alignment-creation-field { grid-column: 1 / span 2; grid-row: 2; }
 .deity-creation-field { grid-column: 3 / span 2; grid-row: 2; }
+.creation-rule-note { grid-column: 1 / -1; margin: 0; color: #68736f; font-size: .78rem; line-height: 1.4; }
+.level-class-rule-note { margin: 8px 0 0; color: #68736f; font-size: .78rem; line-height: 1.4; }
 @media (max-width: 900px) { .alignment-creation-field, .deity-creation-field { grid-column: auto; grid-row: auto; } }
 @media (max-width: 900px) { .prestige-creation-field { grid-column: auto; } }
 @media (max-width: 900px) { .high-sorcery-creation-field { grid-column: auto; } }
+@media (max-width: 900px) { .mystic-domain-creation-field { grid-column: auto; } }
 @media (max-width: 560px) { .prestige-identity-field { grid-column: auto; } }
 .creation-abilities label { grid-template-rows: auto 38px 28px; align-content: start; }
 .creation-grid > label { min-width: 0; }
@@ -112,6 +117,10 @@
 .hp-tracker button:disabled { cursor: not-allowed; opacity: .55; }
 .hp-tracker-hint { margin: 5px 0 0; color: #68736f; font-size: .65rem; line-height: 1.4; }
 .hp-tracker [role="alert"] { color: #a04430; }
+.hp-roll-history { margin-top: 10px; border-top: 1px solid #d6d7d1; padding-top: 8px; }
+.hp-roll-history summary { color: #243447; font-weight: 700; cursor: pointer; }
+.hp-roll-history table { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: .68rem; text-align: left; }
+.hp-roll-history th, .hp-roll-history td { padding: 4px 6px; border: 1px solid #d6d7d1; }
 .combat-effects { padding: 10px 12px; border-top: 1px solid #c6c9c2; font-size: .75rem; }
 .combat-effects-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .combat-effects-heading h3 { flex: 1; margin: 0; color: #243447; font-size: .8rem; }
@@ -146,9 +155,13 @@
 .casting-dcs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: .7rem; }
 .casting-dcs > span { padding: 4px 7px; border: 1px solid #c6c9c2; background: #fff; }
 .casting-summary-note { margin: 0; padding: 0 12px 10px; color: #68736f; font-size: .65rem; }
+.casting-rule-note { margin: 10px 0 0; padding: 9px 11px; border-left: 3px solid #b16d38; background: #fff3e4; color: #423121; font-size: .78rem; line-height: 1.45; }
+.casting-medallion-control { display: flex; grid-template-columns: none; align-items: center; gap: 7px; margin-top: 10px; color: #423121; font-size: .76rem; text-transform: none; }
+.casting-medallion-control input { width: 16px; height: 16px; margin: 0; padding: 0; accent-color: #2878c8; }
+.casting-rule-alert { margin: 9px 0 0; padding: 8px 10px; border-left: 3px solid #a04430; background: #fae9e5; color: #713020; font-size: .76rem; line-height: 1.45; }
 .ability-card .ability-effective { color: #98734d; font-size: .6rem; }
 .list-grid, .spell-levels { padding: 10px 17px 17px; } .list-row, .spell-row { display: grid; grid-template-columns: minmax(0, 1.5fr) .4fr 1fr; gap: 10px; align-items: center; justify-items: start; padding: 10px 0; border-bottom: 1px solid #d6d7d1; } .list-row strong { color: #b16d38; } .list-row small, .spell-row small { color: #68736f; } .empty-state { padding: 28px 18px; color: #68736f; }
-.skill-name { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 8px; color: #243447; }
+.skill-name { display: grid; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 8px; color: #243447; }
 .skill-name > span { border-left: 1px solid #c6c9c2; padding-left: 8px; }
 .skill-name input { width: 16px; height: 16px; margin: 0; padding: 0; accent-color: #2878c8; }
 .skill-cost-indicator { display: block; margin-top: 2px; font-size: .62rem; font-weight: 700; line-height: 1.2; }
@@ -173,6 +186,13 @@
 .cleric-domain-slot small, .cleric-domain-slot a { font-size: .72rem; }
 .domain-slot-expended { display: flex; gap: 5px; align-items: center; font-size: .72rem; }
 .domain-slot-expended input { width: 16px; height: 16px; margin: 0; }
+.high-sorcery-moon-controls { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #c6c9c2; background: #fff; }
+.high-sorcery-moon-controls legend { padding: 0 5px; color: #243447; font-weight: 700; }
+.high-sorcery-moon-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px 12px; }
+.high-sorcery-moon-grid label { min-width: 0; }
+.high-sorcery-moon-grid select { min-width: 0; padding: 7px; }
+.high-sorcery-moon-effect { margin: 10px 0 4px; color: #243447; font-size: .78rem; font-weight: 700; }
+.high-sorcery-moon-controls > small { color: #68736f; font-size: .7rem; }
 @media (max-width: 560px) {
   .cleric-domain-choices > label { flex: 1 1 100%; }
   .cleric-domain-slot { grid-template-columns: minmax(0, 1fr); }
@@ -399,9 +419,13 @@
 .store-item-action small { width: 100%; text-align: right; }
 .secondary-button { padding: 5px 9px; border: 1px solid #202020; background: #fff; color: #202020; cursor: pointer; font: inherit; font-size: .7rem; }
 @media (max-width: 900px) { .spell-sheet { overflow-x: auto; } .spell-level-table { overflow-x: auto; } .spell-sheet-header { grid-template-columns: 1fr 1fr; } .spell-sheet-brand { grid-column: 1 / -1; } }
-@media (max-width: 700px) { .equipment-slot-grid { grid-template-columns: 1fr; min-height: 0; } .equipment-figure { display: none; } .equipment-footer, .equipment-summary, .equipment-store-grid { grid-template-columns: 1fr; } .equipment-store-header { align-items: start; flex-direction: column; } .store-category-controls { grid-template-columns: 1fr; width: 100%; } .store-category-controls > select:first-of-type, .store-category-controls > select:nth-of-type(2), .store-built-item { grid-column: auto; width: auto; } .equipment-inventory-row { grid-template-columns: 1fr 1fr; } .equipment-inventory-name { grid-column: 1 / -1; } .equipment-inventory-actions { grid-column: 1 / -1; justify-content: start; } }
+@media (max-width: 700px) { .equipment-slot-grid { grid-template-columns: 1fr; min-height: 0; } .equipment-figure { display: none; } .equipment-footer, .equipment-summary, .equipment-store-grid { grid-template-columns: 1fr; } .equipment-store-header { align-items: start; flex-direction: column; } .store-size-row { width: 100%; min-width: 0; grid-template-columns: minmax(0, 180px) minmax(0, 1fr); } .store-size-row small { white-space: normal; } .store-category-controls { grid-template-columns: 1fr; width: 100%; } .store-category-controls > select:first-of-type, .store-category-controls > select:nth-of-type(2), .store-built-item { grid-column: auto; width: auto; } .equipment-inventory-row { grid-template-columns: 1fr 1fr; } .equipment-inventory-name { grid-column: 1 / -1; } .equipment-inventory-actions { grid-column: 1 / -1; justify-content: start; } }
 .feat-no-results { display: block; padding: 10px; color: #68736f; font-size: .76rem; text-transform: none; }
 .status-message { margin: 16px 0; padding: 16px; }
+.component-loading { display: flex; align-items: center; min-height: 4.5rem; margin: 0; padding: 12px 17px; color: #68736f; font-size: .75rem; }
+.component-loading.casting-summary-loading, .component-loading.notes-loading { min-height: 7rem; }
+.component-loading.hp-tracker-loading, .component-loading.combat-effects-loading { min-height: 6rem; }
+.picker-loading .race-trigger { cursor: wait; color: #68736f; }
 .character-notes-content { padding: 16px 17px; }
 .character-notes { margin-bottom: 14px; }
 .character-note-entry { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr); padding: 10px 0; }
@@ -461,6 +485,14 @@ textarea { width: 100%; border: 1px solid #b9bbb4; padding: 9px 10px; color: #24
 .special-ability { display: block; padding: 8px 0 8px 13px; color: #243447; font-size: .76rem; line-height: 1.45; text-align: left; }
 .special-ability strong { color: #243447; }
 .special-ability span { margin-left: 4px; color: #98734d; font-size: .68rem; text-transform: none; }
+.ranger-favored-enemies { display: grid; grid-column: 1 / -1; gap: 9px; padding: 14px 17px; border-top: 1px solid #d6d7d1; text-align: left; }
+.ranger-favored-enemies h3 { margin: 0; padding: 0; color: #243447; font-size: .82rem; }
+.ranger-favored-enemies > p { margin: 0; color: #68736f; font-size: .72rem; line-height: 1.45; }
+.ranger-favored-enemy-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; gap: 8px; padding: 9px 0; border-top: 1px solid #e1e2dd; }
+.ranger-favored-enemy-choice > strong { color: #243447; font-size: .75rem; }
+.ranger-favored-enemy-choice label { display: grid; gap: 4px; color: #68736f; font-size: .7rem; font-weight: 700; }
+.ranger-favored-enemy-choice input, .ranger-favored-enemy-choice select { min-width: 0; padding: 6px 8px; border: 1px solid #c6c9c2; background: #fff; color: #243447; font: inherit; font-weight: 400; }
+.ranger-favored-enemy-bonus { color: #98734d; font-size: .72rem; font-weight: 700; }
 .equipment-table { padding: 18px; } .table-head, .table-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; padding: 11px 12px; border-bottom: 1px solid #d6d7d1; } .table-head { color: #68736f; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; } .table-row { background: #fff; } .good { color: #477454; font-weight: 700; }
 .sheet-grid { display: flex; flex-direction: column; gap: 18px; }
 .sheet-grid > .identity-panel { order: 1; }
@@ -477,11 +509,20 @@ textarea { width: 100%; border: 1px solid #b9bbb4; padding: 9px 10px; color: #24
 .saving-throws-grid .stat strong { font-size: 1.3rem; }
 @media (max-width: 900px) {
   .top-combat-layout { grid-template-columns: minmax(0, 1fr); }
+  .sheet-tabs { overflow-x: auto; }
+  .sheet-tabs button { flex: 1 0 auto; }
 }
 @media (max-width: 560px) {
   .combat-weapon-stat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .combat-weapon-stat .attack-penalty { grid-column: 1 / -1; }
   .combat-weapon-stat .weapon-distance { grid-column: 1 / -1; }
+  .ranged-ammunition-control {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+  .ranged-ammunition-control select { width: 100%; min-width: 0; }
   .combat-effects-modifiers { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) { .app-shell { padding: 24px 18px 50px; } .app-header, .level-banner { align-items: stretch; flex-direction: column; } .identity-grid, .creation-grid { grid-template-columns: repeat(2, 1fr); } .creation-abilities { grid-template-columns: repeat(3, 1fr); } .sheet-grid { grid-template-columns: 1fr; } .identity-panel, .skills-panel, .feats-panel { grid-column: auto; } .feat-picker { width: 100%; } .feat-picker .race-menu { left: 0; top: calc(100% + 4px); width: 100%; min-width: 0; } } @media (max-width: 560px) { .ability-grid, .creation-abilities { grid-template-columns: repeat(3, 1fr); } .identity-grid, .creation-grid { grid-template-columns: 1fr; } .creation-actions { align-items: stretch; flex-direction: column; } .sheet-tabs { overflow-x: auto; } .sheet-tabs button { flex: 1 0 auto; } .list-row, .spell-row { grid-template-columns: 1fr auto; } .list-row small, .spell-row small { grid-column: 1 / -1; } .feats-abilities-grid { grid-template-columns: 1fr; } .abilities-column { border-top: 1px solid #b9bbb4; border-left: 0; } }

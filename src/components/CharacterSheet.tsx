@@ -1,17 +1,15 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool } from "../domain";
-import { getLevelUpClassId, formatModifier, getBaseAttackBonus, getCharacterLanguages, getRacialLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
+import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
+import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
 import { type CombatAttackMode, type CombatCastingContext, type SkillSynergyContext } from "../rules";
 import { getMovement, getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay } from "../rules";
-import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, classFeatureDescriptions } from "../data/characterCatalog";
+import { abilities, skills, skillDescriptions, abilityLabels, featCatalog } from "../data/characterCatalog";
+import { classFeatureDescriptions } from "../data/classFeatureDescriptions";
+import { prestigeClassFeatureDescriptions } from "../data/prestigeClassFeatureDescriptions";
 import { Panel, Stat, ArmorClassStat, SavingThrowStat, DodgeTargetControl, AttacksOfOpportunityStat, CombatCastingContextControl, ContentSourceLabel } from "./shared";
-import { LanguagePicker, FeatPicker } from "./pickers";
-import { CharacterNotes } from "./CharacterNotes";
-import { HitPointTracker } from "./HitPointTracker";
+import { RangerFavoredEnemies } from "./RangerFavoredEnemies";
 import { type HitPointAction, getCurrentHitPoints, getMaximumHitPoints } from "../hitPoints";
-import { CastingSummary } from "./CastingSummary";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
-import { CombatEffectsTracker } from "./CombatEffectsTracker";
 import { getCombatEffectDetails, type CombatEffect } from "../combatEffects";
 import { useCombatTargetContext } from "../combatTargetDefenseContext";
 const SavingThrowContextSelector = lazy(() =>
@@ -26,6 +24,76 @@ const CombatAttackPanel = lazy(() =>
   })),
 );
 
+const CastingSummary = lazy(() =>
+  import("./CastingSummary").then((module) => ({
+    default: module.CastingSummary,
+  })),
+);
+
+const HitPointTracker = lazy(() =>
+  import("./HitPointTracker").then((module) => ({
+    default: module.HitPointTracker,
+  })),
+);
+
+const CombatEffectsTracker = lazy(() =>
+  import("./CombatEffectsTracker").then((module) => ({
+    default: module.CombatEffectsTracker,
+  })),
+);
+
+const CharacterNotes = lazy(() =>
+  import("./CharacterNotes").then((module) => ({
+    default: module.CharacterNotes,
+  })),
+);
+
+const LanguagePicker = lazy(() =>
+  import("./pickers").then((module) => ({
+    default: module.LanguagePicker,
+  })),
+);
+
+const FeatPicker = lazy(() =>
+  import("./pickers").then((module) => ({
+    default: module.FeatPicker,
+  })),
+);
+
+function LoadingPlaceholder({
+  children,
+  className = "",
+}: {
+  children: string;
+  className?: string;
+}) {
+  return (
+    <p className={`component-loading ${className}`} role="status" aria-busy="true">
+      {children}
+    </p>
+  );
+}
+
+function PickerLoading({
+  className,
+  label,
+}: {
+  className: string;
+  label: string;
+}) {
+  return (
+    <div
+      className={`class-field ${className} picker-loading`}
+      role="status"
+      aria-busy="true"
+    >
+      <button className="race-trigger" type="button" disabled>
+        {label}
+      </button>
+    </div>
+  );
+}
+
 export function CharacterSheet({
   character,
   levelUpOriginal,
@@ -37,6 +105,8 @@ export function CharacterSheet({
   onFeatSkillChange,
   onFeatSpellSchoolChange,
   onLanguagesChange,
+  onSpeakLanguagesChange,
+  onRegionalLanguageChange,
   allowFeatSelection,
   finalized,
   editable,
@@ -48,6 +118,7 @@ export function CharacterSheet({
   onAddNote,
   onHitPointAction,
   onCombatEffectsChange,
+  onCharacterFeatureChange,
   rangedTargetDistanceFeet,
   onRangedTargetDistanceFeetChange,
   combatAttackMode,
@@ -60,20 +131,27 @@ export function CharacterSheet({
   onDodgeTargetSelectedChange,
   combatCastingContext,
   onCombatCastingContextChange,
+  onMedallionOfFaithChange,
   selectedRangedAmmunitionKey,
   onRangedAmmunitionChange,
   onOpenSpells,
 }: {
   character: Character;
   levelUpOriginal?: Character;
-  levelUpClassId?: ClassId;
+  levelUpClassId?: ClassId | PrestigeClassId;
   creationMode: boolean;
-  onSkillRankChange: (skill: string, change: number) => void;
+  onSkillRankChange: (
+    skill: string,
+    change: number,
+    sourceId?: SkillRankSourceId,
+  ) => void;
   onFeatChange: (slotId: string, featId: string) => void;
   onFeatWeaponChange: (slotId: string, weaponName: string) => void;
   onFeatSkillChange: (slotId: string, skill: string) => void;
   onFeatSpellSchoolChange: (slotId: string, school: MagicSchool | undefined) => void;
   onLanguagesChange: (languages: string[]) => void;
+  onSpeakLanguagesChange: (languages: string[]) => void;
+  onRegionalLanguageChange: (language: string | undefined) => void;
   allowFeatSelection: boolean;
   finalized: boolean;
   editable: boolean;
@@ -85,6 +163,9 @@ export function CharacterSheet({
   onAddNote: (text: string) => void;
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
+  onCharacterFeatureChange: (
+    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies">>,
+  ) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
   combatAttackMode: CombatAttackMode;
@@ -97,6 +178,7 @@ export function CharacterSheet({
   onDodgeTargetSelectedChange: (selected: boolean) => void;
   combatCastingContext?: CombatCastingContext;
   onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
+  onMedallionOfFaithChange: (present: boolean) => void;
   selectedRangedAmmunitionKey?: string;
   onRangedAmmunitionChange: (key: string | undefined) => void;
   onOpenSpells: () => void;
@@ -109,27 +191,48 @@ export function CharacterSheet({
   const [skillSynergyCheckContexts, setSkillSynergyCheckContexts] = useState<
     Partial<Record<string, SkillSynergyContext>>
   >({});
-  const skillDisplayClassId = levelUpOriginal
-    ? levelUpClassId ?? getLevelUpClassId(levelUpOriginal, character)
+  const [creationSkillSourceId, setCreationSkillSourceId] = useState<
+    SkillRankSourceId | undefined
+  >();
+  const lastClassLevel = character.classLevels.at(-1);
+  const defaultSkillSourceId: SkillRankSourceId = lastClassLevel &&
+      "prestigeClassId" in lastClassLevel
+    ? lastClassLevel.prestigeClassId
+    : lastClassLevel?.classId ?? "fighter";
+  const racialHitDice = getRacialHitDiceForCharacter(character);
+  const activeLevelUpClassId = levelUpOriginal
+    ? levelUpClassId ?? getLevelUpSkillSourceId(levelUpOriginal, character)
     : undefined;
-  const classSummary = character.classLevels
-    .filter(
-      (level) =>
-        !("prestigeClassId" in level && level.prestigeClassId === "wizard-of-high-sorcery"),
-    )
-    .map(
+  const skillDisplaySourceId: SkillRankSourceId | undefined = levelUpOriginal
+    ? activeLevelUpClassId
+    : creationMode
+      ? creationSkillSourceId === "racial-hit-dice" && !racialHitDice
+        ? defaultSkillSourceId
+        : creationSkillSourceId ?? defaultSkillSourceId
+      : undefined;
+  const skillRankSourceIds = [...new Set(character.classLevels.map((level) =>
+    "prestigeClassId" in level ? level.prestigeClassId : level.classId,
+  ))];
+  const classSummary = [
+    ...(racialHitDice ? [`${racialHitDice.count}d${racialHitDice.hitDie} racial HD`] : []),
+    ...character.classLevels.map(
       (level) => "prestigeClassId" in level
         ? `${dragonlancePrestigeClasses[level.prestigeClassId]?.name ?? level.prestigeClassId} ${level.level}`
         : `${classDefinitions[level.classId]?.name ?? level.classId} ${level.level}`,
-    )
-    .concat(
+    ),
+    ...(
       character.prestigeClass &&
         character.prestigeClass !== "wizard-of-high-sorcery" &&
         !character.classLevels.some((level) => "prestigeClassId" in level)
-        ? `${dragonlancePrestigeClasses[character.prestigeClass]?.name ?? "Prestige Class"} 1`
-        : [],
-    )
-    .join(" / ");
+        ? [`${dragonlancePrestigeClasses[character.prestigeClass]?.name ?? "Prestige Class"} 1`]
+        : []
+    ),
+  ].join(" / ");
+  const totalHitDice = getTotalHitDice(character);
+  const effectiveCharacterLevel = getEffectiveCharacterLevel(character);
+  const levelStatus = effectiveCharacterLevel > totalHitDice
+    ? `ECL ${effectiveCharacterLevel} (${totalHitDice} HD)`
+    : `Level: ${totalHitDice}`;
   const classSources = [...new Map(
     character.classLevels.map((level) => {
       const definition = "prestigeClassId" in level
@@ -141,9 +244,8 @@ export function CharacterSheet({
       ] as const;
     }),
   ).values()];
-  const characterRace =
-    raceDefinitions[character.race.toLowerCase().replaceAll(" ", "-")] ??
-    raceDefinitions.human;
+  const movement = getMovement(character);
+  const characterRace = getRaceDefinitionForCharacter(character) ?? raceDefinitions.human;
   const specialAbilities = [
     ...(characterRace.traits ?? []).map((ability) => ({
       source: characterRace.name,
@@ -192,9 +294,23 @@ export function CharacterSheet({
       : []),
   ];
   const initiativeFeatBonus = getImprovedInitiativeBonus(character);
+  const knightInitiativeBonus = getKnightOfCrownHeroicInitiativeBonus(character);
+  const knightOfTheCrownLevel = getPrestigeClassLevel(character, "knight-of-the-crown");
+  const crownState = character.knightOfTheCrownState ?? {};
+  const strengthOfHonorUses = crownState.strengthOfHonorUsesUsed ?? 0;
+  const strengthOfHonorUsesPerDay = knightOfTheCrownLevel
+    ? 1 + Math.floor((knightOfTheCrownLevel - 1) / 3)
+    : 0;
+  const strengthOfHonorBonus = knightOfTheCrownLevel >= 6 ? 6 : 4;
+  const strengthOfHonorDuration = 3 +
+    abilityModifier(getEffectiveAbilityScore(character, "cha"));
+  const strengthOfHonorActive = (character.combatEffects ?? []).some(
+    (effect) => effect.name === "Strength of Honor" &&
+      (effect.remainingRounds === null || effect.remainingRounds > 0),
+  );
   return (
     <div className="sheet-grid">
-      <Panel title={`${character.name || "Unnamed Character"}${character.player ? ` (${character.player})` : ""}`} headerLabel="Character Info" className={`identity-panel${finalized ? " finalized" : ""}`} showStatus statusText={`Level: ${character.classLevels.filter((entry) => !("prestigeClassId" in entry && entry.prestigeClassId === "wizard-of-high-sorcery")).reduce((total, entry) => total + entry.level, 0)}`}>
+      <Panel title={`${character.name || "Unnamed Character"}${character.player ? ` (${character.player})` : ""}`} headerLabel="Character Info" className={`identity-panel${finalized ? " finalized" : ""}`} showStatus statusText={levelStatus}>
         <div className="identity-grid">
           {!finalized && <label>
             Character name
@@ -285,10 +401,6 @@ export function CharacterSheet({
             const baseScore = character.abilities[ability];
             const score = getEffectiveAbilityScore(character, ability);
             const equipmentBonus = getAbilityEquipmentBonus(character, ability);
-            const characterRace =
-              raceDefinitions[
-                character.race.toLowerCase().replaceAll(" ", "-")
-              ] ?? raceDefinitions.human;
             const racialAdjustment =
               characterRace.abilityModifiers[ability] ?? 0;
             const modifier = abilityModifier(score);
@@ -313,7 +425,9 @@ export function CharacterSheet({
           })}
         </div>
       </Panel>
-      <Suspense fallback={<Panel title="Attacks & Weapons" className="attacks-panel">Loading attack details...</Panel>}>
+      <Suspense fallback={<Panel title="Attacks & Weapons" className="attacks-panel">
+        <LoadingPlaceholder>Loading attack details...</LoadingPlaceholder>
+      </Panel>}>
         <CombatAttackPanel
           character={character}
           rangedTargetDistanceFeet={rangedTargetDistanceFeet}
@@ -328,12 +442,21 @@ export function CharacterSheet({
           onRangedAmmunitionChange={onRangedAmmunitionChange}
         />
       </Suspense>
-      <CastingSummary
-        character={character}
-        onOpenSpells={onOpenSpells}
-        combatCastingContext={combatCastingContext}
-        onCombatCastingContextChange={onCombatCastingContextChange}
-      />
+      {getBaseClassLevels(character).some(({ classId }) => classDefinitions[classId].spellcasting) && (
+        <Suspense fallback={<Panel title="Spellcasting" className="casting-summary">
+          <LoadingPlaceholder className="casting-summary-loading">
+            Loading spellcasting summary...
+          </LoadingPlaceholder>
+        </Panel>}>
+          <CastingSummary
+            character={character}
+            onOpenSpells={onOpenSpells}
+            combatCastingContext={combatCastingContext}
+            onCombatCastingContextChange={onCombatCastingContextChange}
+            onMedallionOfFaithChange={onMedallionOfFaithChange}
+          />
+        </Suspense>
+      )}
       <Panel title="Languages" className="languages-panel">
         <div className="languages-display">
           {finalized ? (
@@ -348,12 +471,29 @@ export function CharacterSheet({
           <div className="language-panel-choices">
             <p>
               <strong>Automatic:</strong>{" "}
-              {getRacialLanguages(character).join(", ")}
+              {getAutomaticLanguages(character).join(", ")}
             </p>
+            {getHumanRegionalLanguages(character).length > 0 && (
+              <label>
+                Regional language
+                <Suspense fallback={<PickerLoading
+                  className="language-picker"
+                  label="Loading regional language choices..."
+                />}>
+                  <LanguagePicker
+                    selected={character.regionalLanguage ?? ""}
+                    options={getHumanRegionalLanguages(character)}
+                    onChange={(language) =>
+                      onRegionalLanguageChange(language || undefined)
+                    }
+                  />
+                </Suspense>
+              </label>
+            )}
             {Array.from(
               { length: getLanguageBonusSlots(character) },
               (_, index) => {
-                const automatic = getRacialLanguages(character);
+                const automatic = getAutomaticLanguages(character);
                 const chosen = (character.languages ?? []).filter(
                   (language) => !automatic.includes(language),
                 );
@@ -365,24 +505,66 @@ export function CharacterSheet({
                 return (
                   <label key={`sheet-language-${index}`}>
                     Bonus language {index + 1}
-                    <LanguagePicker
-                      selected={current}
-                      options={getAvailableBonusLanguages(character).filter(
-                        (language) =>
-                          !taken.has(language) || language === current,
-                      )}
-                      onChange={(language) => {
-                        const next = [...chosen];
-                        next[index] = language;
-                        onLanguagesChange(next.filter(Boolean));
-                      }}
-                    />
+                    <Suspense fallback={<PickerLoading
+                      className="language-picker"
+                      label="Loading language choices..."
+                    />}>
+                      <LanguagePicker
+                        selected={current}
+                        options={getAvailableBonusLanguages(character).filter(
+                          (language) =>
+                            (!taken.has(language) || language === current) &&
+                            !(character.speakLanguages ?? []).includes(language),
+                        )}
+                        onChange={(language) => {
+                          const next = [...chosen];
+                          next[index] = language;
+                          onLanguagesChange(next.filter(Boolean));
+                        }}
+                      />
+                    </Suspense>
                   </label>
                 );
               },
             )}
+            {getSpeakLanguageRankCount(character) > 0 && (
+              <>
+                <p>
+                  Each full Speak Language rank learns one language. The skill
+                  does not require a check.
+                </p>
+                {Array.from(
+                  { length: getSpeakLanguageRankCount(character) },
+                  (_, index) => {
+                    const current = character.speakLanguages?.[index] ?? "";
+                    return (
+                      <label key={`speak-language-${index}`}>
+                        Speak Language rank {index + 1}
+                        <Suspense fallback={<PickerLoading
+                          className="language-picker"
+                          label="Loading language choices..."
+                        />}>
+                          <LanguagePicker
+                            selected={current}
+                            options={getAvailableSpeakLanguages(character, index)}
+                            onChange={(language) => {
+                              const next = [...(character.speakLanguages ?? [])];
+                              next[index] = language;
+                              onSpeakLanguagesChange(next.filter(Boolean));
+                            }}
+                          />
+                        </Suspense>
+                      </label>
+                    );
+                  },
+                )}
+              </>
+            )}
           </div>
         )}
+        {getSpeakLanguageWarnings(character).map((warning) => (
+          <p className="language-empty" key={warning}>{warning}</p>
+        ))}
       </Panel>
       </div>
       <div className="sheet-secondary-column">
@@ -404,22 +586,23 @@ export function CharacterSheet({
             value={formatModifier(getInitiativeModifier(character))}
             detail={[
               ...(initiativeFeatBonus ? [`${formatModifier(initiativeFeatBonus)} Improved Initiative`] : []),
+              ...(knightInitiativeBonus ? [`${formatModifier(knightInitiativeBonus)} Heroic Initiative`] : []),
               ...getArmorNonproficiencyPenalties(character).map((entry) => `${formatModifier(entry.penalty)} ${entry.source}`),
               ...getCombatEffectDetails(character, "checks"),
             ]}
             title={[
               ...(initiativeFeatBonus ? [`${formatModifier(initiativeFeatBonus)} Improved Initiative`] : []),
+              ...(knightInitiativeBonus ? [`${formatModifier(knightInitiativeBonus)} Heroic Initiative`] : []),
               ...getArmorNonproficiencyPenalties(character).map((entry) =>
                 `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency penalty to Dexterity checks`),
               ...getCombatEffectDetails(character, "checks"),
             ].join("\n") || undefined}
           />
           <AttacksOfOpportunityStat character={character} />
-          <Stat
-            label="Speed"
-            value={`${getMovement(character).speed} ft.`}
-            detail={getMovement(character).causes}
-          />
+          <Stat label="Speed" value={`${movement.speed} ft.`} detail={[...(movement.bonuses ?? []), ...movement.causes]} />
+          {movement.swimSpeed !== undefined && (
+            <Stat label="Swim" value={`${movement.swimSpeed} ft.`} />
+          )}
           <Stat label="Hit Points" value={`${getCurrentHitPoints(character)} / ${getMaximumHitPoints(character)}`} />
           <Stat label="Temporary HP" value={String(character.temporaryHitPoints ?? 0)} />
           <Stat label="Nonlethal Damage" value={String(character.nonlethalDamage ?? 0)} />
@@ -427,14 +610,120 @@ export function CharacterSheet({
           <Stat label="Spell Resistance" value={character.spellResistance || "—"} />
           <Stat label="Base Attack" value={formatModifier(getBaseAttackBonus(character))} />
         </div>
-        <HitPointTracker character={character} enabled={finalized} onAction={onHitPointAction} />
-        <CombatEffectsTracker character={character} enabled={finalized} onChange={onCombatEffectsChange} />
+        <Suspense fallback={<LoadingPlaceholder className="hp-tracker-loading">
+          Loading hit point controls...
+        </LoadingPlaceholder>}>
+          <HitPointTracker character={character} enabled={finalized} onAction={onHitPointAction} />
+        </Suspense>
+        <Suspense fallback={<LoadingPlaceholder className="combat-effects-loading">
+          Loading active effects...
+        </LoadingPlaceholder>}>
+          <CombatEffectsTracker character={character} enabled={finalized} onChange={onCombatEffectsChange} />
+        </Suspense>
+        {knightOfTheCrownLevel > 0 && (
+          <section className="prestige-feature-tracker" aria-label="Knight of the Crown abilities">
+            <h3>Knight of the Crown abilities</h3>
+            <p>
+              Strength of Honor: {Math.max(0, strengthOfHonorUsesPerDay - strengthOfHonorUses)} of {strengthOfHonorUsesPerDay} uses remaining.
+              {strengthOfHonorActive ? " Active; its duration advances with combat rounds." : ""}
+            </p>
+            <button
+              type="button"
+              disabled={!finalized || strengthOfHonorUses >= strengthOfHonorUsesPerDay ||
+                strengthOfHonorActive || strengthOfHonorDuration < 1}
+              onClick={() => {
+                const round = character.combatRound ?? 1;
+                onCombatEffectsChange(round, [
+                  ...(character.combatEffects ?? []),
+                  {
+                    name: "Strength of Honor",
+                    remainingRounds: strengthOfHonorDuration,
+                    modifiers: { attack: 0, armorClass: 0, saves: 0, damage: 0, checks: 0 },
+                    abilityModifiers: { str: strengthOfHonorBonus },
+                  },
+                ]);
+                onCharacterFeatureChange({
+                  knightOfTheCrownState: {
+                    ...crownState,
+                    strengthOfHonorUsesUsed: strengthOfHonorUses + 1,
+                  },
+                });
+              }}
+            >
+              Activate Strength of Honor (+{strengthOfHonorBonus} STR)
+            </button>
+            {strengthOfHonorDuration < 1 && (
+              <p role="status">Strength of Honor has no positive duration at the current Charisma modifier.</p>
+            )}
+            {knightOfTheCrownLevel >= 10 && (
+              <>
+                <p>
+                  Crown of Knighthood: {crownState.crownOfKnighthoodUsed ? "used today" : "available today"}.
+                </p>
+                <button
+                  type="button"
+                  disabled={!finalized || Boolean(crownState.crownOfKnighthoodUsed)}
+                  onClick={() => {
+                    const round = character.combatRound ?? 1;
+                    const currentTemporaryHitPoints = character.temporaryHitPoints ?? 0;
+                    onCombatEffectsChange(round, [
+                      ...(character.combatEffects ?? []),
+                      {
+                        name: "Crown of Knighthood (Heroic Valor)",
+                        remainingRounds: 100,
+                        modifiers: { attack: 4, armorClass: 0, saves: 4, damage: 4, checks: 0 },
+                        expiresTemporaryHitPoints: currentTemporaryHitPoints < 15,
+                      },
+                    ]);
+                    onCharacterFeatureChange({
+                      temporaryHitPoints: Math.max(currentTemporaryHitPoints, 15),
+                      knightOfTheCrownState: {
+                        ...crownState,
+                        crownOfKnighthoodUsed: true,
+                      },
+                    });
+                  }}
+                >
+                  Activate Crown of Knighthood (10 minutes)
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="quiet-button"
+              disabled={!finalized || (strengthOfHonorUses === 0 && !crownState.crownOfKnighthoodUsed)}
+              onClick={() => onCharacterFeatureChange({
+                knightOfTheCrownState: {
+                  strengthOfHonorUsesUsed: 0,
+                  crownOfKnighthoodUsed: false,
+                },
+              })}
+            >
+              Reset daily uses
+            </button>
+          </section>
+        )}
         {getEncumbrance(character).unknownWeights.length > 0 && <p className="combat-note" role="status">
           Load uses known weights only. Missing weight: {getEncumbrance(character).unknownWeights.join(", ")}.
         </p>}
       </Panel>
       <Panel title="Saving Throws" className="saving-throws-panel">
-        <Suspense fallback={<p>Loading situational racial bonuses...</p>}>
+        {getChosenFeats(character).includes("honor-bound") && (
+          <label className="honor-bound-toggle">
+            <input
+              type="checkbox"
+              checked={Boolean(character.honorBoundSuspended)}
+              disabled={!finalized}
+              onChange={(event) =>
+                onCharacterFeatureChange({ honorBoundSuspended: event.currentTarget.checked })
+              }
+            />
+            Honor-bound benefits suspended after breaking an oath
+          </label>
+        )}
+        <Suspense fallback={<LoadingPlaceholder>
+          Loading situational racial bonuses...
+        </LoadingPlaceholder>}>
           <SavingThrowContextSelector
             conditions={savingThrowConditions}
             onChange={(condition) =>
@@ -459,7 +748,7 @@ export function CharacterSheet({
           ? getLevelUpSpentSkillPoints(
               levelUpOriginal,
               character,
-              getLevelUpClassId(levelUpOriginal, character),
+              activeLevelUpClassId ?? "fighter",
             )
           : getSpentSkillPoints(character)}/${getAvailableSkillCount(character)}${
           levelUpOriginal &&
@@ -467,7 +756,7 @@ export function CharacterSheet({
             getLevelUpSpentSkillPoints(
               levelUpOriginal,
               character,
-              getLevelUpClassId(levelUpOriginal, character),
+              activeLevelUpClassId ?? "fighter",
             ) ===
             1
             ? " - 1 point remains (0.5 cross-class rank)"
@@ -478,6 +767,47 @@ export function CharacterSheet({
         <p className="skill-use-legend">Checkbox = class skill. Trained = 1+ rank. Blank modifier = no check.
           Select a context to apply a situational racial bonus or conditional skill synergy.
           Hover or focus a skill for ranks and restrictions.</p>
+        {creationMode && racialHitDice && (
+          <label className="skill-rank-source">
+            <span>Assign skill ranks from</span>
+            <select
+              aria-label="Skill rank source"
+              value={skillDisplaySourceId}
+              onChange={(event) => {
+                const sourceId = event.currentTarget.value;
+                if (sourceId === "racial-hit-dice") {
+                  setCreationSkillSourceId(sourceId);
+                  return;
+                }
+                const selectedSourceId = skillRankSourceIds.find(
+                  (candidate) => candidate === sourceId,
+                );
+                if (selectedSourceId) setCreationSkillSourceId(selectedSourceId);
+              }}
+            >
+              <option value="racial-hit-dice">
+                Racial Hit Dice ({racialHitDice.count}d{racialHitDice.hitDie})
+              </option>
+              {skillRankSourceIds.map((sourceId) => {
+                const sourceLevel = character.classLevels.find((level) =>
+                  "prestigeClassId" in level
+                    ? level.prestigeClassId === sourceId
+                    : level.classId === sourceId,
+                );
+                const label = sourceLevel && "prestigeClassId" in sourceLevel
+                  ? dragonlancePrestigeClasses[sourceLevel.prestigeClassId]?.name ?? sourceId
+                  : sourceLevel
+                    ? classDefinitions[sourceLevel.classId]?.name ?? sourceId
+                    : sourceId;
+                return (
+                  <option key={sourceId} value={sourceId}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        )}
         <div className="list-grid">
           {skills.map((skill) => {
             const use = getSkillUse(character, skill);
@@ -507,14 +837,14 @@ export function CharacterSheet({
                 <span className="tooltip-anchor">
                   <input
                     type="checkbox"
-                    checked={isClassSkill(character, skill, skillDisplayClassId)}
+                    checked={isClassSkill(character, skill, skillDisplaySourceId)}
                     readOnly
                     aria-label={`${skill} class skill`}
                   />
                   <span className="inline-tooltip" role="tooltip">
-                    {isClassSkill(character, skill, skillDisplayClassId)
-                      ? "Class skill: 1 point per rank; maximum ranks equal character level + 3."
-                      : "Cross-class skill: 1 point buys 0.5 rank; maximum ranks equal half of (character level + 3)."}
+                    {isClassSkill(character, skill, skillDisplaySourceId)
+                      ? "Class skill: 1 point per rank; maximum ranks equal Hit Dice + 3."
+                      : "Cross-class skill: 1 point buys 0.5 rank; maximum ranks equal half of (Hit Dice + 3)."}
                   </span>
                 </span>
                 <span className="tooltip-anchor" tabIndex={0}>
@@ -526,12 +856,12 @@ export function CharacterSheet({
                   {!finalized && (
                     <span
                       className={`skill-cost-indicator ${
-                        isClassSkill(character, skill, skillDisplayClassId)
+                        isClassSkill(character, skill, skillDisplaySourceId)
                           ? "class-skill"
                           : "cross-class-skill"
                       }`}
                     >
-                      {isClassSkill(character, skill, skillDisplayClassId)
+                      {isClassSkill(character, skill, skillDisplaySourceId)
                         ? "Class skill - 1 pt"
                         : "Cross-class - 1 pt / 0.5 rank"}
                     </span>
@@ -624,19 +954,31 @@ export function CharacterSheet({
               {(!finalized || allowFeatSelection) && <span className="skill-ranks">
                 <button
                   type="button"
-                  onClick={() => onSkillRankChange(skill, -1)}
+                  onClick={() =>
+                    onSkillRankChange(skill, -1, skillDisplaySourceId)
+                  }
                   disabled={
                     levelUpOriginal
                       ? Number(character.skills[skill] || 0) <=
                         Number(levelUpOriginal.skills[skill] || 0)
-                      : !character.skills[skill]
+                      : getAssignedSkillRanks(
+                          character,
+                          skill,
+                          undefined,
+                          creationMode ? skillDisplaySourceId : undefined,
+                        ) <= 0
                   }
-                  aria-label={`${isClassSkill(character, skill, skillDisplayClassId) ? "Remove rank from" : "Remove half rank from"} ${skill}`}
+                  aria-label={`${isClassSkill(character, skill, skillDisplaySourceId) ? "Remove rank from" : "Remove half rank from"} ${skill}`}
                 >
                   −
                 </button>
                 <span>
-                  {getAssignedSkillRanks(character, skill, levelUpOriginal)}
+                  {getAssignedSkillRanks(
+                    character,
+                    skill,
+                    levelUpOriginal,
+                    creationMode ? skillDisplaySourceId : undefined,
+                  )}
                 </span>
                 <button
                   type="button"
@@ -648,9 +990,10 @@ export function CharacterSheet({
                       levelUpOriginal,
                       levelUpClassId,
                       creationMode,
+                      creationMode ? skillDisplaySourceId : undefined,
                     )
                   }
-                  aria-label={`${isClassSkill(character, skill, skillDisplayClassId) ? "Add rank to" : "Add half rank to"} ${skill}`}
+                  aria-label={`${isClassSkill(character, skill, skillDisplaySourceId) ? "Add rank to" : "Add half rank to"} ${skill}`}
                 >
                   +
                 </button>
@@ -681,6 +1024,7 @@ export function CharacterSheet({
                   const skill = character.featSkillSelections?.[slotId];
                   const spellSchool = character.featSpellSchoolSelections?.[slotId];
                   const requiresWeapon = featId === "exotic-weapon-proficiency" ||
+                    featId === "improved-critical" ||
                     featId === "weapon-focus" ||
                     featId === "weapon-specialization";
                   const requiresSkill = featId === "skill-focus";
@@ -828,18 +1172,19 @@ export function CharacterSheet({
               )}
             </div>
             {allowFeatSelection && (
-              <div className="feat-choices level-up-feat-choices">
-                {(levelUpOriginal
-                  ? getNewLevelUpFeatSlots(levelUpOriginal, character)
-                  : getFeatSlots(character)
-                ).map((slot) => {
-                  const options = getAvailableFeats(character, slot, slot.id);
-                  const selected = character.featSelections?.[slot.id] ?? "";
-                  const selectedFeat = featCatalog.find(
-                    (feat) => feat.id === selected,
-                  );
+                <div className="feat-choices level-up-feat-choices">
+                  {(levelUpOriginal
+                    ? getNewLevelUpFeatSlots(levelUpOriginal, character)
+                    : getChronologicalFeatSlots(character)
+                  ).map((slot) => {
+                    const options = getAvailableFeats(character, slot, slot.id);
+                    const selected = character.featSelections?.[slot.id] ?? "";
+                    const selectedFeat = featCatalog.find(
+                      (feat) => feat.id === selected,
+                    );
                   const weaponChoices =
                     selected === "exotic-weapon-proficiency" ||
+                    selected === "improved-critical" ||
                     selected === "weapon-focus" ||
                     selected === "weapon-specialization"
                       ? getAvailableFeatWeaponChoices(character, selected, slot.id)
@@ -855,17 +1200,23 @@ export function CharacterSheet({
                     ? getAvailableFeatSpellSchoolChoices(character, slot.id, schoolFeatId)
                     : [];
                   const selectedSpellSchool = character.featSpellSchoolSelections?.[slot.id];
-                  return (
-                    <label key={slot.id}>
-                      {slot.label}
-                      <FeatPicker
-                        selected={selected}
-                        options={options}
-                        selectedFeat={selectedFeat}
-                        onChange={(featId) => onFeatChange(slot.id, featId)}
-                      />
+                    return (
+                      <label key={slot.id}>
+                        {slot.label}
+                        <Suspense fallback={<PickerLoading
+                          className="feat-picker"
+                          label="Loading feat choices..."
+                        />}>
+                          <FeatPicker
+                            selected={selected}
+                            options={options}
+                            selectedFeat={selectedFeat}
+                            onChange={(featId) => onFeatChange(slot.id, featId)}
+                          />
+                        </Suspense>
                       {weaponChoices.length > 0 ||
                       selected === "exotic-weapon-proficiency" ||
+                      selected === "improved-critical" ||
                       selected === "weapon-focus" ||
                       selected === "weapon-specialization" ? (
                         <div className="feat-weapon-choice">
@@ -950,10 +1301,10 @@ export function CharacterSheet({
                           </select>
                         </div>
                       ) : null}
-                    </label>
-                  );
-                })}
-              </div>
+                      </label>
+                    );
+                  })}
+                </div>
             )}
           </div>
           <div className="abilities-column">
@@ -964,14 +1315,17 @@ export function CharacterSheet({
                   character,
                   ability,
                 );
+                const featureDescription =
+                  classFeatureDescriptions[ability] ??
+                  prestigeClassFeatureDescriptions[ability];
                 return (
                   <div
                     className="special-ability"
                     key={`${source}-${ability}-${index}`}
                   >
                     <strong>{ability}</strong>
-                    {classFeatureDescriptions[ability] && (
-                      <span> - {classFeatureDescriptions[ability]}</span>
+                    {featureDescription && (
+                      <span> - {featureDescription}</span>
                     )}
                     {skillSynergy && (
                       <span>
@@ -983,10 +1337,29 @@ export function CharacterSheet({
                 );
               })}
             </div>
+            {!creationMode && getBaseClassLevel(character, "ranger") > 0 && (
+              <RangerFavoredEnemies
+                character={character}
+                editableLevels={finalized && !levelUpOriginal
+                  ? getRangerFavoredEnemyChoiceLevels(
+                      getBaseClassLevel(character, "ranger"),
+                    )
+                  : []}
+                onChange={(choices) =>
+                  onCharacterFeatureChange({ rangerFavoredEnemies: choices })
+                }
+              />
+            )}
           </div>
         </div>
       </Panel>
-      <CharacterNotes notes={character.notes} onAddNote={onAddNote} />
+      <Suspense fallback={<Panel title="Character Notes" className="notes-panel">
+        <LoadingPlaceholder className="notes-loading">
+          Loading character notes...
+        </LoadingPlaceholder>
+      </Panel>}>
+        <CharacterNotes notes={character.notes} onAddNote={onAddNote} />
+      </Suspense>
     </div>
   );
 }

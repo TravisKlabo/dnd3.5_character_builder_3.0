@@ -68,6 +68,7 @@ describe("combat effect tracker", () => {
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(dwarf));
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
+    await screen.findByRole("group", { name: "Dwarf Stability" });
 
     const stability = screen.getByRole("group", { name: "Dwarf Stability" });
     const check = within(stability).getByRole("combobox", { name: "Check to resist" });
@@ -90,6 +91,7 @@ describe("combat effect tracker", () => {
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<App />);
+    await screen.findByRole("region", { name: "Conditions and active effects" });
     const tracker = screen.getByRole("region", { name: "Conditions and active effects" });
     fireEvent.change(within(tracker).getByRole("combobox", { name: "Quick preset" }), {
       target: { value: "shaken" },
@@ -117,13 +119,15 @@ describe("combat effect tracker", () => {
     expect(loadSavedCharacter().character).toMatchObject({ combatRound: 3, combatEffects: [] });
   });
 
-  it("keeps effect editing disabled during setup and level-up drafts", () => {
+  it("keeps effect editing disabled during setup and level-up drafts", async () => {
     const setup = render(<App />);
+    await screen.findByRole("region", { name: "Conditions and active effects" });
     const tracker = screen.getByRole("region", { name: "Conditions and active effects" });
     expect(within(tracker).getByRole<HTMLFieldSetElement>("group", { name: "Add an effect" }).disabled).toBe(true);
     setup.unmount();
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(initialCharacter));
     render(<App />);
+    await screen.findByRole("region", { name: "Conditions and active effects" });
     const finalizedTracker = screen.getByRole("region", { name: "Conditions and active effects" });
     expect(within(finalizedTracker).getByRole<HTMLFieldSetElement>("group", { name: "Add an effect" }).disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));

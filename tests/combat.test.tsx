@@ -2,11 +2,12 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getInventoryEntryDetails, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit, getAttackOfOpportunityCapacity } from "../src/rules";
-import { addCustomStoreItems, deleteCustomStoreItem } from "../src/data/equipmentCatalog";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getAnimatedShieldState, getBlindingShieldState, getInventoryEntryDetails, getStoreItemDescription, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit, getAttackOfOpportunityCapacity, getUnarmedStrikeDamage } from "../src/rules";
+import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
 import { CombatTargetDefenseControl } from "../src/components/CombatTargetContextSelector";
+import { SavingThrowContextSelector } from "../src/components/SavingThrowContextSelector";
 import { CombatTargetContextProvider } from "../src/combatTargetDefenseContext";
 import { CombatExpertiseControl, PowerAttackControl, DodgeTargetControl, AttacksOfOpportunityStat } from "../src/components/shared";
 import { savedCharacterStorageKey } from "../src/storage";
@@ -20,13 +21,238 @@ function fighter(str = 16, dex = 18) {
   return character;
 }
 
+describe("saving throw context selection", () => {
+  it("offers a Fey spell-like ability condition", () => {
+    const onChange = vi.fn();
+    render(<SavingThrowContextSelector conditions={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText("Apply situational bonuses"));
+    fireEvent.click(screen.getByLabelText("Fey spell-like ability"));
+    expect(onChange).toHaveBeenCalledWith("fey-spell-like");
+  });
+});
+
 describe("SRD weapon attack and damage", () => {
+  it.each([
+    [0, "1d2", "1d3", "1d4"],
+    [1, "1d4", "1d6", "1d8"],
+    [4, "1d6", "1d8", "2d6"],
+    [8, "1d8", "1d10", "2d8"],
+    [12, "1d10", "2d6", "3d6"],
+    [16, "2d6", "2d8", "3d8"],
+    [20, "2d8", "2d10", "4d8"],
+  ])("uses the PHB unarmed damage table at Monk level %i", (level, small, medium, large) => {
+    expect(getUnarmedStrikeDamage(level, "Small")).toBe(small);
+    expect(getUnarmedStrikeDamage(level, "Medium")).toBe(medium);
+    expect(getUnarmedStrikeDamage(level, "Large")).toBe(large);
+  });
+
+  it("uses Monk levels, not total character level, for unarmed damage", () => {
+    const character = fighter(10, 10);
+    character.classLevels = [
+      { classId: "monk", level: 1 },
+      { classId: "fighter", level: 19 },
+    ];
+    expect(getEquippedWeaponStats(character, "Unarmed Strike (Medium)")?.damage).toBe("1d6+0");
+    expect(getEquippedWeaponStats(character, "Unarmed Strike (Medium)")?.damageType).toBe("bludgeoning");
+  });
+
+  it.each([
+    [1, [-2, -2]],
+    [5, [2, 2]],
+    [9, [6, 6, 1]],
+    [11, [8, 8, 8, 3]],
+  ])("calculates Monk %i flurry attacks", (level, sequence) => {
+    const character = fighter(10, 10);
+    character.classLevels = [{ classId: "monk", level }];
+    expect(getEquippedWeaponStats(
+      character,
+      "Unarmed Strike (Medium)",
+      0,
+      "Main Weapon",
+      [],
+      undefined,
+      undefined,
+      undefined,
+      0,
+      0,
+      "flurry",
+    )).toMatchObject({ attackSequence: sequence, attackActionWarning: undefined });
+  });
+
+  it("uses total BAB but Monk level for multiclass flurry", () => {
+    const character = fighter(10, 10);
+    character.classLevels = [
+      { classId: "monk", level: 2 },
+      { classId: "fighter", level: 4 },
+    ];
+    expect(getEquippedWeaponStats(
+      character,
+      "Unarmed Strike (Medium)",
+      0,
+      "Main Weapon",
+      [],
+      undefined,
+      undefined,
+      undefined,
+      0,
+      0,
+      "flurry",
+    )).toMatchObject({ attackSequence: [3, 3], damage: "1d6+0" });
+  });
+
+  it("reports conditional Rogue sneak-attack dice without adding them to weapon damage", () => {
+    const character = fighter(10, 10);
+    character.classLevels = [{ classId: "rogue", level: 5 }];
+    const weaponAttack = (
+      key: string,
+      slot: "Main Weapon" | "Ranged Weapon",
+      distance?: number,
+      concealment: "none" | "less-than-total" | "total" = "none",
+    ) => getEquippedWeaponStats(
+      character,
+      key,
+      0,
+      slot,
+      [],
+      distance,
+      undefined,
+      undefined,
+      0,
+      0,
+      "single",
+      { cover: "none", concealment },
+    )!;
+
+    const melee = weaponAttack("Dagger (Medium)", "Main Weapon");
+    expect(melee).toMatchObject({
+      damage: "1d4+0",
+      sneakAttackDamage: "3d6",
+    });
+    expect(melee.sneakAttackNote).toContain("not multiplied on a critical hit");
+
+    expect(weaponAttack("Longbow (Medium)", "Ranged Weapon", 30).sneakAttackDamage)
+      .toBe("3d6");
+    expect(weaponAttack("Longbow (Medium)", "Ranged Weapon", 31))
+      .toMatchObject({
+        sneakAttackDamage: undefined,
+        sneakAttackWarning: "Ranged sneak attack requires 30 ft. or less.",
+      });
+    expect(weaponAttack("Dagger (Medium)", "Main Weapon", undefined, "less-than-total"))
+      .toMatchObject({
+        sneakAttackDamage: undefined,
+        sneakAttackWarning: "Concealment prevents sneak attack.",
+      });
+  });
+
+  it("rejects flurry with non-monk weapons and while Monk abilities are suppressed", () => {
+    const character = fighter(10, 10);
+    character.classLevels = [{ classId: "monk", level: 3 }];
+    const flurry = (weapon: string) => getEquippedWeaponStats(
+      character,
+      weapon,
+      0,
+      "Main Weapon",
+      [],
+      undefined,
+      undefined,
+      undefined,
+      0,
+      0,
+      "flurry",
+    );
+    expect(flurry("Longsword (Medium)")?.attackActionWarning)
+      .toContain("special Monk weapon");
+    character.equipment.Armor = "Leather Armor";
+    expect(flurry("Unarmed Strike (Medium)")?.attackActionWarning)
+      .toContain("wearing armor");
+    character.equipment.Armor = "";
+    character.equipment.Shield = "Buckler";
+    expect(flurry("Unarmed Strike (Medium)")?.attackActionWarning)
+      .toContain("using a shield");
+  });
+
+  it("applies Monk Wisdom and level AC bonuses to normal, touch, and flat-footed AC", () => {
+    const character = fighter(10, 18);
+    character.abilities.wis = 16;
+    character.classLevels = [{ classId: "monk", level: 10 }];
+    expect(getArmorClassValues(character)).toMatchObject({
+      normal: 19,
+      touch: 19,
+      flatFooted: 15,
+      components: { monk: 5 },
+    });
+    character.hitPoints = 10;
+    character.currentHitPoints = -1;
+    expect(getArmorClassValues(character).components.monk).toBe(0);
+    character.currentHitPoints = 10;
+    character.equipment.Armor = "Leather Armor";
+    expect(getArmorClassValues(character).components.monk).toBe(0);
+    character.equipment.Armor = "";
+    character.equipment.Shield = "Buckler";
+    expect(getArmorClassValues(character).components.monk).toBe(0);
+  });
+
   it("applies magical enhancement to attack and damage, not elemental dice to physical damage", () => {
     const stats = getEquippedWeaponStats(fighter(), "Flaming +2 Longsword (Medium)");
     expect(stats).toMatchObject({
       attack: 6, damage: "1d8+5", enhancement: 2, attackEnhancement: 2,
       enchantmentDamage: ["Flaming: 1d6 fire damage"],
     });
+    expect(getInventoryEntryDetails("Flaming +2 Longsword (Medium)").description)
+      .toContain("Elemental damage: Flaming: 1d6 fire damage.");
+    expect(getInventoryEntryDetails("Longsword (Medium)").description)
+      .not.toContain("Elemental damage:");
+  });
+
+  it("doubles a Keen weapon's threat range in attack stats and item details", () => {
+    const weaponName =
+      "Flaming Frost Shock Keen +5 Cold Iron Longsword (Medium)";
+    const stats = getEquippedWeaponStats(fighter(), weaponName);
+
+    expect(stats).toMatchObject({
+      critical: "17–20/x2",
+      enchantmentDamage: [
+        "Flaming: 1d6 fire damage",
+        "Frost: 1d6 cold damage",
+        "Shock: 1d6 electricity damage",
+      ],
+    });
+    expect(getInventoryEntryDetails(weaponName).description).toContain(
+      "crit 17–20/x2",
+    );
+    expect(getInventoryEntryDetails(weaponName).description)
+      .toContain("Elemental damage: Flaming: 1d6 fire damage; Frost: 1d6 cold damage; Shock: 1d6 electricity damage.");
+    const heavyMace = findStoreItem("Heavy Mace");
+    const longbow = findStoreItem("Longbow");
+    if (!heavyMace || !longbow)
+      throw new Error("Missing Keen weapon profile fixtures.");
+    expect(
+      getEquippedWeaponStats(fighter(), "Keen Heavy Mace (Medium)"),
+    ).toMatchObject({ critical: "x2" });
+    expect(
+      getStoreItemDescription(heavyMace, "Medium", "Keen Heavy Mace"),
+    ).toContain("crit x2");
+    expect(
+      getEquippedWeaponStats(fighter(), "Keen Longbow (Medium)", 0, "Ranged Weapon"),
+    ).toMatchObject({ critical: "19–20/x3" });
+  });
+
+  it("applies Improved Critical to its selected weapon without stacking with Keen", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "fighter", level: 8 }];
+    character.featSelections = { "fighter-8": "improved-critical" };
+    character.featWeaponSelections = { "fighter-8": "Longsword" };
+
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)"))
+    .toMatchObject({ critical: "17–20/x2" });
+    expect(getEquippedWeaponStats(character, "Keen Longsword (Medium)"))
+    .toMatchObject({ critical: "17–20/x2" });
+    expect(getEquippedWeaponStats(character, "Heavy Mace (Medium)"))
+    .toMatchObject({ critical: "x2" });
+
+    character.featWeaponSelections["fighter-8"] = "Heavy Mace";
+    expect(getEquippedWeaponStats(character, "Heavy Mace (Medium)"))
+    .toMatchObject({ critical: "19–20/x2" });
   });
 
   it("does not stack masterwork and magical enhancement attack bonuses", () => {
@@ -566,6 +792,24 @@ describe("SRD weapon attack and damage", () => {
     expect(getArmorClassValues(gnome, ["giant"]).racialDodgeACBonus).toBe(4);
   });
 
+  it("applies minotaur natural armor only with Dragonlance rules", () => {
+    const minotaur = cloneCharacter(initialCharacter);
+    minotaur.race = "Minotaur";
+    minotaur.ruleset = "dragonlance-monster-classes";
+    expect(getArmorClassValues(minotaur)).toMatchObject({
+      normal: 12,
+      touch: 10,
+      flatFooted: 12,
+      components: { naturalArmor: 2 },
+    });
+
+    minotaur.ruleset = "core-35-srd";
+    expect(getArmorClassValues(minotaur)).toMatchObject({
+      normal: 10,
+      components: { naturalArmor: 0 },
+    });
+  });
+
   it("applies the Halfling thrown-weapon and sling attack bonus only in ranged use", () => {
     const halfling = fighter();
     halfling.race = "Halfling";
@@ -860,6 +1104,9 @@ describe("consistent equipment handling", () => {
           onDoubleWeaponPrimaryEndChange={vi.fn()}
           onTowerShieldTotalCoverChange={vi.fn()}
           onShieldBashModeChange={vi.fn()}
+          onForceShieldActiveChange={vi.fn()}
+          onAnimatedShieldModeChange={vi.fn()}
+          onBlindingShieldUseChange={vi.fn()}
           onCompositeBowStrengthRatingChange={onRatingChange}
           onEquipmentAndInventoryChange={vi.fn()}
         />
@@ -1478,6 +1725,11 @@ describe("touch, flat-footed, and grapple statistics", () => {
         },
       });
       expect(character.inventory["Silver Arrows (20) (Medium)"]).toBe(1);
+
+      character.inventory = { "Cold Iron Bolts (10) (Medium)": 1 };
+      expect(getEquippedWeaponStats(
+        character, "Heavy Crossbow (Medium)", 0, "Ranged Weapon", [], undefined, "5/cold iron", "Cold Iron Bolts (10) (Medium)",
+      )?.damageReductionStatus).toMatchObject({ status: "bypassed" });
     });
 
     it("evaluates magic and compound damage-reduction qualifiers", () => {
@@ -1684,6 +1936,21 @@ describe("touch, flat-footed, and grapple statistics", () => {
     },
   );
 
+  it("does not retain Dexterity from Uncanny Dodge while HP-tracked as unconscious", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "rogue", level: 4 }];
+    character.hitPoints = 10;
+    character.currentHitPoints = -1;
+    expect(getArmorClassValues(character)).toMatchObject({
+      retainsDexterity: false,
+      flatFooted: 10,
+    });
+
+    character.currentHitPoints = 10;
+    character.nonlethalDamage = 11;
+    expect(getArmorClassValues(character).retainsDexterity).toBe(false);
+  });
+
   it("uses Strength for grapple and applies Improved Grapple without weapon bonuses", () => {
     const character = fighter();
     character.equipment = { "Main Weapon": "+5 Longsword (Medium)", "Off Hand Weapon": "Dagger (Medium)" };
@@ -1776,6 +2043,53 @@ describe("touch, flat-footed, and grapple statistics", () => {
     });
     expect(getArmorClassValues(heavyShieldCharacter))
       .toMatchObject({ normal: 14, shieldBashACBonusLost: true });
+  });
+
+  it("applies the Bashing shield property's size increase and +1 weapon bonus", () => {
+    const character = fighter();
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      Shield: "Bashing +1 Heavy Steel Shield (Medium)",
+    };
+    character.shieldBashMode = true;
+    const bash = getEffectiveWeaponKey(character, "Off Hand Weapon");
+    expect(bash).toBe("Heavy Shield Bash (Medium)");
+    expect(getEquippedWeaponStats(character, bash!, 0, "Off Hand Weapon"))
+      .toMatchObject({
+        damage: "1d8+2",
+        damageType: "bludgeoning",
+        enhancement: 1,
+        attackEnhancement: 1,
+      });
+
+    character.shieldBashMode = false;
+    expect(getArmorClassValues(character).components.shield).toBe(3);
+    character.shieldBashMode = true;
+    expect(getArmorClassValues(character).components.shield).toBe(0);
+  });
+
+  it("lets an active Animated shield defend while freeing both hands", () => {
+    const character = fighter();
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      Shield: "Animated +2 Heavy Steel Shield (Medium)",
+    };
+    character.animatedShieldMode = true;
+
+    expect(getAnimatedShieldState(character)).toEqual({ equipped: true, active: true });
+    expect(getArmorClassValues(character).components.shield).toBe(4);
+    expect(getMainWeaponGripState(character)).toMatchObject({ canUseTwoHands: true });
+    character.mainWeaponGrip = "two-handed";
+    expect(getWeaponCompatibilityWarning(character, "Longsword (Medium)", "Main Weapon")).toBeNull();
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)")).toMatchObject({
+      twoHandedGrip: true,
+    });
+    expect(getShieldBashState(character)).toMatchObject({ canBash: false, enabled: false });
+
+    character.mainWeaponGrip = "one-handed";
+    character.equipment["Off Hand Weapon"] = "Short Sword (Medium)";
+    expect(getWeaponCompatibilityWarning(character, "Short Sword (Medium)", "Off Hand Weapon")).toBeNull();
+    expect(getEquippedWeaponStats(character, "Short Sword (Medium)", 0, "Off Hand Weapon")).not.toBeNull();
   });
 
   it("rejects buckler and tower shield bashes and scales small shield damage", () => {
@@ -1899,6 +2213,76 @@ describe("touch, flat-footed, and grapple statistics", () => {
     if (!(shieldSlot instanceof HTMLElement)) throw new Error("Missing shield equipment slot.");
     await user.click(within(shieldSlot).getByRole("button", { name: "Unequip" }));
     expect(screen.queryByRole("checkbox", { name: "Use shield bash" })).toBeNull();
+  });
+
+  it("lets a character activate an Animated shield and persists the state", async () => {
+    const character = fighter();
+    character.equipment = {
+      Shield: "Animated +1 Heavy Steel Shield (Medium)",
+      "Main Weapon": "Longsword (Medium)",
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
+    const animated = await screen.findByRole("checkbox", { name: "Activate animated shield" });
+    await user.click(animated);
+    expect(animated instanceof HTMLInputElement && animated.checked).toBe(true);
+    expect(await screen.findByText(/floats within 2 feet, grants its shield bonus, and frees both hands/)).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().animatedShieldMode).toBe(true);
+    await user.click(animated);
+    expect(animated instanceof HTMLInputElement && animated.checked).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().animatedShieldMode).toBe(false);
+  });
+
+  it("tracks a Blinding shield's two daily flashes per equipped item", () => {
+    const character = fighter();
+    const shield = "Blinding +1 Heavy Steel Shield (Medium)";
+    character.equipment = { Shield: shield };
+
+    expect(getBlindingShieldState(character)).toMatchObject({
+      equipped: true,
+      usesUsed: 0,
+      usesRemaining: 2,
+      canUse: true,
+    });
+    character.shieldBlindingUsesByItem = { [shield]: 2 };
+    expect(getBlindingShieldState(character)).toMatchObject({
+      equipped: true,
+      usesUsed: 2,
+      usesRemaining: 0,
+      canUse: false,
+    });
+    character.equipment.Shield = "Heavy Steel Shield (Medium)";
+    expect(getBlindingShieldState(character).equipped).toBe(false);
+  });
+
+  it("records Blinding shield uses and allows a manual daily reset", async () => {
+    const character = fighter();
+    character.equipment = { Shield: "Blinding +1 Heavy Steel Shield (Medium)" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
+
+    const useFlash = await screen.findByRole("button", { name: "Use blinding flash" });
+    await user.click(useFlash);
+    await user.click(useFlash);
+    expect(screen.getByText(/Blinding flash: 2\/2 uses today \(0 remaining\)/)).toBeDefined();
+    expect(useFlash instanceof HTMLButtonElement && useFlash.disabled).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().shieldBlindingUsesByItem)
+      .toEqual({ "Blinding +1 Heavy Steel Shield (Medium)": 2 });
+
+    await user.click(screen.getByRole("button", { name: "Reset blinding shield daily uses" }));
+    expect(screen.getByText(/Blinding flash: 0\/2 uses today \(2 remaining\)/)).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().shieldBlindingUsesByItem)
+      .toEqual({ "Blinding +1 Heavy Steel Shield (Medium)": 0 });
   });
 
   it("shares defenses and special attacks across character and equipment screens without saving derived values", async () => {

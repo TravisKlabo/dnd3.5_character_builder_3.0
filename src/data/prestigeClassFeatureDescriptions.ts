@@ -176,21 +176,21 @@ export const prestigeClassFeatureDescriptions: Record<string, string> = {
   "Defensive Teamwork":
     "At level 10, while riding your preferred mount, you and the dragon each gain a +2 circumstance bonus to AC and a +1 circumstance bonus on Reflex saves.",
   "Extreme Focus":
-    "Once per inquisitor level per day, add Concentration ranks to one Intelligence- or Wisdom-based skill check.",
+    "Once per day per inquisitor level, add your Concentration ranks to any one Intelligence- or Wisdom-based skill check.",
   "Trap Sense +1":
-    "Gain +1 on Reflex saves and AC against traps; this stacks with rogue trap sense.",
+    "Gain +1 on Reflex saves to avoid traps and AC against trap attacks; this stacks with rogue trap sense.",
   "Trap Sense +2":
-    "Gain +2 on Reflex saves and AC against traps; this stacks with rogue trap sense.",
+    "Gain +2 on Reflex saves to avoid traps and AC against trap attacks; this stacks with rogue trap sense.",
   "Trap Sense +3":
-    "Gain +3 on Reflex saves and AC against traps; this stacks with rogue trap sense.",
+    "Gain +3 on Reflex saves to avoid traps and AC against trap attacks; this stacks with rogue trap sense.",
   "Erudite Synergy":
-    "Choose a Knowledge skill with at least 5 ranks for an additional +2 on related checks; later selections may improve another skill or the same one.",
+    "At levels 2, 5, and 8, choose a Knowledge skill with at least 5 ranks for +2 on related checks; this stacks with the normal 5-rank synergy bonus. Later selections may add +2 to another eligible skill or the same one.",
   "Uncanny Dodge":
-    "Retain Dexterity bonus to AC when flat-footed or attacked by an invisible attacker, unless immobilized.",
+    "At level 3, retain your Dexterity bonus to AC when flat-footed or attacked by an invisible attacker, unless immobilized. If you already have uncanny dodge, gain improved uncanny dodge instead.",
   "Improved Uncanny Dodge":
-    "Cannot be flanked except by a rogue at least four levels higher than your inquisitor level.",
+    "At level 6, you cannot be flanked except by a rogue at least four levels higher than your inquisitor level.",
   "Intuitive Logic":
-    "Once per day, after an uninterrupted hour of concentration, gain an answer as a divination spell with an 80% base success chance.",
+    "At level 10, once per day, duplicate a divination spell's effect to gain insight about one question (80% base success chance) after concentrating uninterrupted for at least an hour. If interrupted, the attempt fails unless you succeed on a Concentration check.",
   "Direct Troops":
     "As a full-round action, grant allies within 30 feet +2 competence on attacks or skill checks for rounds equal to your Charisma bonus.",
   "Rally Troops":

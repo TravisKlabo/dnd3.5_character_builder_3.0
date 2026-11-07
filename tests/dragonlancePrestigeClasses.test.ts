@@ -243,6 +243,41 @@ describe("Dragonlance prestige-class rules", () => {
     ).toMatchObject({ isPrestigeClass: true });
   });
 
+  it("displays Inquisitor features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    const featuresAtLevel = (level: number) => {
+      character.classLevels = [
+        { classId: "rogue", prestigeClassId: "inquisitor", level },
+      ];
+      return getClassFeatureDisplay(character);
+    };
+
+    const tenthLevelFeatures = featuresAtLevel(10);
+    const featuresByLevel = Array.from({ length: 10 }, (_, index) =>
+      tenthLevelFeatures
+        .filter(({ source }) => source === `Inquisitor ${index + 1}`)
+        .map(({ ability }) => ability),
+    );
+    expect(featuresByLevel).toEqual([
+      ["Extreme Focus", "Trap Sense +1"],
+      ["Erudite Synergy"],
+      ["Uncanny Dodge"],
+      ["Trap Sense +2"],
+      ["Erudite Synergy"],
+      ["Improved Uncanny Dodge"],
+      ["Trap Sense +3"],
+      ["Erudite Synergy"],
+      [],
+      ["Intuitive Logic"],
+    ]);
+    expect(
+      featuresAtLevel(9).map(({ ability }) => ability),
+    ).not.toContain("Intuitive Logic");
+    expect(
+      tenthLevelFeatures.find(({ ability }) => ability === "Extreme Focus"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("displays Knight of the Thorn features at their sourcebook levels", () => {
     const character = cloneCharacter(initialCharacter);
     const featuresAtLevel = (level: number) => {

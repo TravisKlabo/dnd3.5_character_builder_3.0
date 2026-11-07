@@ -547,6 +547,46 @@ describe("Dragonlance prestige-class rules", () => {
     ).toMatchObject({ isPrestigeClass: true });
   });
 
+  it("displays Wizard of High Sorcery features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [
+      {
+        classId: "wizard",
+        prestigeClassId: "wizard-of-high-sorcery",
+        level: 10,
+      },
+    ];
+    const tenthLevelFeatures = getClassFeatureDisplay(character);
+    const featuresByLevel = Array.from({ length: 10 }, (_, index) =>
+      tenthLevelFeatures
+        .filter(({ source }) => source === `Wizard of High Sorcery ${index + 1}`)
+        .map(({ ability }) => ability),
+    );
+
+    expect(featuresByLevel).toEqual([
+      [
+        "Enhanced Specialization",
+        "Item of Power",
+        "Moon Magic",
+        "Tower Resources",
+      ],
+      ["Arcane Research +1"],
+      ["1st Order Secret"],
+      ["Arcane Research +2"],
+      ["2nd Order Secret"],
+      ["Arcane Research +3"],
+      ["3rd Order Secret"],
+      ["Arcane Research +4"],
+      ["4th Order Secret"],
+      ["5th Order Secret", "Arcane Research +5"],
+    ]);
+    expect(
+      tenthLevelFeatures.find(
+        ({ ability }) => ability === "Enhanced Specialization",
+      ),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("limits Wizard of High Sorcery advancement to wizard spellcasting", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [

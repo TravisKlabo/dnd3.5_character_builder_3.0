@@ -1426,33 +1426,33 @@ export const classFeatureDescriptions: Record<string, string> = {
   Apprentice:
     "At 3rd level, you may take an apprentice cohort using Leadership rules; this feature does not grant followers.",
   "Enhanced Specialization":
-    "Cast spells from your order's specialist school at +1 caster level and gain +1 on saves against its spells; choose one additional prohibited school under the order rules.",
+    "At level 1, cast spells from your specialist school at +1 caster level and gain +1 on saves against its spells and spell-like abilities that duplicate them (not supernatural abilities). Choose one additional prohibited school from those favored by the other two orders; you can never learn its spells.",
   "Item of Power":
-    "The order grants a permanent magic item worth 2,000-4,000 gp; its powers are discovered by the wizard.",
+    "After passing the Test of High Sorcery, your order gives you a permanent magic item worth 2,000-4,000 gp without revealing its powers; discovering them is part of refining your focus.",
   "Moon Magic":
-    "Moon phase and conjunction modify caster level and spell save DC. Apply the recorded order and moon state.",
+    "Use your order's moon. High Sanction grants +1 caster level and spell save DC; Low Sanction gives -1 to each, and quarter phases are normal. A two-moon conjunction adds +1 to both for the aligned orders and stacks with phase. All three aligned grant +2 to all orders; a triple conjunction gives +1 at Low Sanction or +3 at High Sanction.",
   "Tower Resources":
-    "Gain access to Tower of High Sorcery libraries and laboratories where available; some campaign-era benefits may be limited.",
+    "Gain full admission to the Tower of High Sorcery in Wayreth. After passing the Test and pledging allegiance to the deities of magic, use its libraries to halve spell-copying time and reduce spell research costs to 750 gp per week; its laboratories provide common components for item creation. These benefits are limited while the Towers are inaccessible unless mentors or conclaves provide access.",
   "Arcane Research +1":
-    "Gain +1 competence on Spellcraft and Knowledge (arcana), and one additional eligible specialist-school spell in your spellbook.",
+    "Gain a +1 competence bonus on Spellcraft and Knowledge (arcana), plus one spell from your order's schools that you can cast, in addition to your normal level-up spell.",
   "Arcane Research +2":
-    "Gain +2 competence on Spellcraft and Knowledge (arcana), and one additional eligible specialist-school spell in your spellbook.",
+    "Gain a +2 competence bonus on Spellcraft and Knowledge (arcana), plus one spell from your order's schools that you can cast, in addition to your normal level-up spell.",
   "Arcane Research +3":
-    "Gain +3 competence on Spellcraft and Knowledge (arcana), and one additional eligible specialist-school spell in your spellbook.",
+    "Gain a +3 competence bonus on Spellcraft and Knowledge (arcana), plus one spell from your order's schools that you can cast, in addition to your normal level-up spell.",
   "Arcane Research +4":
-    "Gain +4 competence on Spellcraft and Knowledge (arcana), and one additional eligible specialist-school spell in your spellbook.",
+    "Gain a +4 competence bonus on Spellcraft and Knowledge (arcana), plus one spell from your order's schools that you can cast, in addition to your normal level-up spell.",
   "Arcane Research +5":
-    "Gain +5 competence on Spellcraft and Knowledge (arcana), and one additional eligible specialist-school spell in your spellbook.",
+    "Gain a +5 competence bonus on Spellcraft and Knowledge (arcana), plus one spell from your order's schools that you can cast, in addition to your normal level-up spell.",
   "1st Order Secret":
     "Choose one available secret for your robe order; record its selection manually.",
   "2nd Order Secret":
-    "Choose an order secret not previously selected; record its selection manually.",
+    "Choose an unselected secret from your robe order's list; record the selection manually.",
   "3rd Order Secret":
-    "Choose an order secret not previously selected; record its selection manually.",
+    "Choose an unselected secret from your robe order's list; record the selection manually.",
   "4th Order Secret":
-    "Choose an order secret not previously selected; record its selection manually.",
+    "Choose an unselected secret from your robe order's list; record the selection manually.",
   "5th Order Secret":
-    "Choose an order secret not previously selected; record its selection manually.",
+    "Choose an unselected secret from your robe order's list; record the selection manually.",
   "Dragon Cohort":
     "At level 1, use Leadership to attract one previously ridden dragon as your cohort. Subtract 3 from its ECL, but its adjusted ECL cannot exceed your total level and it must fit your Leadership score. It cannot oppose your alignment, must be old and large enough to carry you aloft, and needs at least seven days of training, a suitable lair, and a hoard (typically 1,000 gp per dragon Hit Die). You can have only one cohort at a time; Dragon Rider features function only while riding your preferred mount.",
   "Mounted Attack":

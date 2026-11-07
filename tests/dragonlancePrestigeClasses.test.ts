@@ -278,6 +278,39 @@ describe("Dragonlance prestige-class rules", () => {
     ).toMatchObject({ isPrestigeClass: true });
   });
 
+  it("displays Legendary Tactician features at their sourcebook levels", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [
+      {
+        classId: "fighter",
+        prestigeClassId: "legendary-tactician",
+        level: 10,
+      },
+    ];
+    const tenthLevelFeatures = getClassFeatureDisplay(character);
+    const featuresByLevel = Array.from({ length: 10 }, (_, index) =>
+      tenthLevelFeatures
+        .filter(({ source }) => source === `Legendary Tactician ${index + 1}`)
+        .map(({ ability }) => ability),
+    );
+
+    expect(featuresByLevel).toEqual([
+      ["Leadership Bonus +1"],
+      ["Inspire Courage +2 (2/day)"],
+      ["Direct Troops", "Leadership Bonus +2"],
+      ["Rally Troops"],
+      ["Hard March", "Leadership Bonus +3", "Inspire Courage +3 (3/day)"],
+      ["Rout Enemies"],
+      ["Battle Standard", "Leadership Bonus +4"],
+      ["Strategic Retreat", "Inspire Courage +4 (4/day)"],
+      ["Leadership Bonus +5"],
+      ["The Forlorn Hope"],
+    ]);
+    expect(
+      tenthLevelFeatures.find(({ ability }) => ability === "Rally Troops"),
+    ).toMatchObject({ isPrestigeClass: true });
+  });
+
   it("displays Knight of the Thorn features at their sourcebook levels", () => {
     const character = cloneCharacter(initialCharacter);
     const featuresAtLevel = (level: number) => {

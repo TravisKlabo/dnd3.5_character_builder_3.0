@@ -44,13 +44,13 @@ export const prestigeClassFeatureDescriptions: Record<string, string> = {
   "Detect Evil":
     "Detect evil at will as the spell.",
   "Inspire Courage +2 (2/day)":
-    "Twice per day, allies who hear the Knight speak gain +2 morale on attacks, weapon damage, and saves against fear and charm; the effect lasts while speaking and 5 rounds after. While speaking, the Knight can fight but cannot cast spells or activate spell-completion or command-word items.",
+    "Twice per day, allies (including you) who hear you speak gain a +2 morale bonus on attacks, weapon damage, and saves against fear and charm while they hear you and for 5 rounds afterward. You can fight while speaking, but cannot cast spells or activate spell-completion or command-word items. This is a mind-affecting ability; the Rose Knight and Legendary Tactician improve its bonus and daily uses at later levels.",
   "Inspire Courage +3 (3/day)":
     "As Inspire Courage +2, with a +3 bonus and three uses per day.",
   "Inspire Courage +4 (4/day)":
     "As Inspire Courage +2, with a +4 bonus and four uses per day.",
   "Leadership Bonus +1":
-    "Gain +1 to Leadership score. Rose Knight bonuses are +1 at level 3 and +2 at level 7; Tactician bonuses are listed by level.",
+    "Increase your Leadership score by the listed bonus; it stacks with other Leadership modifiers. Rose Knights gain +1 at level 3 and +2 at level 7; Legendary Tacticians gain +1/+2/+3/+4/+5 at levels 1/3/5/7/9.",
   "Leadership Bonus +2":
     "Gain the listed +2 bonus to Leadership score.",
   "Leadership Bonus +3":
@@ -194,15 +194,15 @@ export const prestigeClassFeatureDescriptions: Record<string, string> = {
   "Direct Troops":
     "As a full-round action, grant allies within 30 feet +2 competence on attacks or skill checks for rounds equal to your Charisma bonus.",
   "Rally Troops":
-    "Allies within 30 feet who succumbed to fear or charm may immediately attempt a second save; even on a failure, fear is reduced one severity step (panicked to frightened, frightened to shaken, shaken removed).",
+    "At level 4, allies within 30 feet who succumbed to fear or charm may immediately attempt a second save. If they fail, panicked becomes frightened, frightened becomes shaken, and shaken remains unchanged.",
   "Hard March":
-    "Companions gain +4 morale on Constitution checks for forced marches and other extended exertion; animals are unaffected.",
+    "At level 5, creatures traveling with you gain a +4 morale bonus on Constitution checks for forced marches and other extended exertion; animals are unaffected.",
   "Rout Enemies":
     "Allies within 30 feet gain +1 morale on attacks and damage for attacks of opportunity against fleeing enemies.",
   "Battle Standard":
-    "While your standard remains within 30 feet, allies within 30 feet per class level gain Inspire Courage and Rally Troops. If it falls or is captured, aware allies lose these benefits and take –1 morale on attacks and damage until it is recovered.",
+    "At level 7, while your heraldic standard is within 30 feet of you, allies within 30 feet per class level gain Inspire Courage and Rally Troops. If it falls or is captured, aware allies lose these benefits and take a –1 morale penalty on attacks and damage until it is recovered.",
   "Strategic Retreat":
-    "While retreating, allies within 30 feet gain a morale bonus to AC against attacks of opportunity equal to your Charisma bonus.",
+    "At level 8, when you call for a strategic retreat, allies within 30 feet gain a morale bonus to AC against attacks of opportunity equal to your Charisma bonus.",
   "The Forlorn Hope":
     "Allies within 30 feet continue fighting while disabled or dying, without penalty, until –10 hit points. If they stop, they must pass a Fortitude save (DC 15 + 1 per hit point below 0) or die.",
   "Oration: Enthralling Discourse":

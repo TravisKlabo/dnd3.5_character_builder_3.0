@@ -1113,6 +1113,26 @@ describe("application workflows", () => {
     importedView.unmount();
   });
 
+  it("does not display retroactive skill points for a level-four Intelligence increase", async () => {
+    const character = savedHero();
+    character.race = "Human";
+    character.classLevels = [{ classId: "fighter", level: 3 }];
+    character.abilities.int = 11;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Class" }), "fighter");
+    const abilityIncrease = screen.getByRole("combobox", {
+      name: /Ability score increase at level 4/,
+    });
+    await user.selectOptions(abilityIncrease, "int");
+
+    expect(screen.getByText("Skills (0/21)", { exact: true })).toBeDefined();
+  });
+
   it("awards the level-three feat and level-four ability increase through level-up", async () => {
     const original = savedHero();
     original.name = "Milestone Fighter";

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
-import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
+import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSkillPointsPerLevel, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
 import { type CombatAttackMode, type CombatCastingContext, type SkillSynergyContext } from "../rules";
 import { getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay } from "../rules";
 import { getMovement } from "../movementRules";
@@ -204,6 +204,20 @@ export function CharacterSheet({
   const activeLevelUpClassId = levelUpOriginal
     ? levelUpClassId ?? getLevelUpSkillSourceId(levelUpOriginal, character)
     : undefined;
+  const availableSkillPoints = levelUpOriginal
+    ? getAvailableSkillCount(levelUpOriginal) +
+      getSkillPointsPerLevel(
+        levelUpOriginal,
+        activeLevelUpClassId ?? "fighter",
+      )
+    : getAvailableSkillCount(character);
+  const spentSkillPoints = levelUpOriginal
+    ? getLevelUpSpentSkillPoints(
+        levelUpOriginal,
+        character,
+        activeLevelUpClassId ?? "fighter",
+      )
+    : getSpentSkillPoints(character);
   const skillDisplaySourceId: SkillRankSourceId | undefined = levelUpOriginal
     ? activeLevelUpClassId
     : creationMode
@@ -745,21 +759,8 @@ export function CharacterSheet({
       </div>
       </div>
       <Panel
-        title={`Skills (${levelUpOriginal
-          ? getLevelUpSpentSkillPoints(
-              levelUpOriginal,
-              character,
-              activeLevelUpClassId ?? "fighter",
-            )
-          : getSpentSkillPoints(character)}/${getAvailableSkillCount(character)}${
-          levelUpOriginal &&
-          getAvailableSkillCount(character) -
-            getLevelUpSpentSkillPoints(
-              levelUpOriginal,
-              character,
-              activeLevelUpClassId ?? "fighter",
-            ) ===
-            1
+        title={`Skills (${spentSkillPoints}/${availableSkillPoints}${
+          levelUpOriginal && availableSkillPoints - spentSkillPoints === 1
             ? " - 1 point remains (0.5 cross-class rank)"
             : ""
         })`}

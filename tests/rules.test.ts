@@ -2165,6 +2165,31 @@ describe("character rules preserved from 2.0", () => {
     expect(availableIds(fourthLevelFighter)).toContain("spirited-charge");
   });
 
+  it("requires Mounted Combat and one Ride rank for Trample", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 3 }];
+    const trample = featCatalog.find((feat) => feat.id === "trample");
+    const slots = getFeatSlots(character);
+    const thirdLevelGeneral = slots.find((slot) => slot.id === "general-3");
+    const secondLevelFighter = slots.find((slot) => slot.id === "fighter-2");
+    if (!trample || !thirdLevelGeneral || !secondLevelFighter)
+      throw new Error("Missing Trample progression fixture.");
+
+    expect(trample.fighterBonus).toBe(true);
+    expect(featQualifies(character, trample, thirdLevelGeneral)).toBe(false);
+    character.skills.Ride = 1;
+    expect(featQualifies(character, trample, thirdLevelGeneral)).toBe(false);
+
+    character.featSelections = { "general-1": "mounted-combat" };
+    expect(featQualifies(character, trample, thirdLevelGeneral)).toBe(true);
+    expect(
+      getAvailableFeats(character, thirdLevelGeneral, "general-3").map((feat) => feat.id),
+    ).toContain("trample");
+    expect(
+      getAvailableFeats(character, secondLevelFighter, "fighter-2").map((feat) => feat.id),
+    ).toContain("trample");
+  });
+
   it("checks all direct prerequisites in Great Cleave and Greater Two-Weapon Fighting chains", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [{ classId: "fighter", level: 11 }];

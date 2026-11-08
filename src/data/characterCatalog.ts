@@ -1218,6 +1218,14 @@ export const featCatalog: FeatDefinition[] = ([
     description: "Gain 3 additional hit points.",
   },
   {
+    id: "trample",
+    name: "Trample",
+    description:
+      "Mounted overrun targets cannot avoid you; if knocked down, your mount may make one hoof attack (+4 vs. prone). Resolve manually.",
+    prerequisites: { feats: ["mounted-combat"], skills: { Ride: 1 } },
+    fighterBonus: true,
+  },
+  {
     id: "two-weapon-fighting",
     name: "Two-Weapon Fighting",
     description: "Reduce penalties when fighting with two weapons.",

@@ -18,6 +18,8 @@ Ride check to negate a hit on a mount remains manual. Mounted Archery is selecta
 with Ride 1 and Mounted Combat prerequisites; its reduced mounted ranged-attack
 penalties remain manual. Ride-By Attack movement and target-specific attacks of
 opportunity, and Spirited Charge damage multipliers, also remain manual.
+Trample is selectable with Ride 1 and Mounted Combat; its overrun and hoof-attack
+resolution remain manual.
 
 | Area | Status | Implemented and verified | Known gaps / boundaries | Evidence |
 |---|---|---|---|---|

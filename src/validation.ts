@@ -283,6 +283,8 @@ export function assertCharacter(value: unknown): asserts value is Character {
   }
   if (!optionalStrings.every((key) => value[key] === undefined || isString(value[key])) ||
       !["temporaryHitPoints", "nonlethalDamage"].every((key) => value[key] === undefined || isNumber(value[key])) ||
+      (value.flySpeed !== undefined &&
+        (!isNumber(value.flySpeed) || !Number.isSafeInteger(value.flySpeed) || value.flySpeed < 0)) ||
       (value.gender !== undefined && !["", "Male", "Female", "Other"].includes(String(value.gender))) ||
       (value.mainWeaponGrip !== undefined && !["one-handed", "two-handed"].includes(String(value.mainWeaponGrip))) ||
       (value.doubleWeaponMode !== undefined && typeof value.doubleWeaponMode !== "boolean") ||

@@ -626,7 +626,7 @@ export function PrintableCharacterSheet({ character }: Props) {
                       <PrintField label="Spell Resistance" value={character.spellResistance || ""} />
                     </div>
                     <div className="reference-vitals-movement">
-                      <PrintField label="Fly" />
+                      <PrintField label="Fly" value={getMovement(character).flySpeed ?? ""} />
                       <PrintField label="Climb" />
                       <PrintField label="Swim" value={getMovement(character).swimSpeed ?? ""} />
                       <PrintField label="Burrow" />

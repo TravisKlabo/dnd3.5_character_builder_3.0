@@ -158,6 +158,9 @@ export function EquipmentSheet({
           dodgeTargetSelected={dodgeTargetSelected}
         />
         <Stat label="Speed" value={`${movement.speed} ft.`} detail={[...(movement.bonuses ?? []), ...movement.causes]} />
+        {movement.flySpeed !== undefined && (
+          <Stat label="Fly" value={`${movement.flySpeed} ft.`} />
+        )}
         {movement.swimSpeed !== undefined && (
           <Stat label="Swim" value={`${movement.swimSpeed} ft.`} />
         )}

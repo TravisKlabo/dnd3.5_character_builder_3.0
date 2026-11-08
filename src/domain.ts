@@ -260,6 +260,7 @@ export interface FeatDefinition {
     classLevels?: Partial<Record<ClassId, number>>
     classFeatures?: string[]
     arcaneSpellLevel?: number
+    flySpeed?: boolean
     feats?: FeatId[]
     anyFeats?: FeatId[]
     draconianBreathWeapon?: boolean
@@ -304,6 +305,7 @@ export interface Character {
   abilities: AbilityScores
   abilityScoreIncreasesByLevel?: Partial<Record<number, AbilityName>>
   classLevels: (ClassLevel | PrestigeClassLevel)[]
+  flySpeed?: number
   hitPoints: number
   hitPointRolls?: HitPointRollRecord[]
   baseAttackBonusByLevel?: Partial<Record<number, number>>

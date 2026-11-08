@@ -294,6 +294,7 @@ describe("Dragonlance feats", () => {
     character.ruleset = "dragonlance-user-pack";
     character.race = "Baaz Draconian";
     character.classLevels = [{ classId: "fighter", level: 9 }];
+    character.flySpeed = 30;
     character.featSelections = { "general-1": "flyby-attack" };
     const flybyBreath = featCatalog.find((feat) => feat.id === "flyby-breath");
     const strafingBreath = featCatalog.find((feat) => feat.id === "strafing-breath");
@@ -319,8 +320,29 @@ describe("Dragonlance feats", () => {
     character.race = "Human";
     character.featSelections = { "general-1": "flyby-attack" };
     expect(featQualifies(character, flybyBreath, sixthLevelSlot)).toBe(true);
-    expect(flybyBreath.description).toContain("verify fly speed");
+    expect(flybyBreath.description).toContain("confirm active flight");
     expect(strafingBreath.description).toContain("resolve the area calculation manually");
+  });
+
+  it("requires a positive fly speed for Flyby Attack", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 6 }];
+    const flybyAttack = featCatalog.find((feat) => feat.id === "flyby-attack");
+    const sixthLevelSlot = getFeatSlots(character).find(
+      (slot) => slot.id === "general-6",
+    );
+    if (!flybyAttack || !sixthLevelSlot)
+      throw new Error("Missing Flyby Attack prerequisite fixture.");
+
+    expect(featQualifies(character, flybyAttack, sixthLevelSlot)).toBe(false);
+    expect(getAvailableFeats(character, sixthLevelSlot)).not.toContainEqual(flybyAttack);
+    character.flySpeed = 30;
+    expect(featQualifies(character, flybyAttack, sixthLevelSlot)).toBe(true);
+    expect(getAvailableFeats(character, sixthLevelSlot)).toContainEqual(flybyAttack);
+    expect(getMovement(character).flySpeed).toBe(30);
+
+    character.flySpeed = 0;
+    expect(featQualifies(character, flybyAttack, sixthLevelSlot)).toBe(false);
   });
 
   it("does not count prerequisite feats from later character levels", () => {

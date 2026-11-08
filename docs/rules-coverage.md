@@ -20,6 +20,9 @@ penalties remain manual. Ride-By Attack movement and target-specific attacks of
 opportunity, and Spirited Charge damage multipliers, also remain manual.
 Trample is selectable with Ride 1 and Mounted Combat; its overrun and hoof-attack
 resolution remain manual.
+Flyby Attack is selectable when a positive fly speed is recorded; entering the
+speed, confirming active flight, and resolving the move/action timing remain
+manual ([SRD Flyby Attack](https://www.d20srd.org/srd/monsterFeats.htm#flybyAttack)).
 Leadership is selectable at character level 6; its score, cohort, follower count,
 and ongoing cohort/follower management remain manual
 ([SRD Leadership](https://www.d20srd.org/srd/feats.htm#leadership)).

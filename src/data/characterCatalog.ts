@@ -586,12 +586,21 @@ export const featCatalog: FeatDefinition[] = ([
     },
   },
   {
+    id: "flyby-attack",
+    name: "Flyby Attack",
+    source: "core-35-srd",
+    sourceBook: "Monster Manual (3.5)",
+    description:
+      "When flying, take a move action (including a dive) and another standard action at any point during the move; you cannot take a second move action that round. Resolve movement and action timing manually.",
+    prerequisites: { flySpeed: true },
+  },
+  {
     id: "flyby-breath",
     name: "Flyby Breath",
     source: "dragonlance-user-pack",
     sourceBook: dragonlanceFeatSourceBook,
     description:
-      "While flying, use your breath weapon as a free action if you do nothing but move that turn; this cannot be combined with a Run action and grants no extra breath weapon uses. Flyby Attack is enforced; verify fly speed and non-draconian breath weapons manually.",
+      "While flying, use your breath weapon as a free action if you do nothing but move that turn; this cannot be combined with a Run action and grants no extra breath weapon uses. Flyby Attack is enforced; confirm active flight and non-draconian breath weapons manually.",
     prerequisites: {
       feats: ["flyby-attack"],
       draconianBreathWeapon: true,
@@ -723,7 +732,7 @@ export const featCatalog: FeatDefinition[] = ([
     source: "dragonlance-user-pack",
     sourceBook: dragonlanceFeatSourceBook,
     description:
-      "When flying and using your breath weapon, extend its ground area along a straight flight path by up to half your fly speed. Flyby Attack and Flyby Breath are enforced; verify fly speed and non-draconian breath weapons manually, and resolve the area calculation manually.",
+      "When flying and using your breath weapon, extend its ground area along a straight flight path by up to half your fly speed. Flyby Attack and Flyby Breath are enforced; confirm active flight and non-draconian breath weapons manually, and resolve the area calculation manually.",
     prerequisites: {
       feats: ["flyby-attack", "flyby-breath"],
       draconianBreathWeapon: true,

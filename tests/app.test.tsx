@@ -40,6 +40,21 @@ describe("application workflows", () => {
     expect(readStoredCharacter().hasMedallionOfFaith).toBe(true);
   });
 
+  it("persists a manually recorded fly speed", async () => {
+    savedHero();
+    const user = userEvent.setup();
+    render(<App />);
+    const flySpeed = await screen.findByRole("spinbutton", {
+      name: "Fly Speed (ft.)",
+    });
+
+    await user.clear(flySpeed);
+    await user.type(flySpeed, "30");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(readStoredCharacter().flySpeed).toBe(30);
+  });
+
   it("explains that Noble is only available as a first-level class choice", async () => {
     const character = savedHero();
     character.ruleset = "dragonlance-user-pack";

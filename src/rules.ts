@@ -3888,6 +3888,13 @@ export function featQualifies(
   slot: FeatEligibilitySlot,
   excludingSlot?: string,
 ) {
+  if (
+    feat.prerequisites?.flySpeed &&
+    (typeof character.flySpeed !== "number" ||
+      !Number.isSafeInteger(character.flySpeed) ||
+      character.flySpeed <= 0)
+  )
+    return false;
   if (feat.firstLevelOnly && slot.characterLevel !== 1) return false;
   if (
     feat.prerequisites?.minimumCharacterLevel &&

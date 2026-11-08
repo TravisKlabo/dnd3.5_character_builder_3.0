@@ -53,9 +53,16 @@ export function getMovement(character: Character) {
     speed: number;
     causes: string[];
     bonuses?: string[];
+    flySpeed?: number;
     baseSwimSpeed?: number;
     swimSpeed?: number;
   } = { baseSpeed, speed, causes };
+  if (
+    typeof character.flySpeed === "number" &&
+    Number.isSafeInteger(character.flySpeed) &&
+    character.flySpeed > 0
+  )
+    movement.flySpeed = character.flySpeed;
   if (bonuses.length) movement.bonuses = bonuses;
   if (baseSwimSpeed !== undefined && swimSpeed !== undefined) {
     movement.baseSwimSpeed = baseSwimSpeed;

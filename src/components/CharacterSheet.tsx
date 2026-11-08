@@ -166,7 +166,7 @@ export function CharacterSheet({
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   onCharacterFeatureChange: (
-    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses">>,
+    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed">>,
   ) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
@@ -618,6 +618,27 @@ export function CharacterSheet({
           />
           <AttacksOfOpportunityStat character={character} />
           <Stat label="Speed" value={`${movement.speed} ft.`} detail={[...(movement.bonuses ?? []), ...movement.causes]} />
+          {finalized ? (
+            <label className="stat manual-fly-speed">
+              <small>Fly Speed</small>
+              <input
+                type="number"
+                min="0"
+                step="5"
+                aria-label="Fly Speed (ft.)"
+                value={character.flySpeed ?? ""}
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  onCharacterFeatureChange({
+                    flySpeed: value === "" ? undefined : Number(value),
+                  });
+                }}
+              />
+              <small>Enter only if the character has a fly speed; gliding does not count. Maneuverability and active flight remain manual.</small>
+            </label>
+          ) : movement.flySpeed !== undefined ? (
+            <Stat label="Fly" value={`${movement.flySpeed} ft.`} />
+          ) : null}
           {movement.swimSpeed !== undefined && (
             <Stat label="Swim" value={`${movement.swimSpeed} ft.`} />
           )}

@@ -13,6 +13,7 @@ export const magicSchools = ['Abjuration', 'Conjuration', 'Divination', 'Enchant
 export type MagicSchool = (typeof magicSchools)[number]
 export type PrestigeClassId = 'knight-of-the-crown' | 'knight-of-the-sword' | 'knight-of-the-rose' | 'knight-of-the-lily' | 'knight-of-the-skull' | 'knight-of-the-thorn' | 'knight-of-neraka' | 'steel-legionnaire' | 'wizard-of-high-sorcery' | 'white-robed-wizard' | 'red-robed-wizard' | 'black-robed-wizard' | 'dragon-rider' | 'inquisitor' | 'legendary-tactician' | 'righteous-zealot' | 'renegade-hunter' | 'master-of-the-way' | 'arcane-archer' | 'arcane-trickster' | 'assassin' | 'dragon-disciple' | 'duelist' | 'dwarven-defender' | 'eldritch-knight' | 'hierophant' | 'horizon-walker' | 'loremaster' | 'mystic-theurge' | 'shadowdancer' | 'thaumaturgist'
 export type FeatId = string
+export type FeatCategory = 'metamagic' | 'item-creation'
 export type SpellAcquisition = 'starting' | 'level-up' | 'spellbook' | 'scroll' | 'research' | 'reward'
 export interface WizardSpellLearning {
   source: 'scroll' | 'spellbook' | 'research' | 'reward'
@@ -206,10 +207,12 @@ export interface PrestigeClassDefinition {
     feats?: string[]
     anyFeats?: string[]
     featChoices?: { anyOf: string[]; count: number }[]
+    featCategoryChoices?: { anyOf: FeatCategory[]; count: number }[]
     classes?: ClassId[]
     prestigeClasses?: Partial<Record<PrestigeClassId, number>>
     classFeatures?: string[]
     spellcasting?: { type: 'arcane' | 'divine'; level: number }
+    spells?: string[]
     races?: string[]
   }
   features: string[]
@@ -247,6 +250,7 @@ export interface FeatDefinition {
   source: ContentSourceId
   sourceBook?: string
   description: string
+  categories?: FeatCategory[]
   prerequisites?: {
     abilities?: Partial<Record<AbilityName, number>>
     baseAttackBonus?: number
@@ -677,7 +681,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
 
 export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDefinition> = {
   'arcane-archer': { id: 'arcane-archer', name: 'Arcane Archer', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Point Blank Shot', 'Precise Shot'], classes: ['fighter', 'ranger'] }, features: ['Enhance arrows', 'Imbue arrow', 'Seeker arrow', 'Phase arrow', 'Hail of arrows'] },
-  'arcane-trickster': { id: 'arcane-trickster', name: 'Arcane Trickster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, feats: ['Mage Hand'], classes: ['rogue', 'sorcerer', 'wizard'] }, features: ['Ranged legerdemain', 'Sneak attack', 'Impromptu sneak attack'] },
+  'arcane-trickster': { id: 'arcane-trickster', name: 'Arcane Trickster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, spellcasting: { type: 'arcane', level: 3 }, spells: ['Mage Hand'], classes: ['rogue', 'sorcerer', 'wizard'] }, features: ['Ranged legerdemain', 'Sneak attack', 'Impromptu sneak attack'] },
   assassin: { id: 'assassin', name: 'Assassin', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { dex: 13 }, classes: ['rogue'] }, features: ['Poison use', 'Sneak attack', 'Death attack', 'Hide in plain sight'] },
   'dragon-disciple': { id: 'dragon-disciple', name: 'Dragon Disciple', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { cha: 13 }, classes: ['sorcerer'] }, features: ['Draconic abilities', 'Natural armor', 'Breath weapon', 'Wings'] },
   duelist: { id: 'duelist', name: 'Duelist', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Combat Expertise', 'Weapon Finesse'], classes: ['fighter', 'rogue'] }, features: ['Canny defense', 'Improved reaction', 'Grace', 'Precise strike'] },
@@ -685,7 +689,7 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
   'eldritch-knight': { id: 'eldritch-knight', name: 'Eldritch Knight', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 3, feats: ['Martial Weapon Proficiency'], classes: ['fighter', 'sorcerer', 'wizard'] }, features: ['Bonus feat', 'Spellcasting advancement'] },
   hierophant: { id: 'hierophant', name: 'Hierophant', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { wis: 15 }, classes: ['cleric', 'druid'] }, features: ['Special ability', 'Spell-like ability'] },
   'horizon-walker': { id: 'horizon-walker', name: 'Horizon Walker', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, feats: ['Endurance'], classes: ['barbarian', 'fighter', 'ranger'] }, features: ['Terrain mastery', 'Planar terrain mastery'] },
-  loremaster: { id: 'loremaster', name: 'Loremaster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, feats: ['Any metamagic feat', 'Any item creation feat'], classes: ['bard', 'cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Secret', 'Lore', 'Greater lore'] },
+  loremaster: { id: 'loremaster', name: 'Loremaster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, featCategoryChoices: [{ anyOf: ['metamagic', 'item-creation'], count: 3 }], classes: ['bard', 'cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Secret', 'Lore', 'Greater lore'] },
   'mystic-theurge': { id: 'mystic-theurge', name: 'Mystic Theurge', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Dual spellcasting advancement'] },
   shadowdancer: { id: 'shadowdancer', name: 'Shadowdancer', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { dex: 13 }, feats: ['Combat Reflexes', 'Dodge', 'Mobility'], classes: ['bard', 'monk', 'rogue'] }, features: ['Hide in plain sight', 'Darkvision', 'Shadow companion'] },
   thaumaturgist: { id: 'thaumaturgist', name: 'Thaumaturgist', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { wis: 13 }, feats: ['Spell Focus'], classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Improved ally', 'Planar cohort', 'Planar durance'] },

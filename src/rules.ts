@@ -3004,6 +3004,16 @@ export function getPrestigeClassEligibilityErrors(
       ...getChosenFeats(character),
       ...character.feats,
     ];
+    const selectedFeatDefinitions = new Map(
+      featEntries.flatMap((featEntry) => {
+        const normalizedFeat = normalize(featEntry);
+        const definition = featCatalog.find((feat) =>
+          normalize(feat.id) === normalizedFeat ||
+          normalize(feat.name) === normalizedFeat,
+        );
+        return definition ? [[definition.id, definition] as const] : [];
+      }),
+    );
     const featNames = new Set(
       featEntries.flatMap((featId) => [
         normalize(featId),
@@ -3063,6 +3073,13 @@ export function getPrestigeClassEligibilityErrors(
       if (matchingChoices.size < choice.count)
         errors.push(`Choose ${choice.count} distinct feats from the required group.`);
     }
+    for (const choice of prerequisites.featCategoryChoices ?? []) {
+      const matchingChoices = [...selectedFeatDefinitions.values()].filter((feat) =>
+        feat.categories?.some((category) => choice.anyOf.includes(category)),
+      );
+      if (matchingChoices.length < choice.count)
+        errors.push(`Choose ${choice.count} distinct feats from the required categories.`);
+    }
     if (
       prerequisites.races?.length &&
       !prerequisites.races.some((race) =>
@@ -3097,6 +3114,21 @@ export function getPrestigeClassEligibilityErrors(
       );
       if (!canCastRequiredSpell)
         errors.push(`Ability to cast ${prerequisites.spellcasting.type} spells of level ${prerequisites.spellcasting.level} is required.`);
+    }
+    const knownSpells = getClassSpellSelections(character, "knownSpells");
+    for (const spellName of prerequisites.spells ?? []) {
+      const normalizedSpell = normalizeSpellName(spellName);
+      const canCastSpell = baseClassLevels.some(({ classId }) =>
+        (!prerequisites.classes?.length || prerequisites.classes.includes(classId)) &&
+        (knownSpells[classId] ?? []).some((knownSpell) =>
+          normalizeSpellName(knownSpell) === normalizedSpell,
+        ) &&
+        getClassSpells(classId, character.ruleset, character).some((spell) =>
+          normalizeSpellName(spell.name) === normalizedSpell,
+        ),
+      );
+      if (!canCastSpell)
+        errors.push(`Ability to cast ${spellName} is required.`);
     }
     if (definition.id === "wizard-of-high-sorcery") {
       const order = character.highSorceryOrder;

@@ -752,12 +752,14 @@ export const featCatalog: FeatDefinition[] = ([
     id: "scribe-scroll",
     name: "Scribe Scroll",
     description: "Create magic scrolls containing spells you can cast.",
+    categories: ["item-creation"],
     prerequisites: { casterLevel: 1 },
   },
   {
     id: "craft-wand",
     name: "Craft Wand",
     description: "Create wands containing spells of 4th level or lower.",
+    categories: ["item-creation"],
     prerequisites: { casterLevel: 5 },
   },
   {
@@ -1093,17 +1095,20 @@ export const featCatalog: FeatDefinition[] = ([
     id: "empower-spell",
     name: "Empower Spell",
     description: "Variable numeric effects +50%; slot +2.",
+    categories: ["metamagic"],
     prerequisites: { arcaneSpellLevel: 3 },
   },
   {
     id: "heighten-spell",
     name: "Heighten Spell",
     description: "Raises a prepared spell's effective level, save DC, and slot (maximum 9).",
+    categories: ["metamagic"],
   },
   {
     id: "maximize-spell",
     name: "Maximize Spell",
     description: "Maximizes variable numeric effects; slot +3.",
+    categories: ["metamagic"],
     prerequisites: {
       arcaneSpellLevel: 3,
       anyFeats: [
@@ -1123,36 +1128,43 @@ export const featCatalog: FeatDefinition[] = ([
     id: "extend-spell",
     name: "Extend Spell",
     description: "Doubles eligible durations; slot +1.",
+    categories: ["metamagic"],
   },
   {
     id: "enlarge-spell",
     name: "Enlarge Spell",
     description: "Doubles eligible ranges; slot +1.",
+    categories: ["metamagic"],
   },
   {
     id: "quicken-spell",
     name: "Quicken Spell",
     description: "Cast an eligible prepared spell as a free action; slot +4.",
+    categories: ["metamagic"],
   },
   {
     id: "silent-spell",
     name: "Silent Spell",
     description: "Cast a spell without verbal components; slot +1.",
+    categories: ["metamagic"],
   },
   {
     id: "still-spell",
     name: "Still Spell",
     description: "Cast a spell without somatic components; slot +1.",
+    categories: ["metamagic"],
   },
   {
     id: "widen-spell",
     name: "Widen Spell",
     description: "Double eligible areas; slot +3.",
+    categories: ["metamagic"],
   },
   {
     id: "sculpt-spell",
     name: "Sculpt Spell",
     description: "Reshape an area spell; slot +1.",
+    categories: ["metamagic"],
     prerequisites: {
       anyFeats: [
         "empower-spell",

@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { abilityModifier, armorClass, beginLevelUp, beginPrestigeLevelUp, carryingCapacity, changeRace, cloneCharacter, raceDefinitions,
   hitPointGain, initialCharacter, levelUpHitPointGain, nextClassLevel, sizeModifier, validateLevelUp,
-  getEffectiveCharacterLevel, getTotalHitDice, isValidHitDieRoll,
+  dragonlancePrestigeClasses, getEffectiveCharacterLevel, getTotalHitDice, isValidHitDieRoll,
+  type PrestigeClassId,
   type FeatDefinition, type RangerFavoredEnemyChoice } from "../src/domain";
 import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   getDailySpellSlots, getEquipmentArmorClass, getEquippedWeaponStats,
@@ -35,6 +36,27 @@ import { formatRaceDetails } from "../src/creationRules";
 import { getConstitutionHitPointAdjustment, getEffectiveAbilityScore } from "../src/abilityEquipment";
 
 beforeAll(loadSpellCatalog);
+
+function withCompletePrestigeProgression(id: PrestigeClassId, run: () => void) {
+  const original = dragonlancePrestigeClasses[id];
+  dragonlancePrestigeClasses[id] = {
+    ...original,
+    hitDie: 6,
+    skillPoints: 2,
+    baseAttackBonus: "poor",
+    fortitude: "poor",
+    reflex: "poor",
+    will: "good",
+    classSkills: ["Knowledge (arcana)"],
+    maximumLevel: 10,
+    levelUpEnabled: true,
+  };
+  try {
+    run();
+  } finally {
+    dragonlancePrestigeClasses[id] = original;
+  }
+}
 
 describe("Barbarian class rules", () => {
   it("matches the PHB attack, save, skill, and feature progressions", () => {
@@ -1827,6 +1849,44 @@ describe("character rules preserved from 2.0", () => {
     expect(
       getPrestigeClassEligibilityErrors(character, "knight-of-the-crown"),
     ).toContain("Alignment must be Lawful Good.");
+  });
+
+  it("checks Arcane Trickster's Mage Hand as a known arcane spell", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "wizard", level: 7 }];
+    character.abilities.int = 13;
+
+    withCompletePrestigeProgression("arcane-trickster", () => {
+      expect(
+        getPrestigeClassEligibilityErrors(character, "arcane-trickster"),
+      ).toContain("Ability to cast Mage Hand is required.");
+
+      character.knownSpellsByClass = { wizard: ["Mage Hand"] };
+      expect(
+        getPrestigeClassEligibilityErrors(character, "arcane-trickster"),
+      ).toEqual([]);
+    });
+  });
+
+  it("counts Loremaster's metamagic and item creation feat categories", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "wizard", level: 7 }];
+    character.abilities.int = 13;
+    character.featSelections = {
+      "general-1": "scribe-scroll",
+      "general-2": "craft-wand",
+    };
+
+    withCompletePrestigeProgression("loremaster", () => {
+      expect(
+        getPrestigeClassEligibilityErrors(character, "loremaster"),
+      ).toContain("Choose 3 distinct feats from the required categories.");
+
+      character.featSelections["general-3"] = "empower-spell";
+      expect(
+        getPrestigeClassEligibilityErrors(character, "loremaster"),
+      ).toEqual([]);
+    });
   });
 
   it("applies Knight of the Crown skill, attack, save, and feature progression", () => {

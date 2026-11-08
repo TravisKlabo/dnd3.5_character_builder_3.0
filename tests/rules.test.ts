@@ -2144,6 +2144,35 @@ describe("character rules preserved from 2.0", () => {
     expect(getTwoWeaponAttackPenalty(character, "Off Hand Weapon")).toBe(-8);
   });
 
+  it("offers Leadership only at character level 6 or later", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 5 }];
+    const leadership = featCatalog.find((feat) => feat.id === "leadership");
+    if (!leadership) throw new Error("Missing Leadership fixture.");
+
+    expect(featQualifies(character, leadership, { fighterOnly: false })).toBe(false);
+    expect(
+      featQualifies(character, leadership, {
+        fighterOnly: false,
+        characterLevel: 5,
+      }),
+    ).toBe(false);
+    expect(
+      featQualifies(character, leadership, {
+        fighterOnly: false,
+        characterLevel: 6,
+      }),
+    ).toBe(true);
+
+    character.classLevels = [{ classId: "fighter", level: 6 }];
+    const sixthLevelSlot = getFeatSlots(character).find(
+      (slot) => slot.id === "general-6",
+    );
+    if (!sixthLevelSlot) throw new Error("Missing sixth-level feat slot.");
+    expect(getAvailableFeats(character, sixthLevelSlot)).toContainEqual(leadership);
+    expect(leadership.description).toContain("management remain manual");
+  });
+
   it("offers Mounted Combat after one Ride rank, including as a fighter bonus feat", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [{ classId: "fighter", level: 2 }];

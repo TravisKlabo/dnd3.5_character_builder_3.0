@@ -3889,6 +3889,12 @@ export function featQualifies(
   excludingSlot?: string,
 ) {
   if (feat.firstLevelOnly && slot.characterLevel !== 1) return false;
+  if (
+    feat.prerequisites?.minimumCharacterLevel &&
+    (slot.characterLevel ?? getTotalHitDice(character)) <
+      feat.prerequisites.minimumCharacterLevel
+  )
+    return false;
   if (slot.monkBonusLevel !== undefined)
     return monkBonusFeats[slot.monkBonusLevel].includes(feat.id);
   if (slot.rangerStyleLevel !== undefined) {

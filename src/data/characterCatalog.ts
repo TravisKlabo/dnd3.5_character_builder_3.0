@@ -867,6 +867,13 @@ export const featCatalog: FeatDefinition[] = ([
     description: "+2 bonus on Fortitude saves.",
   },
   {
+    id: "leadership",
+    name: "Leadership",
+    description:
+      "Attract a cohort and followers using your Leadership score (character level + Charisma modifier, adjusted by other factors). Determine cohort level and follower count from the Leadership table; cohort and follower management remain manual.",
+    prerequisites: { minimumCharacterLevel: 6 },
+  },
+  {
     id: "greater-two-weapon-fighting",
     name: "Greater Two-Weapon Fighting",
     description: "Gain a third off-hand attack when using two weapons.",

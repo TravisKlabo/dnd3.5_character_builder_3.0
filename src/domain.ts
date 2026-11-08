@@ -255,6 +255,7 @@ export interface FeatDefinition {
     abilities?: Partial<Record<AbilityName, number>>
     baseAttackBonus?: number
     baseSaves?: Partial<Record<'fortitude' | 'reflex' | 'will', number>>
+    minimumCharacterLevel?: number
     casterLevel?: number
     classLevels?: Partial<Record<ClassId, number>>
     classFeatures?: string[]

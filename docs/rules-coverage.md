@@ -20,6 +20,9 @@ penalties remain manual. Ride-By Attack movement and target-specific attacks of
 opportunity, and Spirited Charge damage multipliers, also remain manual.
 Trample is selectable with Ride 1 and Mounted Combat; its overrun and hoof-attack
 resolution remain manual.
+Leadership is selectable at character level 6; its score, cohort, follower count,
+and ongoing cohort/follower management remain manual
+([SRD Leadership](https://www.d20srd.org/srd/feats.htm#leadership)).
 
 | Area | Status | Implemented and verified | Known gaps / boundaries | Evidence |
 |---|---|---|---|---|

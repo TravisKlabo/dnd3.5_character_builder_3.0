@@ -10,6 +10,8 @@ type ClericDomainRuleMetadata = {
   mysticOnlyInDragonlance?: boolean;
 };
 
+const dragonlanceContentSource = "dragonlance-user-pack";
+
 export const clericDomainRuleMetadata: Record<ClericDomainId, ClericDomainRuleMetadata> = {
   air: { name: "Air", spellNotes: { 9: "Air spell only." } },
   animal: { name: "Animal", classSkills: ["Knowledge (nature)"], spellNotes: { 4: "Animals only.", 8: "Animals only." } },
@@ -25,18 +27,18 @@ export const clericDomainRuleMetadata: Record<ClericDomainId, ClericDomainRuleMe
   law: { name: "Law", spellNotes: { 9: "Law spell only." } },
   luck: { name: "Luck" },
   magic: { name: "Magic" },
-  alteration: { name: "Alteration", source: "dragonlance-user-pack", mysticOnly: true },
-  community: { name: "Community", source: "dragonlance-user-pack", clericDeities: ["mishakal"] },
-  forge: { name: "Forge", source: "dragonlance-user-pack", clericDeities: ["reorx"] },
-  insight: { name: "Insight", source: "dragonlance-user-pack", clericDeities: ["zivilyn"] },
-  liberation: { name: "Liberation", source: "dragonlance-user-pack", clericDeities: ["gilean"] },
-  meditation: { name: "Meditation", source: "dragonlance-user-pack", clericDeities: ["majere", "zivilyn"] },
-  mentalism: { name: "Mentalism", source: "dragonlance-user-pack", mysticOnly: true },
-  necromancy: { name: "Necromancy", source: "dragonlance-user-pack", mysticOnly: true },
-  passion: { name: "Passion", source: "dragonlance-user-pack", clericDeities: ["sirrion"] },
+  alteration: { name: "Alteration", source: dragonlanceContentSource, mysticOnly: true },
+  community: { name: "Community", source: dragonlanceContentSource, clericDeities: ["mishakal"] },
+  forge: { name: "Forge", source: dragonlanceContentSource, clericDeities: ["reorx"] },
+  insight: { name: "Insight", source: dragonlanceContentSource, clericDeities: ["zivilyn"] },
+  liberation: { name: "Liberation", source: dragonlanceContentSource, clericDeities: ["gilean"] },
+  meditation: { name: "Meditation", source: dragonlanceContentSource, clericDeities: ["majere", "zivilyn"] },
+  mentalism: { name: "Mentalism", source: dragonlanceContentSource, mysticOnly: true },
+  necromancy: { name: "Necromancy", source: dragonlanceContentSource, mysticOnly: true },
+  passion: { name: "Passion", source: dragonlanceContentSource, clericDeities: ["sirrion"] },
   pestilence: {
     name: "Pestilence",
-    source: "dragonlance-user-pack",
+    source: dragonlanceContentSource,
     clericDeities: ["morgion"],
     spellNotes: { 2: "1d3 fiendish dire rats only." },
   },
@@ -44,11 +46,11 @@ export const clericDomainRuleMetadata: Record<ClericDomainId, ClericDomainRuleMe
   protection: { name: "Protection" },
   strength: { name: "Strength" },
   sun: { name: "Sun", mysticOnlyInDragonlance: true },
-  restoration: { name: "Restoration", source: "dragonlance-user-pack", mysticOnly: true },
-  storm: { name: "Storm", source: "dragonlance-user-pack", clericDeities: ["zeboim"] },
+  restoration: { name: "Restoration", source: dragonlanceContentSource, mysticOnly: true },
+  storm: { name: "Storm", source: dragonlanceContentSource, clericDeities: ["zeboim"] },
   travel: { name: "Travel", classSkills: ["Survival"] },
   trickery: { name: "Trickery", classSkills: ["Bluff", "Disguise", "Hide"] },
-  treachery: { name: "Treachery", source: "dragonlance-user-pack", clericDeities: ["hiddukel"] },
+  treachery: { name: "Treachery", source: dragonlanceContentSource, clericDeities: ["hiddukel"] },
   war: { name: "War" },
   water: { name: "Water", spellNotes: { 9: "Water spell only." } },
 };

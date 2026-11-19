@@ -1,0 +1,43 @@
+import type { SrdSpell } from "../srdSpells";
+
+export const monsterManualSpells: SrdSpell[] = [
+  {
+    name: "Earthbind",
+    level: 2,
+    classes: ["druid", "sorcerer", "wizard"],
+    description: "On a failed Fortitude save, one creature's fly speed becomes 0 ft., whether its flight is natural or magical. An airborne target descends as under Feather Fall. New effects granting a fly speed are suppressed for the duration. Other movement, including jumping, Levitate, and Air Walk, is unaffected. Spell resistance applies; resolve the save, descent, and temporary flight suppression manually.",
+    school: "Transmutation",
+    components: "V, S",
+    castingTime: "1 standard action",
+    range: "Medium (100 ft. + 10 ft./level)",
+    duration: "1 minute/level (D)",
+    savingThrow: "Fortitude negates",
+    sourceBook: "Monster Manual V, p. 26",
+  },
+  {
+    name: "Summon Clockwork Mender Swarm",
+    level: 4,
+    classes: ["cleric", "sorcerer", "wizard"],
+    description: "Summons one clockwork mender swarm, following Summon Monster I's rules except for the creature summoned. Direct it to attack, repair with swarm repair, or use swarm sacrifice. Arcane focus: a broken metal gear; divine casters use a divine focus. Track the swarm and its abilities manually; spell resistance does not apply.",
+    school: "Conjuration (Summoning) [Lawful]",
+    components: "V, S, F/DF",
+    castingTime: "1 round",
+    range: "Close (25 ft. + 5 ft./2 levels)",
+    duration: "1 round/level (D)",
+    savingThrow: "None",
+    sourceBook: "Monster Manual IV, p. 30",
+  },
+  {
+    name: "Beget Bogun",
+    level: 1,
+    classes: ["druid"],
+    description: "Animates a prepared plant-matter mannequin as a Tiny bogun, completing its construction ritual; costs 25 XP and consumes the mannequin, which must incorporate a bit of the creator's body. Construction requires a 7th-level creator, Craft Wondrous Item, a DC 12 Craft (basketweaving or weaving) check, and a week of solitary work in a forest grove for at least 8 hours daily. Outside that work, only resting, eating, sleeping, and talking are allowed. On the final day, personally cast Control Plants, Wood Shape, and Beget Bogun. Interruption by another sentient creature or a missed day restarts the ritual. Track construction, costs, and the creature manually; spell resistance does not apply.",
+    school: "Conjuration (Creation)",
+    components: "V, S, M, XP",
+    castingTime: "1 standard action",
+    range: "Touch",
+    duration: "Instantaneous",
+    savingThrow: "None",
+    sourceBook: "Monster Manual II, p. 35; Complete Divine (3.5), pp. 152-153",
+  },
+];

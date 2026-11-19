@@ -1,16 +1,22 @@
 import { languageCatalog, dragonlanceLanguages, dragonlanceRegionalLanguages, dragonlanceRacialBonusLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures } from "./data/characterCatalog";
-import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, deityDefinitions, type DeityDefinition, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool, type RulesetId, getTotalHitDice, type SkillRankSourceId, type RangerFavoredEnemyChoice, type RangerFavoredEnemyLevel } from "./domain";
+import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, deityDefinitions, type DeityDefinition, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool, type RulesetId, getTotalHitDice, type SkillRankSourceId, type RangerFavoredEnemyChoice, type RangerFavoredEnemyLevel, type FeatCategory, type SkillTrickCategory, type SkillTrickSelection } from "./domain";
+import { skillTrickCatalog, type SkillTrickDefinition } from "./data/skillTricks";
+import { isIndependentSpellcastingClass, type SpellcastingClassId } from "./domain";
+import { getHierophantAbilityOptions, loremasterSecrets, type LevelUpDraft, type LoremasterSecret } from "./domain";
+import { dragonDiscipleBonusLevels, dragonDiscipleVarieties, getDragonDiscipleAbilityBoost } from "./domain";
+import { canRepeatHighArcana, highArcanaMinimumSlots, type HighArcanaChoice } from "./domain";
 import {
   classFeatureProgression,
   isClassFeatureProgressionLoaded,
   prestigeClassFeatureProgression,
 } from "./data/classFeatureProgression";
-import { spellProgressions, bardKnownProgression, sorcererKnownProgression, mysticKnownProgression } from "./data/spellProgression";
+import { spellProgressions, assassinKnownProgression, bardKnownProgression, sorcererKnownProgression, mysticKnownProgression } from "./data/spellProgression";
 import { armorBonuses, shieldBonuses, armorMaximumDexterity, weaponDamageBySize, armorClasses, armorCheckPenalties, weaponDamageTypes, shieldCheckPenalties, weaponProfiles, rangedWeaponNames, lightOffHandWeaponNames, simpleWeaponNames, martialWeaponNames, martialWeaponClasses, twoHandedWeaponNames, weaponRangeIncrements, reachWeaponNames, armorSpellFailure, shieldSpellFailure } from "./data/equipmentRuleData";
 import { findStoreItem, getStoreItems } from "./data/equipmentItemRegistry";
 import type { StoreItem } from "./data/itemTypes";
-import { findSpellByName, getClassSpells, normalizeSpellName } from "./data/spellCatalog";
+import { findSpellByName, getClassSpells, isSpellCatalogLoaded, normalizeSpellName } from "./data/spellCatalog";
 import {
+  getActiveClericDomains,
   getActiveMysticDomain,
   getMysticDomainSpell,
   getMysticDomainWarnings,
@@ -20,7 +26,22 @@ import {
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "./abilityEquipment";
 import { getCombatEffectAbilityDetails, getCombatEffectDetails, getCombatEffectModifier } from "./combatEffects";
 import { getCurrentHitPoints, getHitPointStatus } from "./hitPoints";
+import { getSpellSchoolName } from "./spellFormatting";
+import type { SrdSpell } from "./srdSpells";
 
+const core35ContentId = "core-35-srd";
+const dragonlanceContentId = "dragonlance-user-pack";
+const creatureSizeCategories = [
+  "Fine",
+  "Diminutive",
+  "Tiny",
+  "Small",
+  "Medium",
+  "Large",
+  "Huge",
+  "Gargantuan",
+  "Colossal",
+] as const;
 const armorNames = Object.keys(armorBonuses).sort((left, right) => right.length - left.length);
 const shieldNames = Object.keys(shieldBonuses).sort((left, right) => right.length - left.length);
 
@@ -43,13 +64,29 @@ export function getPrestigeClassLevel(character: Character, prestigeClassId: Pre
   );
 }
 
+export function getSpellcastingClassDefinition(classId: SpellcastingClassId) {
+  return isIndependentSpellcastingClass(classId)
+    ? { id: classId, name: dragonlancePrestigeClasses[classId].name, spellcasting: true }
+    : classDefinitions[classId];
+}
+
+export function getSpellcastingClassLevels(character: Character) {
+  return character.classLevels.flatMap((entry): { classId: SpellcastingClassId; level: number }[] => {
+    if ("prestigeClassId" in entry) {
+      return isIndependentSpellcastingClass(entry.prestigeClassId) && entry.level > 0
+        ? [{ classId: entry.prestigeClassId, level: entry.level }] : [];
+    }
+    return classDefinitions[entry.classId].spellcasting ? [entry] : [];
+  });
+}
+
 export function getRaceDefinitionForCharacter(
   character: Character,
   ruleset: RulesetId = character.ruleset,
 ) {
   const raceId = character.race.toLowerCase().replaceAll(" ", "-");
   const race = raceDefinitions[raceId];
-  if (!race || (ruleset === "core-35-srd" && race.source !== "core-35-srd")) {
+  if (!race || (ruleset === core35ContentId && race.source !== core35ContentId)) {
     return undefined;
   }
   if (["hill-dwarf", "mountain-dwarf", "dark-dwarf"].includes(race.id)) {
@@ -61,7 +98,7 @@ export function getRaceDefinitionForCharacter(
       specialAbilities: race.specialAbilities ?? dwarf.specialAbilities,
     };
   }
-  if (race.id === "half-elf" && ruleset !== "core-35-srd") {
+  if (race.id === "half-elf" && ruleset !== core35ContentId) {
     return {
       ...race,
       racialImmunities: ["sleep"],
@@ -80,7 +117,7 @@ export function getAvailableLanguages(
 ) {
   return languageCatalog.filter(
     (language) =>
-      ruleset !== "core-35-srd" || !dragonlanceLanguages.has(language),
+      ruleset !== core35ContentId || !dragonlanceLanguages.has(language),
   );
 }
 
@@ -89,7 +126,7 @@ export function getHumanRegionalLanguages(
   ruleset: RulesetId = character.ruleset,
 ) {
   if (
-    ruleset === "core-35-srd" ||
+    ruleset === core35ContentId ||
     getRaceDefinitionForCharacter(character, ruleset)?.id !== "human"
   ) {
     return [];
@@ -107,7 +144,7 @@ export function getAvailableBonusLanguages(
   const raceId = character.race.toLowerCase().replaceAll(" ", "-");
   const hasRace = getRaceDefinitionForCharacter(character, ruleset);
   const racialChoices = hasRace
-    ? (ruleset !== "core-35-srd"
+    ? (ruleset !== core35ContentId
       ? dragonlanceRacialBonusLanguages[raceId] ?? racialBonusLanguages[raceId]
       : racialBonusLanguages[raceId])
     : undefined;
@@ -170,6 +207,7 @@ export function getAvailableSpeakLanguages(
   const alreadyKnown = new Set([
     ...getAutomaticLanguages(character),
     ...(character.languages ?? []),
+    ...getEarnedLoremasterLanguages(character),
     ...(character.speakLanguages ?? [])
       .slice(0, getSpeakLanguageRankCount(character))
       .filter((_, index) => index !== excludingSpeakLanguageIndex),
@@ -201,6 +239,7 @@ export function getSpeakLanguageWarnings(character: Character) {
   const alreadyKnown = new Set([
     ...getAutomaticLanguages(character),
     ...(character.languages ?? []),
+    ...getEarnedLoremasterLanguages(character),
   ].map(normalizeCharacterLanguage));
   const selectedLanguages = new Set<string>();
   for (const language of choices) {
@@ -246,27 +285,33 @@ export function getCharacterLanguages(character: Character) {
     ...new Set([
       ...automaticLanguages,
       ...characterLanguages,
+      ...getEarnedLoremasterLanguages(character).map(normalizeCharacterLanguage),
       ...speakLanguages,
     ]),
   ];
 }
 
-export function baseSpellSlots(classId: ClassId, classLevel: number, spellLevel: number) {
-  const index = classId === "paladin" || classId === "ranger" ? spellLevel - 1 : spellLevel;
+function getEarnedLoremasterLanguages(character: Character) {
+  return (character.loremasterLanguages ?? []).slice(0, Math.floor(getPrestigeClassLevel(character, "loremaster") / 4));
+}
+
+export function baseSpellSlots(classId: SpellcastingClassId, classLevel: number, spellLevel: number) {
+  const index = classId === "paladin" || classId === "ranger" || isIndependentSpellcastingClass(classId) ? spellLevel - 1 : spellLevel;
   return spellProgressions[classId]?.[classLevel - 1]?.[index] ?? 0;
 }
 
 export function hasSpellLevelAtClassLevel(
-  classId: ClassId,
+  classId: SpellcastingClassId,
   classLevel: number,
   spellLevel: number,
 ) {
   if (!Number.isInteger(spellLevel) || spellLevel < 0 || spellLevel > 9) return false;
-  const index = classId === "paladin" || classId === "ranger" ? spellLevel - 1 : spellLevel;
+  const index = classId === "paladin" || classId === "ranger" || isIndependentSpellcastingClass(classId) ? spellLevel - 1 : spellLevel;
   return spellProgressions[classId]?.[classLevel - 1]?.[index] !== undefined;
 }
 
-export const spellcastingAbilities: Partial<Record<ClassId, AbilityName>> = {
+export const spellcastingAbilities: Partial<Record<SpellcastingClassId, AbilityName>> = {
+  assassin: "int", blackguard: "wis",
   bard: "cha", cleric: "wis", druid: "wis", mystic: "wis",
   paladin: "wis", ranger: "wis", sorcerer: "cha", wizard: "int",
 };
@@ -279,6 +324,17 @@ const highSorceryOrderSchools = {
 
 const arcaneSpellcastingClasses = new Set<ClassId>(["bard", "sorcerer", "wizard"]);
 const divineSpellcastingClasses = new Set<ClassId>(["cleric", "druid", "mystic", "paladin", "ranger"]);
+const validAlignments = new Set([
+  "Lawful Good",
+  "Neutral Good",
+  "Chaotic Good",
+  "Lawful Neutral",
+  "True Neutral",
+  "Chaotic Neutral",
+  "Lawful Evil",
+  "Neutral Evil",
+  "Chaotic Evil",
+]);
 
 export function getHighSorceryOrderSchools(
   order: NonNullable<Character["highSorceryOrder"]>,
@@ -312,50 +368,216 @@ export function getPrestigeClassLevelUpSelectionErrors(
   );
 }
 
+export function getEarnedLoremasterSecrets(character: Character) {
+  return (character.loremasterSecrets ?? []).slice(0, Math.ceil(getPrestigeClassLevel(character, "loremaster") / 2));
+}
+
+export function hasLoremasterSecret(character: Character, secret: LoremasterSecret) {
+  return getEarnedLoremasterSecrets(character).includes(secret);
+}
+
+function getEarnedHierophantAbilities(character: Character) {
+  return (character.hierophantAbilities ?? []).slice(0, getPrestigeClassLevel(character, "hierophant"));
+}
+
+export function getPrestigeFeatureChoice(draft: LevelUpDraft) {
+  const { original, proposed, prestigeClassId } = draft;
+  if (prestigeClassId === "hierophant") {
+    const field = "hierophantAbilities";
+    const prior = getEarnedHierophantAbilities(original);
+    return { field, prior, label: "Hierophant special ability", options: getHierophantAbilityOptions(original, prior) } as const;
+  }
+  if (prestigeClassId !== "loremaster") return undefined;
+  const level = getPrestigeClassLevel(proposed, "loremaster");
+  if (level % 2 === 1) {
+    const field = "loremasterSecrets";
+    const prior = getEarnedLoremasterSecrets(original);
+    const limit = level + abilityModifier(proposed.abilities.int);
+    return { field, prior, label: "Loremaster secret", options: loremasterSecrets.filter((secret, index) =>
+      index < limit && !prior.includes(secret)) } as const;
+  }
+  if (level === 4 || level === 8) {
+    const field = "loremasterLanguages";
+    const prior = original.loremasterLanguages ?? [];
+    const known = getCharacterLanguages(original);
+    return { field, prior, label: "Loremaster bonus language", options: getAvailableLanguages(original.ruleset).filter((language) =>
+      language !== "Druidic" && !known.includes(normalizeCharacterLanguage(language))) } as const;
+  }
+  return undefined;
+}
+
+export function getPrestigeFeatureChoiceWarnings(draft: LevelUpDraft) {
+  if (draft.prestigeClassId === "archmage") {
+    const level = getPrestigeClassLevel(draft.proposed, "archmage");
+    const choices = draft.proposed.highArcanaChoices ?? [];
+    const prior = draft.original.highArcanaChoices ?? [];
+    const choice = choices.at(-1);
+    if (!getPrestigeSpellcastingClassOptions(draft.original, "archmage").includes(draft.classId))
+      return ["Choose a qualifying arcane class to advance."];
+    if (choices.length !== level || prior.length !== level - 1 ||
+        prior.some((previous, index) => JSON.stringify(previous) !== JSON.stringify(choices[index])) ||
+        (choice !== null && (!choice || choice.classId !== draft.classId ||
+          !canRepeatHighArcana(choice.ability, prior) ||
+          !getHighArcanaSlotOptions(draft, choice).includes(choice.slot) ||
+          (choice.ability === "Spell-Like Ability"
+            ? !choice.spellNote?.trim() || !getHighArcanaSlotOptions(draft, choice, true).includes(choice.reserve ?? -1)
+            : choice.reserve !== undefined || choice.spellNote !== undefined))))
+      return ["Choose legal High Arcana slot costs or decline High Arcana for this level."];
+    return [];
+  }
+  if (draft.prestigeClassId === "dragon-disciple") {
+    const level = getPrestigeClassLevel(draft.proposed, "dragon-disciple");
+    const { dragonDiscipleVariety: variety, dragonDiscipleBonusSlots: slots = [] } = draft.proposed;
+    const prior = draft.original.dragonDiscipleBonusSlots ?? [];
+    const pending = slots[prior.length];
+    return [
+      ...(!variety || !dragonDiscipleVarieties.includes(variety) ||
+        (level > 1 && variety !== draft.original.dragonDiscipleVariety) ? ["Choose an approved dragon variety."] : []),
+      ...(slots.length !== earnedDragonDiscipleBonusSlots(level) ||
+        prior.some((slot, index) => slot.classId !== slots[index]?.classId || slot.level !== slots[index]?.level) ||
+        (slots.length > prior.length && !getDragonDiscipleSlotOptions(draft).some(
+          (slot) => slot.classId === pending?.classId && slot.level === pending.level,
+        )) ? ["Choose an available Dragon Disciple bonus spell slot."] : []),
+    ];
+  }
+  const choice = getPrestigeFeatureChoice(draft);
+  if (!choice) return [];
+  const selected: readonly string[] = draft.proposed[choice.field] ?? [];
+  const options: readonly string[] = choice.options;
+  return selected.length === choice.prior.length + 1 &&
+    choice.prior.every((value, index) => selected[index] === value) &&
+    options.includes(selected[choice.prior.length])
+    ? [] : [`Choose a legal ${choice.label} before confirming.`];
+}
+
+export function getRedWizardSpellPower(character: Character, classId: SpellcastingClassId) {
+  const level = getPrestigeClassLevel(character, "red-wizard");
+  return classSpellcastingType(classId as ClassId) === "arcane" ? Math.floor(level / 2) : 0;
+}
+
+export function getRedWizardProhibitedSchools(character: Character) {
+  return [...new Set([...(character.wizardBarredSchools ?? []), ...(character.redWizardProhibitedSchools ?? [])])];
+}
+
+function getEarnedHighArcana(character: Character) {
+  return (character.highArcanaChoices ?? []).slice(0, getPrestigeClassLevel(character, "archmage"));
+}
+
+export function getHighArcanaSlotOptions(draft: LevelUpDraft, choice: HighArcanaChoice, reserve = false) {
+  const character = { ...draft.proposed, highArcanaChoices: draft.original.highArcanaChoices };
+  const level = getEffectiveSpellcastingClassLevel(character, choice.classId);
+  return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((slot) =>
+    (reserve || slot >= highArcanaMinimumSlots[choice.ability]) &&
+    getDailySpellSlots(character, choice.classId, level, slot) > (reserve && slot === choice.slot ? 1 : 0));
+}
+
+export function getPrestigeSpellSlotAdjustment(character: Character, classId: SpellcastingClassId, level: number) {
+  return getDragonDiscipleBonusSlots(character, classId, level) -
+    getEarnedHighArcana(character).reduce((total, choice) =>
+      choice?.classId === classId ? total + Number(choice.slot === level) + Number(choice.reserve === level) : total, 0);
+}
+
+export function earnedDragonDiscipleBonusSlots(level: number) {
+  return dragonDiscipleBonusLevels.filter((milestone) => milestone <= level).length;
+}
+
+export function getDragonDiscipleSlotOptions(draft: LevelUpDraft) {
+  return getSpellcastingClassLevels(draft.original).flatMap(({ classId }) => {
+    const classLevel = getEffectiveSpellcastingClassLevel(draft.original, classId);
+    return Array.from({ length: 9 }, (_, index) => index + 1)
+      .filter((level) => getDailySpellSlots(draft.original, classId, classLevel, level) > 0)
+      .map((level) => ({ classId, level }));
+  });
+}
+
+export function getDragonDiscipleBonusSlots(character: Character, classId: SpellcastingClassId, level: number) {
+  return (character.dragonDiscipleBonusSlots ?? [])
+    .slice(0, earnedDragonDiscipleBonusSlots(getPrestigeClassLevel(character, "dragon-disciple")))
+    .filter((slot) => slot.classId === classId && slot.level === level).length;
+}
+
 function classSpellcastingType(classId: ClassId) {
   if (arcaneSpellcastingClasses.has(classId)) return "arcane";
   if (divineSpellcastingClasses.has(classId)) return "divine";
   return undefined;
 }
 
+function matchesPrestigeSpellcastingType(classId: ClassId, type: "arcane" | "divine" | "either") {
+  const classType = classSpellcastingType(classId);
+  return classType !== undefined && (type === "either" || classType === type);
+}
+
 export function getPrestigeSpellcastingClassOptions(
   character: Character,
   prestigeClassId: PrestigeClassId,
+  divineTarget = false,
 ) {
   const progression = dragonlancePrestigeClasses[prestigeClassId].spellcastingProgression;
-  if (!progression) return [];
+  if (!progression || (divineTarget && prestigeClassId !== "mystic-theurge")) return [];
+  const entryRoll = progression.chooseEachLevel
+    ? character.hitPointRolls?.find((roll) => roll.prestigeClassId === prestigeClassId && roll.classLevel === 1)
+    : undefined;
+  const firstClassLevelByClass = new Map<ClassId, number>();
+  for (const roll of character.hitPointRolls ?? []) {
+    if (roll.prestigeClassId || roll.classLevel !== 1) continue;
+    firstClassLevelByClass.set(roll.classId, roll.characterLevel);
+  }
   const allowedClasses = dragonlancePrestigeClasses[prestigeClassId].prerequisites.classes;
+  const beforeArchmage = prestigeClassId === "archmage" && entryRoll
+    ? getCharacterAtCharacterLevel(character, entryRoll.characterLevel - 1) : character;
+  const archmageEntry = prestigeClassId === "archmage" &&
+      (!entryRoll || getTotalHitDice(beforeArchmage) !== entryRoll.characterLevel - 1)
+    ? { ...character, classLevels: character.classLevels.filter((entry) =>
+        !("prestigeClassId" in entry) || entry.prestigeClassId !== "archmage") }
+    : beforeArchmage;
   return [...new Set(
     getBaseClassLevels(character)
       .filter((entry) =>
-        classSpellcastingType(entry.classId) === progression.type &&
+        matchesPrestigeSpellcastingType(entry.classId, divineTarget ? "divine" : progression.type) &&
+        (!entryRoll || (firstClassLevelByClass.get(entry.classId) ?? 0) < entryRoll.characterLevel) &&
+        (prestigeClassId !== "archmage" || getDailySpellSlots(
+          archmageEntry, entry.classId, getEffectiveSpellcastingClassLevel(archmageEntry, entry.classId), 7,
+        ) > 0) &&
         (!allowedClasses?.length || allowedClasses.includes(entry.classId)),
       )
       .map((entry) => entry.classId),
   )];
 }
 
-export function getEffectiveSpellcastingClassLevel(character: Character, classId: ClassId) {
+export function getEffectiveSpellcastingClassLevel(character: Character, classId: SpellcastingClassId) {
+  if (isIndependentSpellcastingClass(classId)) return getPrestigeClassLevel(character, classId);
   const baseLevel = getBaseClassLevel(character, classId);
   const advancement = character.classLevels.reduce((total, entry) => {
-    if (!("prestigeClassId" in entry) || entry.classId !== classId) return total;
+    if (!("prestigeClassId" in entry)) return total;
     const progression = dragonlancePrestigeClasses[entry.prestigeClassId].spellcastingProgression;
-    if (!progression || progression.type !== classSpellcastingType(classId)) return total;
+    if (!progression) return total;
+    const divineTarget = entry.prestigeClassId === "mystic-theurge" && classSpellcastingType(classId) === "divine";
+    if (!matchesPrestigeSpellcastingType(classId, divineTarget ? "divine" : progression.type)) return total;
     const firstAdvancingLevel = progression.startsAtLevel ?? 1;
-    return total + Math.max(0, entry.level - firstAdvancingLevel + 1);
+    if (!progression.chooseEachLevel)
+      return total + (entry.classId === classId ? Math.max(0, entry.level - firstAdvancingLevel + 1) : 0);
+    const recordedTargets = new Map(
+      (character.hitPointRolls ?? [])
+        .filter((roll) => roll.prestigeClassId === entry.prestigeClassId)
+        .map((roll) => [roll.classLevel, divineTarget ? roll.divineSpellcastingClassId : roll.classId]),
+    );
+    for (let level = firstAdvancingLevel; level <= entry.level; level += 1) {
+      if ((recordedTargets.get(level) ?? (divineTarget ? entry.divineSpellcastingClassId : entry.classId)) === classId) total += 1;
+    }
+    return total;
   }, 0);
   return baseLevel + advancement;
 }
 
-export function getSpellcastingAbility(classId: ClassId): AbilityName {
+export function getSpellcastingAbility(classId: SpellcastingClassId): AbilityName {
   const ability = spellcastingAbilities[classId];
-  if (!ability) throw new Error(`${classDefinitions[classId].name} does not have a spellcasting ability.`);
+  if (!ability) throw new Error(`${getSpellcastingClassDefinition(classId).name} does not have a spellcasting ability.`);
   return ability;
 }
 
-export function getHighSorceryMoonModifier(character: Character, classId: ClassId) {
+export function getHighSorceryMoonModifier(character: Character, classId: SpellcastingClassId) {
   if (
-    character.ruleset !== "dragonlance-user-pack" ||
+    character.ruleset !== dragonlanceContentId ||
     !character.highSorceryOrder ||
     (classId !== "wizard" && classId !== "sorcerer")
   ) return 0;
@@ -388,9 +610,18 @@ export function getHighSorceryMoonModifier(character: Character, classId: ClassI
   return modifier;
 }
 
-export function getCasterLevel(classId: ClassId, classLevel: number, character?: Character) {
-  if (!classDefinitions[classId].spellcasting) return 0;
-  const baseClassLevel = character ? getBaseClassLevel(character, classId) : classLevel;
+function getFeatCasterLevelPenalty(character: Character) {
+  return 4 * getChosenFeats(character).filter((featId) =>
+    featId === "mage-slayer" ||
+    featId.startsWith("pierce-magical-")
+  ).length;
+}
+
+export function getCasterLevel(classId: SpellcastingClassId, classLevel: number, character?: Character) {
+  if (!getSpellcastingClassDefinition(classId).spellcasting) return 0;
+  const baseClassLevel = character
+    ? isIndependentSpellcastingClass(classId) ? getPrestigeClassLevel(character, classId) : getBaseClassLevel(character, classId)
+    : classLevel;
   const effectiveClassLevel = character
     ? getEffectiveSpellcastingClassLevel(character, classId)
     : classLevel;
@@ -398,26 +629,46 @@ export function getCasterLevel(classId: ClassId, classLevel: number, character?:
   const baseCasterLevel = classId === "paladin" || classId === "ranger"
     ? baseClassLevel < 4 ? 0 : Math.floor(baseClassLevel / 2)
     : baseClassLevel;
-  const casterLevel = baseCasterLevel + prestigeAdvancement;
-  if (!character || casterLevel <= 0) return casterLevel;
-  return Math.max(0, casterLevel + getHighSorceryMoonModifier(character, classId));
+  const normalCasterLevel = baseCasterLevel + prestigeAdvancement;
+  const casterLevel = character && normalCasterLevel > 0
+    ? normalCasterLevel + getPrestigeClassLevel(character, "hierophant")
+    : normalCasterLevel;
+  if (!character) return casterLevel;
+  const practicedCasterLevel = baseClassLevel > 0 &&
+    getChosenFeats(character).includes(
+      `practiced-spellcaster-${classId}`,
+    )
+    ? casterLevel + Math.max(0, Math.min(4, getTotalHitDice(character) - casterLevel))
+    : casterLevel;
+  if (practicedCasterLevel <= 0) return practicedCasterLevel;
+  return Math.max(
+    0,
+    practicedCasterLevel + getEarnedHierophantAbilities(character).filter((ability) => ability === "Spell Power").length +
+      Number(getEarnedHighArcana(character).some((choice) => choice?.ability === "Spell Power")) +
+      (classSpellcastingType(classId as ClassId) === "arcane"
+        ? Math.floor(getPrestigeClassLevel(character, "red-wizard") / 2)
+        : 0) +
+      getHighSorceryMoonModifier(character, classId) -
+      getFeatCasterLevelPenalty(character),
+  );
 }
 
 export function getSpellSaveDC(
   character: Character,
-  classId: ClassId,
+  classId: SpellcastingClassId,
   spellLevel: number,
   spellSchool?: string,
   includeHighSorceryLunarModifier = true,
+  saveDCFormula?: SrdSpell["saveDCFormula"],
 ) {
-  const schoolName = spellSchool?.split("(")[0].trim().toLowerCase();
+  const schoolName = spellSchool && getSpellSchoolName(spellSchool).toLowerCase();
   const racialBonus =
     character.race.toLowerCase() === "gnome" &&
     schoolName === "illusion"
       ? 1
       : 0;
   const selectedForSchool = (featId: string) =>
-    Boolean(schoolName && Object.entries(character.featSelections ?? {}).some(
+    Boolean(schoolName && getActiveFeatEntries(character).some(
       ([slotId, selectedFeatId]) =>
         selectedFeatId === featId &&
         character.featSpellSchoolSelections?.[slotId]?.toLowerCase() === schoolName,
@@ -426,9 +677,21 @@ export function getSpellSaveDC(
   const spellFocusBonus = hasSpellFocus
     ? selectedForSchool("greater-spell-focus") ? 2 : 1
     : 0;
-  return 10 + spellLevel +
-    abilityModifier(getEffectiveAbilityScore(character, getSpellcastingAbility(classId))) +
-    racialBonus + spellFocusBonus +
+  const redWizardSpecialist = character.redWizardSpecializationSchool ??
+    (character.ruleset === "core-35-srd"
+      ? character.coreWizardSpecializationSchool
+      : character.wizardSpecializationSchool);
+  const redWizardTattooFocusBonus = getPrestigeClassLevel(character, "red-wizard") > 0 &&
+    schoolName === redWizardSpecialist?.toLowerCase() ? 1 : 0;
+  const dcLevel = saveDCFormula === "half-caster-level-wisdom"
+    ? Math.floor(getCasterLevel(classId, 0, character) / 2)
+    : spellLevel;
+  const dcAbility = saveDCFormula === "half-caster-level-wisdom"
+    ? "wis"
+    : getSpellcastingAbility(classId);
+  return 10 + dcLevel +
+    abilityModifier(getEffectiveAbilityScore(character, dcAbility)) +
+    racialBonus + spellFocusBonus + redWizardTattooFocusBonus +
     (includeHighSorceryLunarModifier ? getHighSorceryMoonModifier(character, classId) : 0);
 }
 
@@ -439,6 +702,7 @@ export function getRacialSpellLikeAbilities(character: Character) {
   const charisma = getEffectiveAbilityScore(character, "cha");
   const intelligence = getEffectiveAbilityScore(character, "int");
   const characterLevel = getTotalHitDice(character);
+  const casterLevelPenalty = getFeatCasterLevelPenalty(character);
 
   return (race.racialSpellLikeAbilities ?? [])
     .filter((ability) =>
@@ -451,11 +715,12 @@ export function getRacialSpellLikeAbilities(character: Character) {
       const racialSaveDcBonus = ability.school
         ? race.racialSpellSchoolDcBonuses?.[ability.school.toLowerCase()] ?? 0
         : 0;
+      const casterLevel = ability.casterLevel === "character"
+        ? characterLevel
+        : ability.casterLevel;
       return {
         ...ability,
-        casterLevel: ability.casterLevel === "character"
-          ? characterLevel
-          : ability.casterLevel,
+        casterLevel: Math.max(0, casterLevel - casterLevelPenalty),
         saveDC: ability.savingThrow
           ? 10 + (ability.spellLevel ?? 0) + abilityModifier(charisma) +
             racialSaveDcBonus
@@ -465,19 +730,39 @@ export function getRacialSpellLikeAbilities(character: Character) {
     });
 }
 
-export function getArcaneSpellFailure(character: Character, classId: ClassId) {
-  if (!["bard", "sorcerer", "wizard"].includes(classId)) return undefined;
+export function getArcaneSpellFailure(character: Character, classId: SpellcastingClassId) {
+  if (!["assassin", "bard", "sorcerer", "wizard"].includes(classId)) return undefined;
   const details: string[] = [];
   let total = 0;
   let unknown = false;
+  const hasBattleCaster = getChosenFeats(character).includes(
+    "battle-caster",
+  );
+  const hasGithyankiBattlecaster = getChosenFeats(character).includes(
+    "githyanki-battlecaster",
+  );
   for (const slot of ["Armor", "Shield"] as const) {
     const name = character.equipment[slot];
     if (!name) continue;
     const item = findStoreItem(name, slot === "Armor" ? "Armor" : "Shields");
     const base = item?.custom ? undefined :
       (slot === "Armor" ? armorNames : shieldNames).find((entry) => name.includes(entry));
-    if (slot === "Armor" && classId === "bard" && getWornArmor(character).movementCategory === "Light") {
-      details.push(`${name}: 0% for bard spells (light armor exception)`);
+    const armorCategory = slot === "Armor"
+      ? getWornArmor(character).movementCategory
+      : undefined;
+    if (slot === "Armor" && armorCategory === "Light" && hasGithyankiBattlecaster) {
+      details.push(`${name}: 0% (Githyanki Battlecaster)`);
+      continue;
+    }
+    if (
+      slot === "Armor" &&
+      classId === "bard" &&
+      (armorCategory === "Light" ||
+        (hasBattleCaster && armorCategory === "Medium"))
+    ) {
+      details.push(
+        `${name}: 0% for bard spells (${armorCategory === "Light" ? "light armor exception" : "Battle Caster"})`,
+      );
       continue;
     }
     const failure = slot === "Armor"
@@ -497,7 +782,7 @@ export function getArcaneSpellFailure(character: Character, classId: ClassId) {
   };
 }
 
-export function getDailySpellSlots(character: Character, classId: ClassId, classLevel: number, level: number) {
+export function getDailySpellSlots(character: Character, classId: SpellcastingClassId, classLevel: number, level: number) {
   if (classId === "ranger" && getDragonlanceRangerWarnings(character, classLevel).length > 0)
     return 0;
   if (classId === "druid" &&
@@ -513,14 +798,19 @@ export function getDailySpellSlots(character: Character, classId: ClassId, class
   if (score < 10 + level) return 0;
   const modifier = abilityModifier(score);
   const bonus = level > 0 && modifier >= level ? Math.floor((modifier - level) / 4) + 1 : 0;
-  return baseSpellSlots(classId, effectiveClassLevel, level) + bonus;
+  return Math.max(0, baseSpellSlots(classId, effectiveClassLevel, level) + bonus +
+    getPrestigeSpellSlotAdjustment(character, classId, level));
 }
 
-export function getKnownSpellLimit(character: Character, classId: ClassId, classLevel: number, level: number) {
+export function getKnownSpellLimit(character: Character, classId: SpellcastingClassId, classLevel: number, level: number) {
   const effectiveClassLevel = Math.max(
     classLevel,
     getEffectiveSpellcastingClassLevel(character, classId),
   );
+  if (classId === "assassin") {
+    return getDailySpellSlots(character, classId, effectiveClassLevel, level) > 0
+      ? assassinKnownProgression[effectiveClassLevel - 1]?.[level - 1] ?? 0 : 0;
+  }
   if (classId === "mystic") {
     const baseLimit = mysticKnownProgression[effectiveClassLevel - 1]?.[level] ?? 0;
     return baseLimit + Number(level > 0 && baseLimit > 0 && Boolean(getActiveMysticDomain(character)));
@@ -537,18 +827,21 @@ export function getKnownSpellLimit(character: Character, classId: ClassId, class
 export function getKnownSpellReplacementLevelLimit(
   original: Character,
   proposed: Character,
-  classId: ClassId,
+  classId: SpellcastingClassId,
 ) {
   if (classId === "mystic" &&
-    (original.ruleset !== "dragonlance-user-pack" ||
-      proposed.ruleset !== "dragonlance-user-pack"))
+    (original.ruleset !== dragonlanceContentId ||
+      proposed.ruleset !== dragonlanceContentId))
     return undefined;
-  const originalLevel = getBaseClassLevel(original, classId);
-  const proposedLevel = getBaseClassLevel(proposed, classId);
+  const classLevel = isIndependentSpellcastingClass(classId)
+    ? (character: Character) => getPrestigeClassLevel(character, classId)
+    : (character: Character) => getBaseClassLevel(character, classId);
+  const originalLevel = classLevel(original);
+  const proposedLevel = classLevel(proposed);
   const eligibleLevel = classId === "bard"
     ? proposedLevel >= 5 && (proposedLevel - 5) % 3 === 0
-    : (classId === "sorcerer" || classId === "mystic") &&
-      proposedLevel >= 4 && proposedLevel % 2 === 0;
+    : (classId === "assassin" || classId === "sorcerer" || classId === "mystic") &&
+      proposedLevel >= (classId === "assassin" ? 6 : 4) && proposedLevel % 2 === 0;
   if (proposedLevel !== originalLevel + 1 || !eligibleLevel) return undefined;
   const effectiveClassLevel = getEffectiveSpellcastingClassLevel(proposed, classId);
   const abilityScore = getEffectiveAbilityScore(
@@ -556,6 +849,7 @@ export function getKnownSpellReplacementLevelLimit(
     getSpellcastingAbility(classId),
   );
   for (let level = 9; level >= 0; level -= 1) {
+    if (classId === "assassin" && getDailySpellSlots(proposed, classId, effectiveClassLevel, level) <= 0) continue;
     if ((classId === "mystic" || abilityScore >= 10 + level) &&
       hasSpellLevelAtClassLevel(classId, effectiveClassLevel, level))
       return level - 2;
@@ -587,7 +881,7 @@ export function getClassSpellSelections(character: Character, field: "knownSpell
 
 export function getWizardSpellbookSpells(character?: Character) {
   const names = new Set<string>();
-  return getClassSpells("wizard", character?.ruleset ?? "core-35-srd", character).filter((spell) => {
+  return getClassSpells("wizard", character?.ruleset ?? core35ContentId, character).filter((spell) => {
     const name = spell.name.toLowerCase();
     if (names.has(name)) return false;
     names.add(name);
@@ -794,13 +1088,42 @@ export function getArmorClassValues(
     (Boolean(equipment["Off Hand Weapon"]) || getDoubleWeaponModeState(character)?.enabled === true);
   const towerShieldState = getTowerShieldState(character);
   const shieldBashState = getShieldBashState(character);
+  const shieldBashACBonusLost = shieldBashState.enabled && !shieldBashState.retainsShieldACBonus;
+  const hasTwoWeaponDefense = getChosenFeats(character).includes("two-weapon-defense");
+  const mainWeaponKey = equipment["Main Weapon"];
+  const offHandWeaponKey = hasTwoWeaponDefense
+    ? getEffectiveWeaponKey(character, "Off Hand Weapon")
+    : undefined;
+  const canWieldForTwoWeaponDefense = (
+    key: string | undefined,
+    slot: "Main Weapon" | "Off Hand Weapon",
+  ) => {
+    if (!key) return false;
+    const item = getWeaponItemForKey(character, getInventoryEntryDetails(key).name);
+    return Boolean(
+      item &&
+        item.category === "Weapons" &&
+        weaponTraits(item).baseName !== "Unarmed Strike" &&
+        getWeaponSizeHandling(character, key, slot)?.wieldable &&
+        !getWeaponCompatibilityWarning(character, key, slot),
+    );
+  };
+  const twoWeaponDefenseBonus = hasTwoWeaponDefense &&
+    canWieldForTwoWeaponDefense(mainWeaponKey, "Main Weapon") &&
+    canWieldForTwoWeaponDefense(offHandWeaponKey, "Off Hand Weapon")
+    ? 1
+    : 0;
   const arrowCatchingShield = getArrowCatchingShieldState(character);
-  const physicalShieldBonus = bucklerBonusLost || towerShieldState.coverActive || shieldBashState.enabled
+  const physicalShieldBonus = bucklerBonusLost || towerShieldState.coverActive || shieldBashACBonusLost
     ? 0
     : totalShieldBonus;
   const bonuses = getEquipmentDefenseBonuses(character);
   const forceShieldState = getForceShieldState(character);
-  const shieldBonus = Math.max(physicalShieldBonus, bonuses.forceShield.bonus);
+  const shieldBonus = Math.max(
+    physicalShieldBonus,
+    bonuses.forceShield.bonus,
+    twoWeaponDefenseBonus,
+  );
   const dexterity = Math.min(abilityModifier(getEffectiveAbilityScore(character, "dex")), maximumDexterityBonus);
   const deflection = bonuses.deflection.bonus;
   const rangedWeaponDeflection = arrowCatchingShield.equipped && !towerShieldState.coverActive
@@ -822,7 +1145,10 @@ export function getArmorClassValues(
   const monkLevelACBonus = monkACActive ? Math.floor(monkState.level / 5) : 0;
   const monkACBonus = monkWisdomBonus + monkLevelACBonus;
   const race = getRaceDefinitionForCharacter(character);
+  const discipleLevel = getPrestigeClassLevel(character, "dragon-disciple");
+  const discipleNaturalArmor = discipleLevel > 0 ? Math.ceil(discipleLevel / 3) : 0;
   const racialNaturalArmor = race?.racialNaturalArmorBonus ?? 0;
+  const naturalArmor = naturalArmorEnhancement + racialNaturalArmor + discipleNaturalArmor;
   const racialDodgeACBonus = Math.max(
     0,
     ...targetTypes.map((targetType) => race?.racialDodgeACBonuses?.[targetType] ?? 0),
@@ -833,14 +1159,21 @@ export function getArmorClassValues(
   const base = 10 + sizeModifier(character);
   const hasUncannyDodge = getBaseClassLevels(character).some(({ classId, level }) =>
     (classId === "barbarian" && level >= 2) || (classId === "rogue" && level >= 4)) ||
+    getPrestigeClassLevel(character, "assassin") >= 2 ||
+    getPrestigeClassLevel(character, "dwarven-defender") >= 2 ||
+    getPrestigeClassLevel(character, "shadowdancer") >= 2 ||
     (character.classFeatures ?? []).some((feature) => /\buncanny dodge\b/i.test(feature));
   const retainsDexterity = hasUncannyDodge && !helplessFromHitPoints;
   const combatExpertiseBonus = getCombatExpertiseAmount(character, selectedCombatExpertiseAmount);
   const dodgeFeatBonus = getDodgeFeatBonus(character, dodgeTargetSelected);
+  const defenderLevel = getPrestigeClassLevel(character, "dwarven-defender");
+  const defenderDodgeBonus = helplessFromHitPoints ? 0 : Math.ceil(defenderLevel / 3);
+  const loremasterDodgeBonus = helplessFromHitPoints ? 0 : Number(hasLoremasterSecret(character, "Dodge Trick"));
+  const dodgeBonus = racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + defenderDodgeBonus + loremasterDodgeBonus;
   const size = sizeModifier(character);
-  const normal = base + armorBonus + shieldBonus + dexterity + deflection + naturalArmorEnhancement + racialNaturalArmor + insight + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + monkACBonus + activeArmorClass;
-  const touch = base + dexterity + deflection + insight + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + monkACBonus + activeArmorClass;
-  const flatFooted = base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus : Math.min(0, dexterity)) + deflection + naturalArmorEnhancement + racialNaturalArmor + insight + monkACBonus + activeArmorClass;
+  const normal = base + armorBonus + shieldBonus + dexterity + deflection + naturalArmor + insight + dodgeBonus + monkACBonus + activeArmorClass;
+  const touch = base + dexterity + deflection + insight + dodgeBonus + monkACBonus + activeArmorClass;
+  const flatFooted = base + armorBonus + shieldBonus + (retainsDexterity ? dexterity + dodgeBonus : Math.min(0, dexterity)) + deflection + naturalArmor + insight + monkACBonus + activeArmorClass;
   return {
     normal,
     touch,
@@ -856,28 +1189,37 @@ export function getArmorClassValues(
       shield: shieldBonus,
       dexterity,
       size,
-      naturalArmor: naturalArmorEnhancement + racialNaturalArmor,
+      naturalArmor,
       deflection,
       insight,
       rangedWeaponDeflection,
       arrowCatching: arrowCatchingDeflectionBonus,
       monk: monkACBonus,
-      misc: racialDodgeACBonus + combatExpertiseBonus + dodgeFeatBonus + activeArmorClass,
+      misc: dodgeBonus + activeArmorClass,
     },
     retainsDexterity,
     racialDodgeACBonus,
     combatExpertiseBonus,
     dodgeFeatBonus,
     towerShieldCoverActive: towerShieldState.coverActive,
-    shieldBashACBonusLost: shieldBashState.enabled,
+    shieldBashACBonusLost,
+    twoWeaponDefenseBonus,
     detail: [
       `Base 10; armor ${formatModifier(armorBonus)}; shield ${formatModifier(shieldBonus)}; DEX ${formatModifier(dexterity)}; size ${formatModifier(sizeModifier(character))}`,
       ...(bucklerBonusLost ? ["Buckler AC bonus lost while wielding an off-hand weapon."] : []),
+      ...(twoWeaponDefenseBonus
+        ? [
+          "Two-Weapon Defense grants a +1 shield bonus while wielding two weapons; it does not stack with other shield bonuses.",
+          "The bonus increases to +2 while fighting defensively or using total defense; those action modes are tracked manually.",
+        ]
+        : []),
       ...(towerShieldState.coverActive
         ? ["Tower shield used for total cover instead of its shield bonus; attacks are unavailable until the start of the next turn. Targeted spells can still target the shield."]
         : []),
       ...(shieldBashState.enabled
-        ? ["Shield AC bonus lost after a shield bash until your next action; clear the bash setting manually."]
+        ? [shieldBashACBonusLost
+          ? "Shield AC bonus lost after a shield bash until your next action; clear the bash setting manually."
+          : "Improved Shield Bash retains the shield AC bonus while bashing."]
         : []),
       ...(forceShieldState.equipped && !forceShieldState.active
         ? ["Ring of Force Shield is inactive; its shield bonus does not apply."]
@@ -890,8 +1232,11 @@ export function getArmorClassValues(
         : []),
       ...(dodgeTarget && race ? [`${race.name} dodge vs. ${combatTargetLabels[dodgeTarget]} ${formatModifier(racialDodgeACBonus)}`] : []),
       ...(racialNaturalArmor ? [`${race?.name} natural armor ${formatModifier(racialNaturalArmor)}`] : []),
+      ...(discipleNaturalArmor ? [`Dragon Disciple natural armor ${formatModifier(discipleNaturalArmor)}`] : []),
       ...(combatExpertiseBonus ? [`Combat Expertise ${formatModifier(combatExpertiseBonus)} dodge bonus`] : []),
       ...(dodgeFeatBonus ? ["Dodge +1 vs. selected opponent"] : []),
+      ...(defenderDodgeBonus ? [`Dwarven Defender ${formatModifier(defenderDodgeBonus)} dodge AC`] : []),
+      ...(loremasterDodgeBonus ? ["Loremaster Dodge Trick +1 dodge AC"] : []),
       ...(monkState.level > 0
         ? !monkState.active
           ? [`Monk AC bonuses are inactive: ${monkState.reason}.`]
@@ -907,7 +1252,8 @@ export function getArmorClassValues(
         : []),
       ...getAbilityEquipmentBonus(character, "dex").detail,
       ...bonuses.deflection.detail,
-      ...bonuses.forceShield.detail.map((line) => physicalShieldBonus >= bonuses.forceShield.bonus
+      ...bonuses.forceShield.detail.map((line) =>
+        Math.max(physicalShieldBonus, twoWeaponDefenseBonus) >= bonuses.forceShield.bonus
         ? `${line} (does not stack with the higher shield bonus)`
         : line),
       ...(arrowCatchingShield.equipped
@@ -1009,6 +1355,21 @@ export function getWeaponRangeForSize(item: StoreItem, size: string) {
   return sizedRange ?? item.rangeIncrement ?? (standardRange ? `${standardRange} ft.` : undefined);
 }
 
+function getEffectiveWeaponRangeForSize(
+  character: Character,
+  item: StoreItem,
+  size: string,
+  isRanged: boolean,
+) {
+  const range = getWeaponRangeForSize(item, size);
+  if (!range || !isRanged || !getChosenFeats(character).includes("far-shot")) return range;
+  const rangeMatch = range.match(/^\s*(\d+(?:\.\d+)?)\s*(?:ft\.?|feet)\s*$/i);
+  if (!rangeMatch) return range;
+  const multiplier = weaponTraits(item).thrown ? 2 : 1.5;
+  const adjustedRange = Number(rangeMatch[1]) * multiplier;
+  return `${Number.isInteger(adjustedRange) ? adjustedRange : adjustedRange.toFixed(1)} ft.`;
+}
+
 function getRangedAttackDistanceDetails(
   item: StoreItem,
   rangeIncrement: string | undefined,
@@ -1104,6 +1465,7 @@ function getCompatibleAmmunition(
 }
 
 function getWeaponAmmunitionReadiness(
+  character: Character,
   item: StoreItem,
   isRanged: boolean,
   ammunition: AmmunitionProfile | undefined,
@@ -1112,6 +1474,11 @@ function getWeaponAmmunitionReadiness(
   if (!isRanged) return { ammunitionStatus: undefined, reloadNote: undefined };
   const traits = weaponTraits(item);
   const { baseName } = traits;
+  const rapidReloadSelected = getActiveFeatEntries(character).some(
+    ([slotId, featId]) =>
+      featId === "rapid-reload" &&
+      character.featWeaponSelections?.[slotId] === baseName,
+  );
   let ammunitionStatus: { status: "ready" | "missing" | "manual"; message: string } | undefined;
   if (ammunition) {
     const packageCount = compatibleAmmunition.reduce((total, entry) => total + entry.quantity, 0);
@@ -1134,9 +1501,11 @@ function getWeaponAmmunitionReadiness(
   }
 
   const reloadNote = baseName === "Light Crossbow" || baseName === "Hand Crossbow"
-    ? "Reload after each shot: move action; provokes an attack of opportunity."
+    ? rapidReloadSelected
+      ? "Reload after each shot: free action; provokes an attack of opportunity. Full attacks may be made as with a bow."
+      : "Reload after each shot: move action; provokes an attack of opportunity."
     : baseName === "Heavy Crossbow"
-      ? "Reload after each shot: full-round action; provokes an attack of opportunity."
+      ? `Reload after each shot: ${rapidReloadSelected ? "move" : "full-round"} action; provokes an attack of opportunity.`
       : baseName.startsWith("Repeating")
         ? "Magazine holds 5 bolts; loading a new case is a full-round action. Shots are not tracked."
         : baseName === "Sling"
@@ -1504,9 +1873,17 @@ export function getWornArmor(character: Character) {
   const item = findStoreItem(name, "Armor");
   const baseName = item?.custom ? undefined : armorNames.find((base) => name.includes(base));
   const category = baseName ? armorClasses[baseName] : item?.armorCategory;
-  const movementCategory = baseName?.startsWith("Mithral ")
-    ? category === "Heavy" ? "Medium" : "Light" : category;
+  const movementCategory = getArmorCategoryForLimitations(baseName, category);
   return { name, movementCategory, maximumDexterity: baseName ? armorMaximumDexterity[baseName] : item?.maxDexterity ?? Infinity };
+}
+
+function getArmorCategoryForLimitations(
+  baseName: string | undefined,
+  category: "Light" | "Medium" | "Heavy" | undefined,
+) {
+  return baseName?.startsWith("Mithral")
+    ? category === "Heavy" ? "Medium" : "Light"
+    : category;
 }
 
 export function getRangerCombatStyleStatus(character: Character) {
@@ -1538,7 +1915,7 @@ export function getRangerCombatStyleStatus(character: Character) {
 }
 
 export function hasActiveCombatFeat(character: Character, featId: string) {
-  return Object.entries(character.featSelections ?? {}).some(
+  return getActiveFeatEntries(character).some(
     ([slotId, selectedFeat]) =>
       selectedFeat === featId &&
       (!slotId.startsWith("ranger-style-") ||
@@ -1596,6 +1973,8 @@ export type CombatAttackMode = "single" | "full-attack" | "flurry" | "manyshot";
 export type CombatTargetDefenseContext = {
   cover: "none" | "less-than-total" | "total";
   concealment: "none" | "less-than-total" | "total";
+  targetEngagedWithFriendly?: boolean;
+  targetAtLeast10FeetFromNearestFriendly?: boolean;
 };
 
 const projectileWeaponNames = new Set([
@@ -1740,6 +2119,14 @@ export function getEffectiveWeaponKey(character: Character, slot: WeaponSlot) {
   return doubleWeaponMode?.enabled ? character.equipment?.["Main Weapon"] : undefined;
 }
 
+function isRangedWeaponInSlot(character: Character, slot: WeaponSlot) {
+  const key = getEffectiveWeaponKey(character, slot);
+  if (!key) return false;
+  const name = key.replace(/ \((Small|Medium|Large)\)$/, "");
+  const item = getWeaponItemForKey(character, name);
+  return Boolean(item && item.category === "Weapons" && weaponTraits(item).ranged);
+}
+
 export function isBucklerEquipped(character: Character) {
   const name = character.equipment?.Shield ?? "";
   const item = name ? findStoreItem(name, "Shields") : undefined;
@@ -1758,6 +2145,8 @@ export function getShieldBashState(character: Character) {
     if (/^Heavy (?:Wooden|Steel) Shield$/.test(baseName)) shieldType = "Heavy";
   }
   const spiked = Boolean(shield?.name.endsWith("with Spikes"));
+  const retainsShieldACBonus = getChosenFeats(character)
+    .includes("improved-shield-bash");
   const animatedShieldState = getAnimatedShieldState(character);
   const bashing = Boolean(shieldType && (
     /\bBashing\b/i.test(shieldName) || /\bBashing\b/i.test(shield?.specialProperties ?? "")
@@ -1798,6 +2187,7 @@ export function getShieldBashState(character: Character) {
     canBash,
     hasBashableShield: Boolean(shieldType),
     enabled: canBash && character.shieldBashMode === true,
+    retainsShieldACBonus,
     spiked,
     bashing,
     shieldType,
@@ -1918,15 +2308,21 @@ function finesseShieldPenalty(character: Character) {
   return shield ? getCharacterEquipmentCheckPenalty(character, shield, "Shield") : 0;
 }
 
-export function getArmorShieldProficiencies(character: Character, excludingSlot?: string) {
-  const proficiencies = new Set(getChosenFeats(character, excludingSlot));
+export function getArmorShieldProficiencies(
+  character: Character,
+  excludingSlot?: string,
+  prerequisiteFeatIds?: readonly string[],
+) {
+  const proficiencies = new Set(
+    prerequisiteFeatIds ?? getChosenFeats(character, excludingSlot),
+  );
   const race = getRaceDefinitionForCharacter(character);
   for (const proficiency of race?.racialArmorProficiencies ?? [])
     proficiencies.add(`armor-proficiency-${proficiency}`);
   if (race?.racialShieldProficiency) proficiencies.add("shield-proficiency");
   for (const { classId } of getBaseClassLevels(character)) {
     if (["fighter", "paladin", "cleric"].includes(classId)) proficiencies.add("armor-proficiency-heavy");
-    if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger"].includes(classId)) {
+    if (["fighter", "paladin", "cleric", "barbarian", "druid"].includes(classId)) {
       proficiencies.add("armor-proficiency-medium");
     }
     if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger", "bard", "rogue", "noble"].includes(classId)) {
@@ -1957,7 +2353,9 @@ export function isArmorShieldProficient(character: Character, item: StoreItem) {
   if (item.category === "Armor") {
     const baseName = item.custom ? undefined : armorNames.find((name) => item.name.includes(name));
     const category = baseName ? armorClasses[baseName] : item.armorCategory;
-    return category ? proficiencies.has(`armor-proficiency-${category.toLowerCase()}`) : false;
+    const proficiencyCategory = getArmorCategoryForLimitations(baseName, category);
+    return !!proficiencyCategory &&
+      proficiencies.has(`armor-proficiency-${proficiencyCategory.toLowerCase()}`);
   }
   return false;
 }
@@ -2032,9 +2430,15 @@ export function getInitiativeModifier(character: Character) {
   return abilityModifier(getEffectiveAbilityScore(character, "dex")) +
     getImprovedInitiativeBonus(character) +
     getKnightOfCrownHeroicInitiativeBonus(character) +
+    getDuelistImprovedReactionBonus(character) +
     getCombatEffectModifier(character, "checks") +
     getArmorNonproficiencyPenalties(character)
       .reduce((total, entry) => total + entry.penalty, 0);
+}
+
+export function getDuelistImprovedReactionBonus(character: Character) {
+  const level = getPrestigeClassLevel(character, "duelist");
+  return level >= 8 ? 4 : level >= 2 ? 2 : 0;
 }
 
 export function getKnightOfCrownHeroicInitiativeBonus(character: Character) {
@@ -2066,6 +2470,8 @@ export function getEquippedWeaponStats(
   if (towerShieldState.coverActive) return null;
   const profile = getWeaponProfile(item.name);
   const traits = weaponTraits(item);
+  const mainHandIsRanged = slot === "Off Hand Weapon" &&
+    isRangedWeaponInSlot(character, "Main Weapon");
   const doubleWeaponMode = character.doubleWeaponMode === true && traits.doubleWeapon &&
     character.equipment?.["Main Weapon"] === key &&
     (slot === "Main Weapon" || (slot === "Off Hand Weapon" && !character.equipment?.["Off Hand Weapon"]));
@@ -2097,6 +2503,7 @@ export function getEquippedWeaponStats(
   const sneakAttackDamage = rogueSneakAttackDice > 0 && !sneakAttackWarning
     ? `${rogueSneakAttackDice}d6`
     : undefined;
+  const isUnarmedStrike = traits.baseName === "Unarmed Strike";
   const twoHandedGrip = !doubleWeaponMode && (sizeHandling.effectiveHandedness === "two-handed" ||
     (slot === "Main Weapon" && sizeHandling.effectiveHandedness === "one-handed" &&
       character.mainWeaponGrip === "two-handed"));
@@ -2127,7 +2534,7 @@ export function getEquippedWeaponStats(
   const towerShieldAttackPenalty = towerShieldState.equipped ? -2 : 0;
   const nonproficiencyPenalties = [
     ...getArmorNonproficiencyPenalties(character),
-    ...(isWeaponProficient(character, item)
+    ...(isWeaponProficient(character, item, undefined, twoHandedGrip)
       ? []
       : [{ source: "weapon (nonprof.)", name: item.name, penalty: -4, multiplier: 1 }]),
   ];
@@ -2161,17 +2568,27 @@ export function getEquippedWeaponStats(
   const racialAttackBonus = Math.max(targetAttackBonus, thrownAttackBonus);
   const weaponFeatType = getWeaponFeatTypeName(item.name);
   const weaponFocusBonus = getWarDomainWeapon(character) === weaponFeatType ||
-    Object.entries(character.featSelections ?? {}).some(
+    getActiveFeatEntries(character).some(
       ([slotId, featId]) =>
         featId === "weapon-focus" &&
         character.featWeaponSelections?.[slotId] === weaponFeatType,
     ) ? 1 : 0;
-  const weaponSpecializationBonus = Object.entries(character.featSelections ?? {}).some(
+  const weaponSpecializationBonus = getActiveFeatEntries(character).some(
     ([slotId, featId]) =>
       featId === "weapon-specialization" &&
       character.featWeaponSelections?.[slotId] === weaponFeatType,
   ) ? 2 : 0;
-  const improvedCritical = Object.entries(character.featSelections ?? {}).some(
+  const greaterWeaponFocusBonus = getActiveFeatEntries(character).some(
+    ([slotId, featId]) =>
+      featId === "greater-weapon-focus" &&
+      character.featWeaponSelections?.[slotId] === weaponFeatType,
+  ) ? 1 : 0;
+  const greaterWeaponSpecializationBonus = getActiveFeatEntries(character).some(
+    ([slotId, featId]) =>
+      featId === "greater-weapon-specialization" &&
+      character.featWeaponSelections?.[slotId] === weaponFeatType,
+  ) ? 2 : 0;
+  const improvedCritical = getActiveFeatEntries(character).some(
     ([slotId, featId]) =>
       featId === "improved-critical" &&
       character.featWeaponSelections?.[slotId] === weaponFeatType,
@@ -2182,8 +2599,9 @@ export function getEquippedWeaponStats(
       : []),
     ...(thrownAttackBonus && race ? [`${race.name} thrown/slings ${formatModifier(thrownAttackBonus)} racial`] : []),
   ];
-  const attackBeforeFinalPenalties = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + combatExpertisePenalty + powerAttackPenalty + activeAttack;
-  const rangeIncrement = getWeaponRangeForSize(item, size);
+  const loremasterAttackBonus = Number(hasLoremasterSecret(character, "Weapon Trick"));
+  const attackBeforeFinalPenalties = baseAttackBonus + abilityAttackBonus + sizeAttackBonus + sizeHandling.attackPenalty + attackEnhancement + attackPenalty + finessePenalty + nonproficiencyPenalty + towerShieldAttackPenalty + compositeBowStrengthPenalty + racialAttackBonus + pointBlankShotBonus + weaponFocusBonus + greaterWeaponFocusBonus + combatExpertisePenalty + powerAttackPenalty + activeAttack + loremasterAttackBonus;
+  const rangeIncrement = getEffectiveWeaponRangeForSize(character, item, size, isRanged);
   const rangeDetails = getRangedAttackDistanceDetails(item, rangeIncrement, isRanged, targetDistanceFeet);
   const ammunition = getWeaponAmmunitionProfile(item, isRanged);
   const compatibleAmmunition = getCompatibleAmmunition(character, ammunition);
@@ -2191,7 +2609,7 @@ export function getEquippedWeaponStats(
     ? compatibleAmmunition
     : undefined;
   const selectedAmmunition = ammunitionOptions?.find((entry) => entry.key === selectedAmmunitionKey);
-  const rangedReadiness = getWeaponAmmunitionReadiness(item, isRanged, ammunition, compatibleAmmunition);
+  const rangedReadiness = getWeaponAmmunitionReadiness(character, item, isRanged, ammunition, compatibleAmmunition);
   const damageReductionStatus = getTargetDamageReductionStatus(
     targetDamageReduction,
     item,
@@ -2208,8 +2626,30 @@ export function getEquippedWeaponStats(
       (twoHandedGrip || Boolean(character.equipment?.["Off Hand Weapon"]) || doubleWeaponMode)))
     ? -1
     : 0;
-  const finalAttack = attackBeforeFinalPenalties + bucklerAttackPenalty + rangeDetails.attackPenalty;
+  const shootingIntoMeleePenalty =
+    isRanged &&
+    targetDefense?.targetEngagedWithFriendly === true &&
+    targetDefense.targetAtLeast10FeetFromNearestFriendly !== true &&
+    !hasActiveCombatFeat(character, "precise-shot")
+      ? -4
+      : 0;
+  const finalAttack =
+    attackBeforeFinalPenalties + bucklerAttackPenalty +
+    rangeDetails.attackPenalty + shootingIntoMeleePenalty;
   const monkState = getMonkAbilityState(character);
+  const hasRapidReload = getActiveFeatEntries(character).some(
+    ([slotId, featId]) =>
+      featId === "rapid-reload" &&
+      character.featWeaponSelections?.[slotId] === traits.baseName,
+  );
+  const isReloadLimitedCrossbow = [
+    "Hand Crossbow",
+    "Light Crossbow",
+    "Heavy Crossbow",
+  ].includes(traits.baseName);
+  const canMakeMultipleCrossbowAttacks =
+    hasRapidReload &&
+    (traits.baseName === "Hand Crossbow" || traits.baseName === "Light Crossbow");
   const attackSequenceLength = attackMode === "flurry"
     ? Math.min(4, Math.max(1, Math.ceil(baseAttackBonus / 5)))
     : slot === "Off Hand Weapon"
@@ -2242,11 +2682,22 @@ export function getEquippedWeaponStats(
       );
   }
 
+  if (
+    attackMode === "full-attack" &&
+    isReloadLimitedCrossbow &&
+    !canMakeMultipleCrossbowAttacks
+  ) {
+    attackSequence = attackSequence.slice(0, 1);
+  }
+
   if (attackMode === "full-attack" && isRanged &&
-    hasActiveCombatFeat(character, "rapid-shot")) {
+    hasActiveCombatFeat(character, "rapid-shot") &&
+    (!isReloadLimitedCrossbow || canMakeMultipleCrossbowAttacks)) {
     rapidShotPenalty = -2;
     attackSequence = attackSequence.map((bonus) => bonus + rapidShotPenalty);
-    if (attackSequence.length > 0) attackSequence.splice(1, 0, attackSequence[0]);
+    if (attackSequence.length > 0 && !mainHandIsRanged) {
+      attackSequence.splice(1, 0, attackSequence[0]);
+    }
   }
 
   if (attackMode === "flurry") {
@@ -2327,13 +2778,14 @@ export function getEquippedWeaponStats(
   const silverAmmunitionDamagePenalty = selectedAmmunition?.material === "alchemical-silver";
   const silverDamagePenalty = silverWeaponDamagePenalty || silverAmmunitionDamagePenalty ? -1 : 0;
   const powerAttackDamageBonus = powerAttackAmount === 0 ||
-    sizeHandling.effectiveHandedness === "light"
+    (sizeHandling.effectiveHandedness === "light" &&
+      !isUnarmedStrike)
     ? 0
     : twoHandedGrip
       ? powerAttackAmount * 2
       : powerAttackAmount;
-  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + pointBlankShotBonus + powerAttackDamageBonus + silverDamagePenalty;
-  const damageDice = traits.baseName === "Unarmed Strike"
+  const damageBonus = damageAbility + enhancement + activeDamage + weaponSpecializationBonus + greaterWeaponSpecializationBonus + pointBlankShotBonus + powerAttackDamageBonus + silverDamagePenalty;
+  const damageDice = isUnarmedStrike
     ? getUnarmedStrikeDamage(monkState.level, getRaceDefinitionForCharacter(character)?.size ?? "Medium")
     : getWeaponEndDamageForSize(item, size, usesAlternateEnd ? "off-hand" : "main");
   const enchantmentDamage = getElementalWeaponDamage(name);
@@ -2367,6 +2819,7 @@ export function getEquippedWeaponStats(
     attackActionWarning,
     rapidShotPenalty,
     flurryPenalty,
+    shootingIntoMeleePenalty,
     manyshotArrowCount,
     manyshotDamage,
     rangeIncrement,
@@ -2404,6 +2857,9 @@ export function getEquippedWeaponStats(
     pointBlankShotBonus,
     weaponFocusBonus,
     weaponSpecializationBonus,
+    greaterWeaponFocusBonus,
+    loremasterAttackBonus,
+    greaterWeaponSpecializationBonus,
     damageAbility,
     attackPenalty,
     compositeBowStrengthRating,
@@ -2476,6 +2932,23 @@ const specificPrestigeWeaponNames: Partial<Record<PrestigeClassId, ReadonlySet<s
   ]),
 };
 
+const twoHandedMartialWeaponNames = new Set(["Bastard Sword", "Dwarven Waraxe"]);
+const strength13ExoticWeaponNames = new Set([
+  "Bastard Sword",
+  "Dwarven Waraxe",
+]);
+
+function meetsExoticWeaponStrengthPrerequisite(
+  character: Character,
+  weaponType: string,
+  characterLevel?: number,
+) {
+  return (
+    !strength13ExoticWeaponNames.has(weaponType) ||
+    getAbilityScoreAtCharacterLevel(character, "str", characterLevel) >= 13
+  );
+}
+
 function getWeaponProficiencyCategory(character: Character, item: StoreItem) {
   if (item.category !== "Weapons") return undefined;
   const baseName = getBaseEquipmentName(item.name);
@@ -2505,7 +2978,7 @@ function hasPrestigeClassWeaponProficiency(
   baseName: string,
 ) {
   const grantsProficiency = (prestigeClassId: PrestigeClassId) => {
-    if (dragonlancePrestigeClasses[prestigeClassId]?.source !== "core-35-srd") return false;
+    if (dragonlancePrestigeClasses[prestigeClassId]?.source !== core35ContentId) return false;
     if (broadWeaponPrestigeClasses.has(prestigeClassId)) {
       return proficiency === "Simple" || proficiency === "Martial";
     }
@@ -2513,55 +2986,82 @@ function hasPrestigeClassWeaponProficiency(
   };
   return character.classLevels.some((level) =>
     "prestigeClassId" in level && grantsProficiency(level.prestigeClassId),
-  ) || Boolean(character.prestigeClass && grantsProficiency(character.prestigeClass));
+  );
 }
 
 export function isWeaponProficient(
   character: Character,
   item: StoreItem,
   excludingFeatSlot?: string,
+  twoHandedGrip = false,
 ) {
   if (item.category !== "Weapons") return true;
   const weaponType = getWeaponFeatTypeName(item.name);
+  const activeFeatEntries = getActiveFeatEntries(character);
   const proficiency = getWeaponProficiencyCategory(character, item);
-  if (proficiency === "Martial" && weaponType === getWarDomainWeapon(character)) return true;
+  const martialProficiencyApplies =
+    proficiency === "Martial" ||
+    (proficiency === "Exotic" &&
+      twoHandedGrip &&
+      twoHandedMartialWeaponNames.has(weaponType));
   if (
-    proficiency === "Martial" &&
-    Object.entries(character.featSelections ?? {}).some(
+    proficiency === "Exotic" &&
+    activeFeatEntries.some(([slotId, featId]) => {
+      if (
+        slotId === excludingFeatSlot ||
+        featId !== "exotic-weapon-proficiency" ||
+        character.featWeaponSelections?.[slotId] !== weaponType
+      )
+        return false;
+      const featSlot = getFeatSlots(character).find(
+        (candidate) => candidate.id === slotId,
+      );
+      return meetsExoticWeaponStrengthPrerequisite(
+        character,
+        weaponType,
+        featSlot?.characterLevel,
+      );
+    })
+  )
+    return true;
+  if (martialProficiencyApplies && weaponType === getWarDomainWeapon(character))
+    return true;
+  if (
+    proficiency === "Simple" &&
+    activeFeatEntries.some(
+      ([slotId, featId]) =>
+        slotId !== excludingFeatSlot && featId === "simple-weapon-proficiency",
+    )
+  ) return true;
+  if (
+    martialProficiencyApplies &&
+    activeFeatEntries.some(
       ([slotId, featId]) =>
         slotId !== excludingFeatSlot &&
         featId === "martial-weapon-proficiency" &&
         character.featWeaponSelections?.[slotId] === weaponType,
     )
   ) return true;
-  if (
-    proficiency === "Exotic" &&
-    Object.entries(character.featSelections ?? {}).some(
-      ([slotId, featId]) =>
-        slotId !== excludingFeatSlot &&
-        featId === "exotic-weapon-proficiency" &&
-        character.featWeaponSelections?.[slotId] === weaponType &&
-        meetsExoticWeaponStrengthPrerequisite(character, weaponType),
-    )
-  )
-  return true;
   const baseName = getBaseEquipmentName(item.name);
   const race = getRaceDefinitionForCharacter(character);
   if (race?.racialSimpleWeaponProficiency && proficiency === "Simple") return true;
   if (elfWeaponRaceIds.has(race?.id ?? "") && elfWeaponNames.has(baseName)) return true;
   if (race?.racialWeaponProficiencies?.includes(baseName)) return true;
-  if (hasPrestigeClassWeaponProficiency(character, proficiency, baseName)) return true;
+  const effectiveProficiency = martialProficiencyApplies
+    ? "Martial"
+    : proficiency;
+  if (hasPrestigeClassWeaponProficiency(character, effectiveProficiency, baseName)) return true;
   const prestigeWeaponProficiency = character.classLevels.some((entry) => {
     if (!("prestigeClassId" in entry)) return false;
     const granted = dragonlancePrestigeClasses[entry.prestigeClassId].weaponProficiency;
     return granted === "all" ||
-      (granted === "martial" && (proficiency === "Simple" || proficiency === "Martial")) ||
+      (granted === "martial" && (proficiency === "Simple" || martialProficiencyApplies)) ||
       (granted === "simple" && proficiency === "Simple");
   });
   if (prestigeWeaponProficiency) return true;
 
   return getBaseClassLevels(character).some(({ classId }) => {
-    if (martialWeaponClasses.has(classId)) return proficiency === "Simple" || proficiency === "Martial";
+    if (martialWeaponClasses.has(classId)) return proficiency === "Simple" || martialProficiencyApplies;
     if (classId === "bard") return proficiency === "Simple" || bardWeaponNames.has(baseName);
     if (classId === "cleric" || classId === "sorcerer" || classId === "mystic" || classId === "noble") {
       return proficiency === "Simple";
@@ -2578,7 +3078,13 @@ export function getItemProficiencyWarning(character: Character, item: StoreItem)
   if (item.category === "Instruments" || item.category === "Adventuring Gear") return null;
   const classIds = getBaseClassLevels(character).map((entry) => entry.classId);
   if (item.category === "Weapons") {
-    return isWeaponProficient(character, item)
+    const mainWeaponKey = character.equipment?.["Main Weapon"];
+    const usesTwoHandedMartialGrip = Boolean(
+      mainWeaponKey &&
+        character.mainWeaponGrip === "two-handed" &&
+        getInventoryEntryDetails(mainWeaponKey).name === item.name,
+    );
+    return isWeaponProficient(character, item, undefined, usesTwoHandedMartialGrip)
       ? null
       : `${item.name}: this character is not proficient with this weapon and will take the normal nonproficiency penalties.`;
   }
@@ -2646,81 +3152,44 @@ export function isClassSkill(
 }
 
 export function getAvailableSkillCount(character: Character) {
-  let available = 0;
-  const hasRacialHitDice = Boolean(getRacialHitDiceForCharacter(character)?.count);
-  character.classLevels.forEach((entry, index) => {
-    const prestigeDefinition = "prestigeClassId" in entry
-      ? dragonlancePrestigeClasses[entry.prestigeClassId]
-      : undefined;
-    const skillPoints = prestigeDefinition
-      ? prestigeDefinition.skillPoints
-      : classDefinitions[entry.classId].skillPoints;
-    if (skillPoints === undefined) return;
-    const pointsPerLevel = Math.max(
-      1,
-      skillPoints +
-        abilityModifier(character.abilities.int) +
-        (character.race.toLowerCase() === "human" ? 1 : 0),
-    );
-    const isFirstBaseClass = !prestigeDefinition &&
-      getBaseClassLevels(character)[0] === entry;
-    available += pointsPerLevel * (
-      entry.level + (isFirstBaseClass && index === 0 && !hasRacialHitDice ? 3 : 0)
-    );
-  });
-  const racialHitDice = getRacialHitDiceForCharacter(character);
-  if (racialHitDice) {
-    const pointsPerHitDie = Math.max(
-      1,
-      racialHitDice.skillPoints +
-        abilityModifier(character.abilities.int) +
-        (character.race.toLowerCase() === "human" ? 1 : 0),
-    );
-    available += pointsPerHitDie * (racialHitDice.count + 3);
-  }
-  return available;
+  const sources = new Set(character.classLevels.map((entry) =>
+    "prestigeClassId" in entry ? entry.prestigeClassId : entry.classId));
+  return getAvailableSkillCountForSource(character, "racial-hit-dice") +
+    [...sources].reduce((total, source) => total + getAvailableSkillCountForSource(character, source), 0);
 }
 
 export function getAvailableSkillCountForSource(
   character: Character,
   sourceId: SkillRankSourceId,
 ) {
+  const discipleLevel = getPrestigeClassLevel(character, "dragon-disciple");
+  const boostLevel = character.hitPointRolls?.find((roll) =>
+    roll.prestigeClassId === "dragon-disciple" && roll.classLevel === 8)?.characterLevel;
+  const intModifier = abilityModifier(character.abilities.int);
+  const humanBonus = Number(character.race.toLowerCase() === "human");
+  const points = (base: number, levels: number, afterBoost = 0) => {
+    const before = Math.max(1, base + intModifier + humanBonus - Number(discipleLevel >= 8));
+    const after = Math.max(1, base + intModifier + humanBonus);
+    return before * (levels - afterBoost) + after * afterBoost;
+  };
   if (sourceId === "racial-hit-dice") {
     const racialHitDice = getRacialHitDiceForCharacter(character);
     if (!racialHitDice) return 0;
-    const pointsPerHitDie = Math.max(
-      1,
-      racialHitDice.skillPoints +
-        abilityModifier(character.abilities.int) +
-        (character.race.toLowerCase() === "human" ? 1 : 0),
-    );
-    return pointsPerHitDie * (racialHitDice.count + 3);
+    return points(racialHitDice.skillPoints, racialHitDice.count + 3);
   }
   const firstBaseClass = getBaseClassLevels(character)[0];
   const hasRacialHitDice = Boolean(getRacialHitDiceForCharacter(character)?.count);
   return character.classLevels.reduce((total, entry, index) => {
-    if ("prestigeClassId" in entry) {
-      if (entry.prestigeClassId !== sourceId) return total;
-      const skillPoints = dragonlancePrestigeClasses[entry.prestigeClassId].skillPoints;
-      if (skillPoints === undefined) return total;
-      const pointsPerLevel = Math.max(
-        1,
-        skillPoints +
-          abilityModifier(character.abilities.int) +
-          (character.race.toLowerCase() === "human" ? 1 : 0),
-      );
-      return total + pointsPerLevel * entry.level;
-    }
-    if (entry.classId !== sourceId) return total;
-    const classDefinition = classDefinitions[entry.classId];
-    const pointsPerLevel = Math.max(
-      1,
-      classDefinition.skillPoints +
-        abilityModifier(character.abilities.int) +
-        (character.race.toLowerCase() === "human" ? 1 : 0),
-    );
-    return total + pointsPerLevel * (entry.level +
-      (entry === firstBaseClass && index === 0 && !hasRacialHitDice ? 3 : 0));
+    const prestige = "prestigeClassId" in entry ? entry.prestigeClassId : undefined;
+    if ((prestige ?? entry.classId) !== sourceId) return total;
+    const base = (prestige ? dragonlancePrestigeClasses[prestige] : classDefinitions[entry.classId]).skillPoints;
+    if (base === undefined) return total;
+    const afterBoost = prestige === "dragon-disciple" ? Math.max(0, entry.level - 7) :
+      boostLevel === undefined ? 0 : (character.hitPointRolls ?? []).filter((roll) =>
+        roll.classLevel <= entry.level && roll.characterLevel > boostLevel &&
+        (roll.prestigeClassId ?? roll.classId) === sourceId).length;
+    const firstLevelBonus = entry === firstBaseClass && index === 0 && !hasRacialHitDice ? 3 : 0;
+    return total + points(base, entry.level + firstLevelBonus, Math.min(afterBoost, entry.level));
   }, 0);
 }
 
@@ -2737,7 +3206,18 @@ export function getSkillPointsPerLevel(character: Character, classId: ClassId | 
   );
 }
 
-export function getLevelUpSpellWarnings(original: Character, proposed: Character) {
+export function getLevelUpSpellWarnings(original: Character, proposed: Character): string[] {
+  const theurge = proposed.classLevels.find((entry) =>
+    "prestigeClassId" in entry && entry.prestigeClassId === "mystic-theurge" &&
+    entry.level > getPrestigeClassLevel(original, "mystic-theurge"),
+  );
+  const warnings = getLevelUpSpellWarningsForClass(original, proposed);
+  if (theurge && "prestigeClassId" in theurge && theurge.divineSpellcastingClassId)
+    warnings.push(...getLevelUpSpellWarningsForClass(original, proposed, theurge.divineSpellcastingClassId));
+  return warnings;
+}
+
+function getLevelUpSpellWarningsForClass(original: Character, proposed: Character, target?: ClassId) {
   const advancedBaseClass = proposed.classLevels.find((entry) => {
     if ("prestigeClassId" in entry) return false;
     const originalEntry = original.classLevels.find(
@@ -2753,11 +3233,13 @@ export function getLevelUpSpellWarnings(original: Character, proposed: Character
         candidate.prestigeClassId === entry.prestigeClassId,
     );
     return entry.level > (originalEntry?.level ?? 0) &&
-      Boolean(dragonlancePrestigeClasses[entry.prestigeClassId].spellcastingProgression);
+      (isIndependentSpellcastingClass(entry.prestigeClassId) ||
+        Boolean(dragonlancePrestigeClasses[entry.prestigeClassId].spellcastingProgression));
   });
-  const classId = advancedBaseClass?.classId ??
+  const classId = target ?? advancedBaseClass?.classId ??
     (advancedPrestigeClass && "prestigeClassId" in advancedPrestigeClass
-      ? advancedPrestigeClass.classId
+      ? isIndependentSpellcastingClass(advancedPrestigeClass.prestigeClassId)
+        ? advancedPrestigeClass.prestigeClassId : advancedPrestigeClass.classId
       : undefined);
   if (!classId) return [];
   if (advancedBaseClass?.classId === "ranger") {
@@ -2771,7 +3253,7 @@ export function getLevelUpSpellWarnings(original: Character, proposed: Character
     const druidWarnings = getDragonlanceDruidWarnings(proposed);
     if (druidWarnings.length) return druidWarnings;
   }
-  if (!classDefinitions[classId].spellcasting) return [];
+  if (!getSpellcastingClassDefinition(classId).spellcasting) return [];
   if (classId === "mystic") {
     const domainWarnings = getMysticDomainWarnings(proposed);
     if (domainWarnings.length) return domainWarnings;
@@ -2808,7 +3290,7 @@ export function getLevelUpSpellWarnings(original: Character, proposed: Character
     return knownSpellCount + Number(includesDomainSpell);
   };
   const knownSpellReplacementWarnings: string[] = [];
-  if (classId === "bard" || classId === "sorcerer" || classId === "mystic") {
+  if (classId === "assassin" || classId === "bard" || classId === "sorcerer" || classId === "mystic") {
     const originalNames = getClassSpellSelections(original, "knownSpells")[classId] ?? [];
     const proposedNames = getClassSpellSelections(proposed, "knownSpells")[classId] ?? [];
     const proposedNameKeys = new Set(proposedNames.map(normalizeSpellName));
@@ -2823,7 +3305,7 @@ export function getLevelUpSpellWarnings(original: Character, proposed: Character
         proposed,
         classId,
       );
-      const className = classDefinitions[classId].name;
+      const className = getSpellcastingClassDefinition(classId).name;
       const replacementSchedule =
         `A ${className} may replace spells only at qualifying class levels.`;
       if (replacementLevelLimit === undefined) {
@@ -2863,7 +3345,7 @@ export function getLevelUpSpellWarnings(original: Character, proposed: Character
       ? "0-level"
       : `${level}${level === 1 ? "st" : level === 2 ? "nd" : level === 3 ? "rd" : "th"}-level`;
   const warnings: string[] = [...knownSpellReplacementWarnings];
-  if (classId === "bard" || classId === "sorcerer" || classId === "mystic") {
+  if (classId === "assassin" || classId === "bard" || classId === "sorcerer" || classId === "mystic") {
     for (let level = 0; level <= 9; level += 1) {
       const base = getKnownSpellLimit(proposed, classId, proposedLevel, level);
       const originalBase = getKnownSpellLimit(original, classId, originalLevel, level);
@@ -2874,7 +3356,7 @@ export function getLevelUpSpellWarnings(original: Character, proposed: Character
         0,
         required - Math.max(0, proposedSelected - originalSelected),
       );
-      if (missing) warnings.push(`Learn ${missing} additional ${spellLevelName(level)} ${classDefinitions[classId].name} spell${missing === 1 ? "" : "s"}.`);
+      if (missing) warnings.push(`Learn ${missing} additional ${spellLevelName(level)} ${getSpellcastingClassDefinition(classId).name} spell${missing === 1 ? "" : "s"}.`);
     }
   } else if (classId === "wizard" && advancedPrestigeClass) {
     return warnings;
@@ -2927,10 +3409,7 @@ export function getPrestigeClassEligibilityErrors(
   confirmSpecialPrerequisite = true,
 ) {
   const definition = dragonlancePrestigeClasses[prestigeClassId];
-  const prerequisites = definition.prerequisites;
-  const errors: string[] = [];
   const currentLevel = getPrestigeClassLevel(character, prestigeClassId);
-  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (
     !definition.levelUpEnabled ||
     !definition.hitDie ||
@@ -2943,22 +3422,48 @@ export function getPrestigeClassEligibilityErrors(
     !definition.maximumLevel
   )
     return [`${definition.name} does not have a complete level-up progression yet.`];
-  if (
-    definition.source === "dragonlance-user-pack" &&
-    character.ruleset !== "dragonlance-user-pack"
-  )
-    errors.push("Switch to the Dragonlance ruleset to add this prestige class.");
+  const errors = getPrestigeClassPrerequisiteErrors(
+    character, prestigeClassId, confirmSpecialPrerequisite,
+  );
   if (definition.maximumLevel && currentLevel >= definition.maximumLevel)
     errors.push(`${definition.name} is already at its maximum level (${definition.maximumLevel}).`);
+  return errors;
+}
+
+export function getPrestigeClassPrerequisiteErrors(
+  character: Character,
+  prestigeClassId: PrestigeClassId,
+  confirmSpecialPrerequisite = true,
+) {
+  // A legacy reference is not an earned prestige level or a source of entry qualifications.
+  character = { ...character, prestigeClass: undefined };
+  const definition = dragonlancePrestigeClasses[prestigeClassId];
+  const prerequisites = definition.prerequisites;
+  const errors: string[] = [];
+  const currentLevel = getPrestigeClassLevel(character, prestigeClassId);
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (
+    definition.source === dragonlanceContentId &&
+    character.ruleset !== dragonlanceContentId
+  )
+    errors.push("Switch to the Dragonlance ruleset to add this prestige class.");
   if (currentLevel === 0) {
     if (prerequisites.alignment) {
       const alignment = character.alignment.toLowerCase();
       const alignmentMatches = prerequisites.alignment === "Any non-evil"
         ? !alignment.endsWith("evil")
-        : prerequisites.alignment === "Any nonchaotic"
+        : prerequisites.alignment === "Any nongood"
+          ? !alignment.endsWith("good")
+          : prerequisites.alignment === "Any nonchaotic"
           ? !alignment.startsWith("chaotic")
-          : alignment === prerequisites.alignment.toLowerCase();
-      if (!alignmentMatches)
+          : prerequisites.alignment === "Any nonlawful"
+            ? !alignment.startsWith("lawful")
+            : prerequisites.alignment === "Any lawful"
+              ? alignment.startsWith("lawful")
+              : prerequisites.alignment === "Any evil"
+                ? alignment.endsWith("evil")
+                : alignment === prerequisites.alignment.toLowerCase();
+      if (!alignment || !alignmentMatches)
         errors.push(`Alignment must be ${prerequisites.alignment}.`);
     }
     if (prerequisites.bab && getBaseAttackBonus(character) < prerequisites.bab)
@@ -2973,20 +3478,55 @@ export function getPrestigeClassEligibilityErrors(
     }
     if (prerequisites.anySkillRanks) {
       const prefix = prerequisites.anySkillPrefix?.toLowerCase();
-      const highestRank = Math.max(
-        0,
-        ...Object.entries(character.skills)
-          .filter(([skill]) => !prefix || skill.toLowerCase().startsWith(prefix))
-          .map(([, ranks]) => ranks),
-      );
-      if (highestRank < prerequisites.anySkillRanks)
+      const requiredRanks = prerequisites.anySkillRanks;
+      const matchingSkills = Object.entries(character.skills)
+        .filter(([skill, ranks]) =>
+          (!prefix || skill.toLowerCase().startsWith(prefix)) &&
+          ranks >= requiredRanks,
+        );
+      const minimumSkills = prerequisites.minimumMatchingSkills ?? 1;
+      if (matchingSkills.length < minimumSkills)
         errors.push(
-          prerequisites.anySkillPrefix
+          minimumSkills > 1
+            ? `At least ${minimumSkills} distinct ${prerequisites.anySkillPrefix?.replace(/ \($/, "") ?? ""} skills must each have ${requiredRanks} ranks.`
+          : prerequisites.anySkillPrefix
             ? `At least one ${prerequisites.anySkillPrefix} skill must have ${prerequisites.anySkillRanks} ranks.`
             : `At least one skill must have ${prerequisites.anySkillRanks} ranks.`,
         );
     }
     const baseClassLevels = getBaseClassLevels(character);
+    for (const language of prerequisites.languages ?? []) {
+      if (!getCharacterLanguages(character).some((entry) => normalize(entry) === normalize(language)))
+        errors.push(`${language} language is required.`);
+    }
+    if (prerequisites.allMartialWeaponProficiencies) {
+      const martialWeapons = getStoreItems().filter((item) =>
+        item.category === "Weapons" && martialWeaponNames.has(getBaseEquipmentName(item.name)),
+      );
+      if (
+        !character.hasAllMartialWeaponProficiencies &&
+        !baseClassLevels.some(({ classId }) => martialWeaponClasses.has(classId)) &&
+        (!martialWeapons.length || martialWeapons.some((item) => !isWeaponProficient(character, item)))
+      ) errors.push("Proficiency with all martial weapons is required.");
+    }
+    if (prerequisites.sneakAttackDice) {
+      const diceBySource = new Map<string, number>();
+      for (const { source, ability } of getClassFeatureDisplay(character)) {
+        const match = ability.match(/^Sneak Attack \+(\d+)d6$/i);
+        if (!match) continue;
+        const classSource = source.replace(/ \d+$/, "");
+        diceBySource.set(classSource, Math.max(diceBySource.get(classSource) ?? 0, Number(match[1])));
+      }
+      if ([...diceBySource.values()].reduce((sum, dice) => sum + dice, 0) < prerequisites.sneakAttackDice)
+        errors.push(`Sneak attack +${prerequisites.sneakAttackDice}d6 is required.`);
+    }
+    if (
+      prerequisites.spontaneousArcaneSpellcasting &&
+      !baseClassLevels.some(({ classId, level }) =>
+        (classId === "bard" || classId === "sorcerer") &&
+        getDailySpellSlots(character, classId, level, 0) > 0,
+      )
+    ) errors.push("Ability to cast arcane spells without preparation is required.");
     if (
       prerequisites.classes?.length &&
       !baseClassLevels.some((entry) => prerequisites.classes!.includes(entry.classId))
@@ -3000,9 +3540,18 @@ export function getPrestigeClassEligibilityErrors(
       if (getEffectiveAbilityScore(character, ability as AbilityName) < minimum)
         errors.push(`${ability.toUpperCase()} must be at least ${minimum}.`);
     }
+    const chosenFeatIds = getChosenFeats(character);
+    const inactiveFeatNames = new Set(
+      Object.values(character.featSelections ?? {})
+        .filter((id) => id && !chosenFeatIds.includes(id))
+        .flatMap((id) => [
+          normalize(id),
+          normalize(featCatalog.find((feat) => feat.id === id)?.name ?? id),
+        ]),
+    );
     const featEntries = [
-      ...getChosenFeats(character),
-      ...character.feats,
+      ...chosenFeatIds,
+      ...character.feats.filter((entry) => !inactiveFeatNames.has(normalize(entry))),
     ];
     const selectedFeatDefinitions = new Map(
       featEntries.flatMap((featEntry) => {
@@ -3081,6 +3630,39 @@ export function getPrestigeClassEligibilityErrors(
         errors.push(`Choose ${choice.count} distinct feats from the required categories.`);
     }
     if (
+      prerequisites.weaponFocusChoices?.length &&
+      !getActiveFeatEntries(character).some(([slotId, featId]) =>
+        featId === "weapon-focus" &&
+        prerequisites.weaponFocusChoices?.includes(character.featWeaponSelections?.[slotId] ?? ""),
+      ) &&
+      !prerequisites.weaponFocusChoices.some((weapon) =>
+        getWarDomainWeapon(character) === weapon,
+      )
+    ) errors.push(`Weapon Focus in ${prerequisites.weaponFocusChoices.join(" or ")} is required.`);
+    if (prerequisites.skillFocusPrefix) {
+      const prefix = prerequisites.skillFocusPrefix.toLowerCase();
+      if (!getActiveFeatEntries(character).some(([slotId, featId]) =>
+        featId === "skill-focus" &&
+        character.featSkillSelections?.[slotId]?.toLowerCase().startsWith(prefix),
+      )) errors.push(`Skill Focus in a ${prerequisites.skillFocusPrefix.replace(/ \($/, "")} skill is required.`);
+    }
+    const requiredSkillFocus = prerequisites.skillFocus;
+    if (requiredSkillFocus && !getActiveFeatEntries(character).some(([slotId, featId]) =>
+      featId === "skill-focus" &&
+      character.featSkillSelections?.[slotId]?.toLowerCase() === requiredSkillFocus.toLowerCase(),
+    )) errors.push(`Skill Focus (${requiredSkillFocus}) is required.`);
+    if (prerequisites.spellFocusSchools?.length || prerequisites.minimumSpellFocusSchools) {
+      const focusedSchools = new Set(getActiveFeatEntries(character).flatMap(([slotId, featId]) => {
+        const school = character.featSpellSchoolSelections?.[slotId];
+        return featId === "spell-focus" && school && magicSchools.includes(school) ? [school] : [];
+      }));
+      for (const school of prerequisites.spellFocusSchools ?? []) {
+        if (!focusedSchools.has(school)) errors.push(`Spell Focus (${school}) is required.`);
+      }
+      if (prerequisites.minimumSpellFocusSchools && focusedSchools.size < prerequisites.minimumSpellFocusSchools)
+        errors.push(`Spell Focus in ${prerequisites.minimumSpellFocusSchools} distinct schools is required.`);
+    }
+    if (
       prerequisites.races?.length &&
       !prerequisites.races.some((race) =>
         normalize(race) === normalize(character.race) ||
@@ -3089,18 +3671,19 @@ export function getPrestigeClassEligibilityErrors(
     )
       errors.push(`Race must be one of: ${prerequisites.races.join(", ")}.`);
     if (prerequisites.classFeatures?.length) {
-      const availableFeatures = new Set(
-        getClassFeatureDisplay(character).map(({ ability }) => normalize(ability)),
-      );
+      const availableFeatures = getClassFeaturePrerequisiteNames(character);
       for (const feature of prerequisites.classFeatures) {
-        if (!availableFeatures.has(normalize(feature)))
+        if (!availableFeatures.has(feature.toLowerCase()))
           errors.push(`${feature} class feature is required.`);
       }
     }
-    if (prerequisites.spellcasting) {
+    for (const spellcasting of [
+      ...(prerequisites.spellcasting ? [prerequisites.spellcasting] : []),
+      ...(prerequisites.additionalSpellcasting ?? []),
+    ]) {
       const arcaneClasses = new Set<ClassId>(["bard", "sorcerer", "wizard"]);
       const divineClasses = new Set<ClassId>(["cleric", "druid", "mystic", "paladin", "ranger"]);
-      const eligibleClasses = prerequisites.spellcasting.type === "arcane"
+      const eligibleClasses = spellcasting.type === "arcane"
         ? arcaneClasses
         : divineClasses;
       const canCastRequiredSpell = baseClassLevels.some((entry) =>
@@ -3109,26 +3692,61 @@ export function getPrestigeClassEligibilityErrors(
           character,
           entry.classId,
           entry.level,
-          prerequisites.spellcasting!.level,
+          spellcasting.level,
         ) > 0,
       );
       if (!canCastRequiredSpell)
-        errors.push(`Ability to cast ${prerequisites.spellcasting.type} spells of level ${prerequisites.spellcasting.level} is required.`);
+        errors.push(`Ability to cast ${spellcasting.type} spells of level ${spellcasting.level} is required.`);
     }
     const knownSpells = getClassSpellSelections(character, "knownSpells");
+    const castableSpells = prerequisites.spells?.length || prerequisites.spellSchoolSpells
+      ? baseClassLevels.flatMap(({ classId, level }) => {
+          if (!classDefinitions[classId].spellcasting) return [];
+          const usesKnownSpells = ["bard", "sorcerer", "wizard", "mystic"].includes(classId);
+          const knownNames = new Set((knownSpells[classId] ?? []).map(normalizeSpellName));
+          return getClassSpells(classId, character.ruleset, character).filter((spell) =>
+            (!prerequisites.classes?.length || prerequisites.classes.includes(classId)) &&
+            (!usesKnownSpells || knownNames.has(normalizeSpellName(spell.name))) &&
+            getDailySpellSlots(character, classId, level, spell.level) > 0,
+          );
+        })
+      : [];
     for (const spellName of prerequisites.spells ?? []) {
       const normalizedSpell = normalizeSpellName(spellName);
-      const canCastSpell = baseClassLevels.some(({ classId }) =>
-        (!prerequisites.classes?.length || prerequisites.classes.includes(classId)) &&
-        (knownSpells[classId] ?? []).some((knownSpell) =>
-          normalizeSpellName(knownSpell) === normalizedSpell,
-        ) &&
-        getClassSpells(classId, character.ruleset, character).some((spell) =>
-          normalizeSpellName(spell.name) === normalizedSpell,
-        ),
+      const canCastSpell = castableSpells.some((spell) =>
+        normalizeSpellName(spell.name) === normalizedSpell,
       );
       if (!canCastSpell)
         errors.push(`Ability to cast ${spellName} is required.`);
+    }
+    if (prerequisites.arcaneSpellRepertoire) {
+      const { castableLevel, schoolCount, minimumSchoolSpellLevel } = prerequisites.arcaneSpellRepertoire;
+      const repertoire = baseClassLevels.flatMap(({ classId, level }) => {
+        if (classId !== "bard" && classId !== "sorcerer" && classId !== "wizard") return [];
+        if (!isSpellCatalogLoaded()) return [];
+        const knownNames = new Set((knownSpells[classId] ?? []).map(normalizeSpellName));
+        return getClassSpells(classId, character.ruleset, character).flatMap((spell) => {
+          if (!knownNames.has(normalizeSpellName(spell.name))) return [];
+          const school = magicSchools.find((name) => name === getSpellSchoolName(spell.school));
+          if (classId === "wizard" && school && getRedWizardProhibitedSchools(character).includes(school)) return [];
+          return [{ school, level: spell.level, castable: getDailySpellSlots(character, classId, level, spell.level) > 0 }];
+        });
+      });
+      if (!repertoire.some((spell) => spell.level === castableLevel && spell.castable))
+        errors.push(`Ability to cast a known level ${castableLevel} arcane spell is required.`);
+      const schools = new Set(repertoire.flatMap(({ school, level }) =>
+        school && level >= minimumSchoolSpellLevel ? [school] : [],
+      ));
+      if (schools.size < schoolCount)
+        errors.push(`Know arcane spells of level ${minimumSchoolSpellLevel} or higher from at least ${schoolCount} schools.`);
+    }
+    if (prerequisites.spellSchoolSpells) {
+      const { school, count, minimumLevel } = prerequisites.spellSchoolSpells;
+      const matchingSpells = castableSpells.filter((spell) => getSpellSchoolName(spell.school) === school);
+      if (
+        new Set(matchingSpells.map((spell) => normalizeSpellName(spell.name))).size < count ||
+        !matchingSpells.some((spell) => spell.level >= minimumLevel)
+      ) errors.push(`Ability to cast ${count} different ${school} spells, including one of level ${minimumLevel} or higher, is required.`);
     }
     if (definition.id === "wizard-of-high-sorcery") {
       const order = character.highSorceryOrder;
@@ -3150,14 +3768,14 @@ export function getPrestigeClassEligibilityErrors(
           errors.push("Choose a specialist school for the selected robe order.");
         else if (!orderSchools.includes(specialistSchool))
           errors.push(`Wizard specialization must be ${orderSchools.join(" or ")} for the ${order} robes.`);
-        const barredSchools = character.wizardBarredSchools ?? [];
+        const barredSchools = getRedWizardProhibitedSchools(character);
         const barredSchoolOptions = getHighSorceryBarredSchoolOptions(order);
         if (barredSchools.length !== 2 || new Set(barredSchools).size !== 2)
           errors.push("Choose two distinct barred schools from the other robe orders.");
         else if (barredSchools.some((school) => !barredSchoolOptions.includes(school)))
           errors.push("Both barred schools must be favored by the other robe orders.");
         const disallowedSpellFocusSchools = new Set(barredSchoolOptions);
-        for (const [slotId, featId] of Object.entries(character.featSelections ?? {})) {
+        for (const [slotId, featId] of getActiveFeatEntries(character)) {
           if (featId !== "spell-focus") continue;
           const school = character.featSpellSchoolSelections?.[slotId];
           if (!school)
@@ -3199,6 +3817,19 @@ export function getLevelUpSkillWarnings(
     warnings.push(
       `Spend all new skill points (${newSkillPoints - newSkillRanks} remaining).`,
     );
+  const characterLevel = getTotalHitDice(proposed);
+  for (const selection of getSkillTrickSelections(proposed, characterLevel)) {
+    const trick = skillTrickCatalog.find(
+      (candidate) => candidate.id === selection.trickId,
+    );
+    if (
+      trick &&
+      !skillTrickPrerequisitesMet(proposed, trick, characterLevel)
+    )
+      warnings.push(
+        `Meet the prerequisites for ${trick.name} before confirming the level-up.`,
+      );
+  }
   if (
     getSpeakLanguageRankCount(original) !== getSpeakLanguageRankCount(proposed) ||
     JSON.stringify(original.speakLanguages ?? []) !==
@@ -3208,8 +3839,227 @@ export function getLevelUpSkillWarnings(
   return warnings;
 }
 
+const skillTrickLimitFeatIds = new Set([
+  "cool-head",
+  "freerunner",
+  "sure-hand",
+  "sweet-talker",
+]);
+const skillTrickGrantFeatCategories: Record<string, SkillTrickCategory> = {
+  "cool-head": "mental",
+  freerunner: "movement",
+  "sure-hand": "manipulation",
+  "sweet-talker": "interaction",
+};
+const skillTrickById = new Map(
+  skillTrickCatalog.map((trick) => [trick.id, trick]),
+);
+
+export function getSkillTrickSelections(
+  character: Character,
+  throughLevel = Number.POSITIVE_INFINITY,
+): Array<SkillTrickSelection & { characterLevel: number }> {
+  return Object.entries(character.skillTricksByLevel ?? {})
+    .flatMap(([level, selections]) =>
+      Number(level) <= throughLevel
+        ? selections?.map((selection) => ({
+            ...selection,
+            characterLevel: Number(level),
+          })) ?? []
+        : [],
+    )
+    .sort((left, right) => left.characterLevel - right.characterLevel);
+}
+
+export function getSkillTrickSelectionsAtLevel(
+  character: Character,
+  characterLevel: number,
+) {
+  return character.skillTricksByLevel?.[characterLevel] ?? [];
+}
+
+export function getSkillTrickGrantFeatSlots(character: Character) {
+  const activeSelections = new Map(getActiveFeatEntries(character));
+  return getFeatSlots(character).flatMap((slot) => {
+    const featId = activeSelections.get(slot.id);
+    const category = featId
+      ? skillTrickGrantFeatCategories[featId]
+      : undefined;
+    return featId && category
+      ? [{
+          slotId: slot.id,
+          featId,
+          category,
+          characterLevel: slot.characterLevel ?? getTotalHitDice(character),
+        }]
+      : [];
+  });
+}
+
+export function getAvailableSkillTrickGrants(
+  character: Character,
+  featSlotId: string,
+) {
+  const grantSlot = getSkillTrickGrantFeatSlots(character).find(
+    (slot) => slot.slotId === featSlotId,
+  );
+  if (!grantSlot) return [];
+  const learned = getSkillTrickSelections(character, grantSlot.characterLevel);
+  if (
+    learned.filter((selection) => selection.featSlotId === featSlotId).length >=
+      2 ||
+    learned.length >=
+      getSkillTrickLimit(character, grantSlot.characterLevel)
+  )
+    return [];
+  const knownTricks = new Set(learned.map((selection) => selection.trickId));
+  return skillTrickCatalog.filter(
+    (trick) =>
+      trick.category === grantSlot.category &&
+      !knownTricks.has(trick.id) &&
+      skillTrickPrerequisitesMet(
+        character,
+        trick,
+        grantSlot.characterLevel,
+      ),
+  );
+}
+
+export function getSkillTrickCountsByCategory(
+  character: Character,
+  throughLevel = getTotalHitDice(character),
+): Record<SkillTrickCategory, number> {
+  const counts: Record<SkillTrickCategory, number> = {
+    interaction: 0,
+    manipulation: 0,
+    mental: 0,
+    movement: 0,
+  };
+  for (const selection of getSkillTrickSelections(character, throughLevel)) {
+    const trick = skillTrickById.get(selection.trickId);
+    if (trick) counts[trick.category] += 1;
+  }
+  return counts;
+}
+
+export function getSkillTrickLimit(
+  character: Character,
+  characterLevel = getTotalHitDice(character),
+) {
+  const slots = new Map(
+    getFeatSlots(character).map((slot) => [slot.id, slot]),
+  );
+  const limitBonus = new Set(
+    getActiveFeatEntries(character)
+      .filter(([slotId, featId]) =>
+        skillTrickLimitFeatIds.has(featId) &&
+        (slots.get(slotId)?.characterLevel ?? Number.POSITIVE_INFINITY) <=
+          characterLevel,
+      )
+      .map(([, featId]) => featId),
+  ).size;
+  return Math.ceil(characterLevel / 2) + limitBonus;
+}
+
+function skillTrickPrerequisitesMet(
+  character: Character,
+  trick: SkillTrickDefinition,
+  characterLevel: number,
+) {
+  const prerequisiteCharacter = getCharacterAtCharacterLevel(
+    character,
+    characterLevel,
+  );
+  const prerequisites = trick.prerequisites;
+  if (
+    prerequisites.skills &&
+    Object.entries(prerequisites.skills).some(
+      ([skill, ranks]) =>
+        getSkillRanksAtCharacterLevel(character, skill, characterLevel) <
+        ranks,
+    )
+  )
+    return false;
+  if (
+    prerequisites.anySkillGroups?.some(
+      ({ skills: alternatives, ranks }) =>
+        !alternatives.some(
+          (skill) =>
+            getSkillRanksAtCharacterLevel(
+              character,
+              skill,
+              characterLevel,
+            ) >= ranks,
+        ),
+    )
+  )
+    return false;
+  if (
+    prerequisites.anySkillPrefix &&
+    Math.max(
+      0,
+      ...Object.entries(prerequisiteCharacter.skills)
+        .filter(([skill]) =>
+          skill.toLowerCase().startsWith(
+            prerequisites.anySkillPrefix!.toLowerCase(),
+          ),
+        )
+        .map(([, ranks]) => ranks),
+    ) < (prerequisites.anySkillRanks ?? 0)
+  )
+    return false;
+  if (prerequisites.maximumSize) {
+    const size = getRaceDefinitionForCharacter(prerequisiteCharacter)?.size ??
+      "Medium";
+    if (
+      creatureSizeCategories.indexOf(size) >
+      creatureSizeCategories.indexOf(prerequisites.maximumSize)
+    )
+      return false;
+  }
+  const chosenFeats = new Set([
+    ...getChosenFeats(prerequisiteCharacter),
+    ...prerequisiteCharacter.feats,
+  ]);
+  if (prerequisites.feats?.some((feat) => !chosenFeats.has(feat)))
+    return false;
+  if (
+    prerequisites.weaponProficiencies?.some((weaponName) => {
+      const weapon = getStoreItems().find(
+        (item) =>
+          item.category === "Weapons" &&
+          getBaseEquipmentName(item.name).toLowerCase() ===
+            weaponName.toLowerCase(),
+      );
+      return !weapon || !isWeaponProficient(prerequisiteCharacter, weapon);
+    })
+  )
+    return false;
+  return true;
+}
+
+export function getAvailableSkillTricks(character: Character) {
+  const characterLevel = getTotalHitDice(character);
+  const learned = getSkillTrickSelections(character);
+  if (
+    learned.length >= getSkillTrickLimit(character, characterLevel) ||
+    learned.some(
+      (selection) =>
+        selection.characterLevel === characterLevel &&
+        !selection.featSlotId,
+    )
+  )
+    return [];
+  const knownTricks = new Set(learned.map((selection) => selection.trickId));
+  return skillTrickCatalog.filter(
+    (trick) =>
+      !knownTricks.has(trick.id) &&
+      skillTrickPrerequisitesMet(character, trick, characterLevel),
+  );
+}
+
 export function getSpentSkillPoints(character: Character) {
-  return Object.entries(character.skills).reduce((total, [skill, ranks]) => {
+  const skillRankPoints = Object.entries(character.skills).reduce((total, [skill, ranks]) => {
     let remainingRanks = Math.max(0, Number(ranks || 0));
     let spent = 0;
     const classIds = new Set<SkillRankSourceId>(character.classLevels.map((entry) =>
@@ -3229,17 +4079,27 @@ export function getSpentSkillPoints(character: Character) {
     spent += remainingRanks * (isClassSkill(character, skill) ? 1 : 2);
     return total + spent;
   }, 0);
+  return skillRankPoints +
+    getSkillTrickSelections(character).filter((selection) => !selection.featSlotId)
+      .length * 2;
 }
 
 export function getSpentSkillPointsForSource(
   character: Character,
   sourceId: SkillRankSourceId,
 ) {
-  return Object.entries(character.skillRanksByClass?.[sourceId] ?? {}).reduce(
+  const skillRankPoints = Object.entries(character.skillRanksByClass?.[sourceId] ?? {}).reduce(
     (total, [skill, ranks]) =>
       total + Math.max(0, Number(ranks || 0)) * (isClassSkill(character, skill, sourceId) ? 1 : 2),
     0,
   );
+  const skillTrickPoints = getSkillTrickSelections(character)
+    .filter(
+      (selection) =>
+        !selection.featSlotId && selection.sourceId === sourceId,
+    )
+    .length * 2;
+  return skillRankPoints + skillTrickPoints;
 }
 
 export function getLevelUpSpentSkillPoints(
@@ -3254,7 +4114,16 @@ export function getLevelUpSpentSkillPoints(
     );
     return total + addedRanks * (isClassSkill(proposed, skill, classId) ? 1 : 2);
   }, 0);
-  return getSpentSkillPoints(original) + addedCost;
+  const currentLevel = getTotalHitDice(proposed);
+  const addedSkillTrickCost = getSkillTrickSelections(proposed, currentLevel)
+    .filter(
+      (selection) =>
+        selection.characterLevel === currentLevel &&
+        !selection.featSlotId &&
+        selection.sourceId === classId,
+    )
+    .length * 2;
+  return getSpentSkillPoints(original) + addedCost + addedSkillTrickCost;
 }
 
 export function getSkillMaximum(
@@ -3341,11 +4210,19 @@ export function getSavingThrow(
     reflex: "lightning-reflexes",
     will: "iron-will",
   }[save];
-  const featBonus = getChosenFeats(character).includes(savingThrowFeat) ? 2 : 0;
+  const chosenFeats = getChosenFeats(character);
+  const featBonus = (chosenFeats.includes(savingThrowFeat) ? 2 : 0) +
+    (save === "will" && chosenFeats.includes("mage-slayer") ? 1 : 0);
+  const loremasterSaveBonus = hasLoremasterSecret(character, {
+    fortitude: "The Lore of True Stamina", reflex: "Secret Knowledge of Avoidance", will: "Secrets of Inner Strength",
+  }[save] as LoremasterSecret) ? 2 : 0;
   const defenseBonuses = getEquipmentDefenseBonuses(character);
   const resistance = defenseBonuses.resistance;
   const luck = defenseBonuses.luck;
   const activeSaves = getCombatEffectModifier(character, "saves");
+  const duelistGrace = save === "reflex" && getPrestigeClassLevel(character, "duelist") >= 4 &&
+    !character.equipment?.Armor && !character.equipment?.Shield &&
+    !getForceShieldState(character).active ? 2 : 0;
   const knightLevel = getPrestigeClassLevel(character, "knight-of-the-crown");
   const paladinLevel = getBaseClassLevel(character, "paladin");
   const lawfulGood = character.alignment === "Lawful Good";
@@ -3360,6 +4237,9 @@ export function getSavingThrow(
     (paladinLevel >= 2 || getPrestigeClassLevel(character, "knight-of-the-rose") >= 3)
     ? charismaMoraleBonus
     : 0;
+  const darkBlessing = getPrestigeClassLevel(character, "blackguard") >= 2 ? charismaMoraleBonus : 0;
+  const assassinPoisonSave = conditions.includes("poison")
+    ? Math.floor(getPrestigeClassLevel(character, "assassin") / 2) : 0;
   const paladinImmune = lawfulGood && paladinLevel >= 3;
   const fearImmune = conditions.includes("fear") && getCurrentHitPoints(character) >= 0 &&
     (knightLevel >= 9 || paladinImmune);
@@ -3388,7 +4268,7 @@ export function getSavingThrow(
   }
   const honorBoundActive = conditions.includes("oath") &&
     !character.honorBoundSuspended &&
-    getChosenFeats(character).includes("honor-bound");
+    chosenFeats.includes("honor-bound");
   if (honorBoundActive) {
     knightSaveBonus += 2;
     knightSaveDetails.push("Honor-bound circumstance +2");
@@ -3405,13 +4285,17 @@ export function getSavingThrow(
       ? `${matchingCondition} ${matchingCondition === "fear" ? "morale" : "racial"} ${formatModifier(situationalBonus)}`
       : "",
     featBonus ? `feat ${formatModifier(featBonus)}` : "",
+    loremasterSaveBonus ? "Loremaster secret +2" : "",
     divineGraceBonus ? `Divine Grace ${formatModifier(divineGraceBonus)}` : "",
+    darkBlessing ? `Dark Blessing ${formatModifier(darkBlessing)}` : "",
+    assassinPoisonSave ? `Assassin poison save ${formatModifier(assassinPoisonSave)}` : "",
+    duelistGrace ? "Duelist Grace competence +2" : "",
     druidNatureLureBonus ? `Resist Nature's Lure ${formatModifier(druidNatureLureBonus)}` : "",
     ...knightSaveDetails,
   ].filter(Boolean).join(" · ");
   return {
-    total: base + abilityBonus + racialBonus + situationalBonus + featBonus +
-      divineGraceBonus + druidNatureLureBonus + knightSaveBonus +
+    total: base + abilityBonus + racialBonus + situationalBonus + featBonus + loremasterSaveBonus +
+      divineGraceBonus + darkBlessing + assassinPoisonSave + duelistGrace + druidNatureLureBonus + knightSaveBonus +
       resistance.bonus + luck.bonus + activeSaves,
     immune: immunity !== undefined,
     detail: `${immunity ? `Immune to ${immunity}; no save required. ` : ""}${breakdown}${resistance.bonus ? ` · resistance ${formatModifier(resistance.bonus)}` : ""}${luck.bonus ? ` · luck ${formatModifier(luck.bonus)}` : ""}${activeSaves ? ` · active effects ${formatModifier(activeSaves)}` : ""}`,
@@ -3447,18 +4331,47 @@ export function getClassFeatureDisplay(
     const definition = isPrestigeClass
       ? dragonlancePrestigeClasses[entry.prestigeClassId]
       : classDefinitions[entry.classId];
+    if (isPrestigeClass && entry.prestigeClassId === "horizon-walker") {
+      return (character.horizonWalkerTerrainMasteries ?? []).slice(0, entry.level)
+        .map((terrain, index) => ({
+          source: `Horizon Walker ${index + 1}`,
+          ability: `Terrain Mastery: ${terrain}`,
+          isPrestigeClass: true,
+        }));
+    }
     const progressions = isPrestigeClass
       ? prestigeClassFeatureProgression[entry.prestigeClassId] ?? []
       : classFeatureProgression[entry.classId] ?? [];
-    return progressions
+    const choices = !isPrestigeClass ? [] : entry.prestigeClassId === "archmage"
+      ? getEarnedHighArcana(character).flatMap((choice, index) => choice ? [{
+          source: `Archmage ${index + 1} · ${classDefinitions[choice.classId].name} slot ${choice.slot}${choice.reserve === undefined ? "" : ` + slot ${choice.reserve}: ${choice.spellNote}`}`,
+          ability: choice.ability === "Spell Power" ? "Archmage Spell Power" : choice.ability, isPrestigeClass: true,
+        }] : [])
+      : entry.prestigeClassId === "hierophant"
+      ? getEarnedHierophantAbilities(character).map((ability, index) => ({
+          source: `Hierophant ${index + 1}`, ability, isPrestigeClass: true,
+        }))
+      : entry.prestigeClassId === "loremaster"
+        ? [
+            ...getEarnedLoremasterSecrets(character).map((ability, index) => ({
+              source: `Loremaster ${index * 2 + 1}`, ability, isPrestigeClass: true,
+            })),
+            ...getEarnedLoremasterLanguages(character).map((language, index) => ({
+              source: `Loremaster ${(index + 1) * 4}`, ability: `Bonus language: ${language}`, isPrestigeClass: true,
+            })),
+          ] : [];
+    return [...choices, ...progressions
       .filter((progression) => progression.level <= entry.level)
       .flatMap((progression) =>
         progression.features.map((feature) => ({
-          source: `${definition.name} ${progression.level}`,
+          source: `${definition.name} ${progression.level}${
+            isPrestigeClass && entry.prestigeClassId === "dragon-disciple" && character.dragonDiscipleVariety
+              ? ` (${character.dragonDiscipleVariety})` : ""
+          }`,
           ability: feature,
           ...(isPrestigeClass ? { isPrestigeClass: true } : {}),
         })),
-      );
+      )];
   });
   const recordedFeatures = [
     ...new Set(character.classFeatures ?? []),
@@ -3466,6 +4379,20 @@ export function getClassFeatureDisplay(
     .filter((feature) => !knownFeatureNames.has(feature))
     .map((ability) => ({ source: "Recorded feature", ability }));
   return [...earnedFeatures, ...recordedFeatures];
+}
+
+function getClassFeaturePrerequisiteNames(character: Character) {
+  const features = new Set(
+    getClassFeatureDisplay(character).map(({ ability }) =>
+      ability.toLowerCase(),
+    ),
+  );
+  const turningMode = getClericUndeadTurningMode(character);
+  if (turningMode)
+    features.add(turningMode === "turn" ? "turn undead" : "rebuke undead");
+  if (character.canTurnElementalSubtype || character.canRebukeElementalSubtype)
+    features.add("turn or rebuke elementals");
+  return features;
 }
 
 function getCharacterAtCharacterLevel(
@@ -3492,6 +4419,7 @@ function getCharacterAtCharacterLevel(
         ? {
             classId: roll.classId,
             prestigeClassId: roll.prestigeClassId,
+            divineSpellcastingClassId: roll.divineSpellcastingClassId,
             level: roll.classLevel,
           }
         : { classId: roll.classId, level: roll.classLevel },
@@ -3504,6 +4432,8 @@ function getCharacterAtCharacterLevel(
     if (Number(level) > characterLevel && ability)
       abilities[ability] -= 1;
   }
+  for (const ability of Object.keys(abilities) as AbilityName[])
+    abilities[ability] -= getLaterDragonDiscipleBoost(character, ability, characterLevel);
   return {
     ...character,
     classLevels: [...classLevels.values()],
@@ -3555,6 +4485,9 @@ type MonkBonusFeatLevel = 1 | 2 | 6;
 type FeatEligibilitySlot = {
   id?: string;
   fighterOnly: boolean;
+  wizardOnly?: boolean;
+  metamagicOnly?: boolean;
+  redWizardOnly?: boolean;
   characterLevel?: number;
   rangerStyleLevel?: RangerCombatStyleLevel;
   monkBonusLevel?: MonkBonusFeatLevel;
@@ -3567,14 +4500,18 @@ type FeatSlot = FeatEligibilitySlot & {
 
 const rangerCombatStyleFeats: Record<RangerCombatStyleLevel, readonly string[]> = {
   2: ["rapid-shot", "two-weapon-fighting"],
-  6: ["manyshot", "improved-two-weapon-fighting"],
-  11: ["improved-precise-shot", "greater-two-weapon-fighting"],
+  6: ["manyshot", "improved-two-weapon-fighting", "two-weapon-pounce"],
+  11: [
+    "improved-precise-shot",
+    "greater-two-weapon-fighting",
+    "two-weapon-rend",
+  ],
 };
 
 const monkBonusFeats: Record<MonkBonusFeatLevel, readonly string[]> = {
   1: ["improved-grapple", "stunning-fist"],
   2: ["combat-reflexes", "deflect-arrows"],
-  6: ["improved-disarm", "improved-trip"],
+  6: ["improved-disarm", "improved-trip", "water-splitting-stone"],
 };
 
 const rangerCombatStylePaths: Record<string, "archery" | "two-weapon"> = {
@@ -3584,6 +4521,8 @@ const rangerCombatStylePaths: Record<string, "archery" | "two-weapon"> = {
   "two-weapon-fighting": "two-weapon",
   "improved-two-weapon-fighting": "two-weapon",
   "greater-two-weapon-fighting": "two-weapon",
+  "two-weapon-pounce": "two-weapon",
+  "two-weapon-rend": "two-weapon",
 };
 
 function getClassFeatCharacterLevel(
@@ -3634,6 +4573,45 @@ export function getFeatSlots(character: Character) {
       fighterOnly: false,
       characterLevel: 1,
     });
+  if (getPrestigeClassLevel(character, "eldritch-knight") > 0) {
+    const entryRoll = character.hitPointRolls?.find((roll) =>
+      roll.prestigeClassId === "eldritch-knight" && roll.classLevel === 1,
+    );
+    slots.push({
+      id: "eldritch-knight-1",
+      label: "Eldritch Knight bonus feat",
+      fighterOnly: true,
+      characterLevel: entryRoll?.characterLevel ??
+        (getPrestigeClassLevel(character, "eldritch-knight") === 1 ? level : undefined),
+    });
+  }
+  if (getPrestigeClassLevel(character, "red-wizard") >= 5) {
+    const roll = character.hitPointRolls?.find((entry) =>
+      entry.prestigeClassId === "red-wizard" && entry.classLevel === 5);
+    slots.push({
+      id: "red-wizard-5", label: "Red Wizard bonus feat",
+      fighterOnly: false, redWizardOnly: true,
+      characterLevel: roll?.characterLevel ??
+        (getPrestigeClassLevel(character, "red-wizard") === 5 ? level : undefined),
+    });
+  }
+  for (const [prestigeClassId, choices, requiredChoice, label, step] of [
+    ["hierophant", getEarnedHierophantAbilities(character), "Metamagic Feat", "Hierophant metamagic feat", 1],
+    ["loremaster", getEarnedLoremasterSecrets(character), "Applicable Knowledge", "Loremaster bonus feat", 2],
+  ] as const) {
+    choices.forEach((choice, index) => {
+      if (choice !== requiredChoice) return;
+      const classLevel = index * step + 1;
+      const roll = character.hitPointRolls?.find((entry) =>
+        entry.prestigeClassId === prestigeClassId && entry.classLevel === classLevel);
+      slots.push({
+        id: `${prestigeClassId}-${classLevel}`, label, fighterOnly: false,
+        metamagicOnly: prestigeClassId === "hierophant",
+        characterLevel: roll?.characterLevel ??
+          (getPrestigeClassLevel(character, prestigeClassId) === classLevel ? level : undefined),
+      });
+    });
+  }
   getBaseClassLevels(character)
     .filter((entry) => entry.classId === "fighter")
     .forEach((entry) => {
@@ -3660,6 +4638,7 @@ export function getFeatSlots(character: Character) {
             id: `wizard-${classLevel}`,
             label: `Wizard bonus feat (wizard level ${classLevel})`,
             fighterOnly: false,
+            wizardOnly: true,
             characterLevel: getClassFeatCharacterLevel(
               character,
               "wizard",
@@ -3715,9 +4694,73 @@ export function getChronologicalFeatSlots(character: Character) {
   });
 }
 
-export function getChosenFeats(character: Character, excludingSlot?: string) {
-  const chosenFeats = Object.entries(character.featSelections ?? {})
-    .filter(([slotId, featId]) => slotId !== excludingSlot && featId)
+function getStoredActiveFeatEntries(character: Character) {
+  let restrictedSlots: ReturnType<typeof getFeatSlots> | undefined;
+  return Object.entries(character.featSelections ?? {})
+    .filter(([slotId, featId]) => {
+      if (!featId) return false;
+      if (!/^(wizard|hierophant|loremaster|red-wizard)-\d+$/.test(slotId)) return true;
+      restrictedSlots ??= getFeatSlots(character);
+      const slot = restrictedSlots.find((entry) => entry.id === slotId);
+      if (!slot) return false;
+      const feat = featCatalog.find((entry) => entry.id === featId);
+      return feat && (!slot.wizardOnly || isWizardBonusFeat(character, feat, slot.characterLevel)) &&
+        (!slot.metamagicOnly || feat.categories?.includes("metamagic")) &&
+        (!slot.redWizardOnly || feat.categories?.some((category) =>
+          category === "metamagic" || category === "item-creation") || feat.id === "spell-mastery");
+    });
+}
+
+const activeFeatEntriesBeingEvaluated = new WeakMap<
+  Character,
+  Array<[string, string]>
+>();
+
+function getActiveFeatEntries(character: Character) {
+  const entriesBeingEvaluated = activeFeatEntriesBeingEvaluated.get(character);
+  if (entriesBeingEvaluated) return entriesBeingEvaluated;
+  const slots = new Map(getFeatSlots(character).map((slot) => [slot.id, slot]));
+  let entries = getStoredActiveFeatEntries(character);
+  while (true) {
+    const featContext = {
+      ...character,
+      featSelections: Object.fromEntries(entries),
+    };
+    activeFeatEntriesBeingEvaluated.set(featContext, entries);
+    const usableEntries: Array<[string, string]> = entries.filter(
+      ([slotId, featId]) => {
+      const feat = featCatalog.find((entry) => entry.id === featId);
+      const slot = slots.get(slotId);
+      if (
+        !feat ||
+        !slot ||
+        slot.rangerStyleLevel !== undefined ||
+        (slot.monkBonusLevel !== undefined &&
+          feat.id !== "water-splitting-stone")
+      )
+        return true;
+      return featQualifies(
+        featContext,
+        feat,
+        { ...slot, characterLevel: undefined },
+        slotId,
+        getChosenFeats(featContext, slotId, entries),
+        true,
+      );
+      },
+    );
+    if (usableEntries.length === entries.length) return usableEntries;
+    entries = usableEntries;
+  }
+}
+
+export function getChosenFeats(
+  character: Character,
+  excludingSlot?: string,
+  entries?: Array<[string, string]>,
+) {
+  const chosenFeats = (entries ?? getActiveFeatEntries(character))
+    .filter(([slotId]) => slotId !== excludingSlot)
     .map(([, featId]) => featId);
   if (
     getBaseClassLevel(character, "monk") > 0 &&
@@ -3739,42 +4782,182 @@ export function getChosenFeats(character: Character, excludingSlot?: string) {
     !chosenFeats.includes("diehard")
   )
     chosenFeats.push("diehard");
+  if (
+    getPrestigeClassLevel(character, "thaumaturgist") >= 2 &&
+    !chosenFeats.includes("augment-summoning")
+  )
+    chosenFeats.push("augment-summoning");
   if (getWarDomainWeapon(character) && !chosenFeats.includes("weapon-focus"))
     chosenFeats.push("weapon-focus");
   return chosenFeats;
 }
 
+function isWizardBonusFeat(
+  character: Character,
+  feat: FeatDefinition,
+  characterLevel?: number,
+) {
+  if (
+    feat.id === "spell-mastery" ||
+    feat.categories?.some((category) =>
+      category === "metamagic" || category === "item-creation" || category === "reserve",
+    ) ||
+    feat.wizardBonus === true
+  ) return true;
+  return Boolean(
+    feat.wizardBonus &&
+    getCharacterAtCharacterLevel(character, characterLevel)
+      .coreWizardSpecializationSchool === feat.wizardBonus,
+  );
+}
+
+export function getWizardBonusFeatWarnings(character: Character) {
+  return getFeatSlots(character).flatMap((slot) => {
+    if (!slot.wizardOnly) return [];
+    const featId = character.featSelections?.[slot.id];
+    if (!featId) return [];
+    const feat = featCatalog.find((entry) => entry.id === featId);
+    return feat && isWizardBonusFeat(character, feat, slot.characterLevel)
+      ? []
+      : [`${slot.label}: ${feat?.name ?? featId} is not a permitted Wizard bonus feat. Reselect this saved choice; it is not counted as a chosen feat.`];
+  });
+}
+
 const repeatableWeaponFeats = new Set([
   "exotic-weapon-proficiency",
+  "greater-weapon-focus",
+  "greater-weapon-specialization",
   "improved-critical",
   "martial-weapon-proficiency",
+  "power-critical",
+  "rapid-reload",
   "weapon-focus",
   "weapon-specialization",
 ]);
 const repeatableFeats = new Set([
   ...repeatableWeaponFeats,
+  "ability-focus",
+  "arcane-disciple",
+  "arcane-defense",
+  "divine-metamagic",
+  "domain-focus",
+  "domain-spontaneity",
+  "empower-spell-like-ability",
+  "familiar-spell",
+  "great-smiting",
+  "improved-favored-enemy",
+  "improved-metamagic",
+  "improved-natural-armor",
+  "improved-natural-attack",
+  "improved-sneak-attack",
+  "improved-spell-capacity",
+  "improved-stunning-fist",
+  "air-devotion",
+  "animal-devotion",
+  "chaos-devotion",
+  "death-devotion",
+  "destruction-devotion",
+  "earth-devotion",
+  "evil-devotion",
+  "fire-devotion",
+  "good-devotion",
+  "healing-devotion",
+  "law-devotion",
+  "luck-devotion",
+  "magic-devotion",
+  "plant-devotion",
+  "protection-devotion",
+  "strength-devotion",
+  "sun-devotion",
+  "travel-devotion",
+  "trickery-devotion",
+  "war-devotion",
+  "water-devotion",
+  "maximize-spell-like-ability",
+  "mithral-fluidity",
+  "extra-invocation",
+  "extra-slot",
+  "extra-spell",
+  "extra-spell-secret",
+  "extra-music",
+  "heighten-spell-like-ability",
+  "innate-spell",
+  "open-minded",
+  "overwhelming-critical",
+  "quicken-spell-like-ability",
+  "spell-knowledge",
+  "terrifying-rage",
+  "extra-turning",
+  "spell-mastery",
   "toughness",
   "skill-focus",
   "spell-focus",
   "greater-spell-focus",
+  "metamagic-school-focus",
 ]);
-const weaponSelectionFeats = new Set(repeatableWeaponFeats);
-const strength13ExoticWeapons = new Set(["Bastard Sword", "Dwarven Waraxe"]);
-
-function meetsExoticWeaponStrengthPrerequisite(
-  character: Character,
-  weaponType: string,
-) {
-  return (
-    !strength13ExoticWeapons.has(weaponType) ||
-    getEffectiveAbilityScore(character, "str") >= 13
-  );
-}
-
+const weaponSelectionFeats = new Set([
+  ...repeatableWeaponFeats,
+  "ranged-spell-specialization",
+  "touch-spell-specialization",
+]);
+const featPrerequisiteOnlyWeapons: StoreItem[] = [
+  {
+    name: "Armor Spikes",
+    category: "Weapons",
+    price: 0,
+    weight: "—",
+    custom: true,
+    proficiency: "Martial",
+  },
+  {
+    name: "Spiked Shield",
+    category: "Weapons",
+    price: 0,
+    weight: "—",
+    custom: true,
+    proficiency: "Martial",
+  },
+];
+const spellSpecializationWeaponChoices: Record<string, string> = {
+  "ranged-spell-specialization": "Ray",
+  "touch-spell-specialization": "Touch spell",
+};
+const weaponFeatFighterLevelRequirements: Record<string, number> = {
+  "weapon-specialization": 4,
+  "greater-weapon-focus": 8,
+  "greater-weapon-specialization": 12,
+};
 function getWeaponFeatTypeName(name: string) {
   return /^(?:Spiked )?(?:Light|Heavy) Shield Bash$/.test(name)
     ? "Shield Bash"
     : getBaseEquipmentName(name);
+}
+
+function getWeaponFeatChoiceItems(character: Character) {
+  return [
+    ...getStoreItems(),
+    ...(character.customItems ?? []),
+    ...featPrerequisiteOnlyWeapons,
+  ].filter((item) => item.category === "Weapons");
+}
+
+function getWeaponDamageTypeForFeatChoice(
+  character: Character,
+  weaponType: string,
+) {
+  const knownDamageType = weaponDamageTypes[weaponType];
+  if (knownDamageType) return knownDamageType;
+  const item = [
+    ...(character.customItems ?? []),
+    ...getStoreItems(),
+  ].find(
+    (candidate) =>
+      candidate.category === "Weapons" &&
+      getWeaponFeatTypeName(candidate.name) === weaponType,
+  );
+  return [item?.damageType, item?.offHandDamageType]
+    .filter((damageType): damageType is string => Boolean(damageType))
+    .join(" or ");
 }
 
 function getFeatPrerequisiteContext(
@@ -3783,33 +4966,29 @@ function getFeatPrerequisiteContext(
   excludingSlot?: string,
 ) {
   const characterLevel = slot.characterLevel;
-  if (characterLevel === undefined) return character;
-
-  const featSlots = getChronologicalFeatSlots(character);
-  const slotById = new Map(
-    featSlots.map((candidateSlot, index) => [
-      candidateSlot.id,
-      { slot: candidateSlot, index },
-    ]),
+  const prerequisiteCharacter = getCharacterAtCharacterLevel(
+    character,
+    characterLevel,
   );
-  const currentSlotId = excludingSlot ?? slot.id;
-  const currentSlotIndex = featSlots.findIndex(
-    (candidateSlot) => candidateSlot.id === currentSlotId,
-  );
-  const featSelections = Object.fromEntries(
-    Object.entries(character.featSelections ?? {}).filter(([slotId, featId]) => {
-      if (!featId) return false;
-      const selectedSlot = slotById.get(slotId);
-      const selectedLevel = selectedSlot?.slot.characterLevel;
-      return (
-        selectedLevel === undefined ||
-        selectedLevel < characterLevel ||
-        (selectedLevel === characterLevel &&
-          (selectedSlot?.index ?? -1) < currentSlotIndex)
-      );
-    }),
-  );
-  return { ...character, featSelections };
+  const entries = getActiveFeatEntries(character);
+  const slotLevels = new Map(getFeatSlots(character).map((candidateSlot) => [
+    candidateSlot.id,
+    candidateSlot.characterLevel,
+  ]));
+  const prerequisiteEntries = entries.filter(([slotId]) => {
+    const selectedLevel = slotLevels.get(slotId);
+    return characterLevel === undefined ||
+      selectedLevel === undefined ||
+      selectedLevel < characterLevel ||
+      (selectedLevel === characterLevel &&
+        slotId !== (excludingSlot ?? slot.id));
+  });
+  const context = {
+    ...prerequisiteCharacter,
+    featSelections: Object.fromEntries(prerequisiteEntries),
+  };
+  activeFeatEntriesBeingEvaluated.set(context, prerequisiteEntries);
+  return context;
 }
 
 export function getAvailableFeatWeaponChoices(
@@ -3818,18 +4997,46 @@ export function getAvailableFeatWeaponChoices(
   excludingSlot?: string,
 ) {
   if (!weaponSelectionFeats.has(featId)) return [];
-  if (
-    featId === "weapon-specialization" &&
-    character.classLevels
-      .filter((entry) =>
-        entry.classId === "fighter" &&
-        !("prestigeClassId" in entry && entry.prestigeClassId),
-      )
-      .reduce((total, entry) => total + entry.level, 0) < 4
-  )
+  const requiredFighterLevel =
+    weaponFeatFighterLevelRequirements[featId] ?? 0;
+  const fighterLevel = character.classLevels
+    .filter((entry) =>
+      entry.classId === "fighter" &&
+      !("prestigeClassId" in entry && entry.prestigeClassId),
+    )
+    .reduce((total, entry) => total + entry.level, 0);
+  if (fighterLevel < requiredFighterLevel)
     return [];
-  const weaponItems = [...getStoreItems(), ...(character.customItems ?? [])]
-    .filter((item) => item.category === "Weapons");
+  const prerequisiteSlot = excludingSlot
+    ? getFeatSlots(character).find((slot) => slot.id === excludingSlot)
+    : undefined;
+  const prerequisiteCharacter = prerequisiteSlot
+    ? getFeatPrerequisiteContext(
+        character,
+        prerequisiteSlot,
+        excludingSlot,
+      )
+    : character;
+  const prerequisiteFeatSelections =
+    prerequisiteCharacter.featSelections ?? {};
+  const prerequisiteWeaponSelections: Record<string, string> = {};
+  Object.keys(prerequisiteFeatSelections).forEach((slotId) => {
+    const weapon = character.featWeaponSelections?.[slotId];
+    if (weapon) prerequisiteWeaponSelections[slotId] = weapon;
+  });
+  const featChoiceContext = {
+    ...prerequisiteCharacter,
+    featWeaponSelections: prerequisiteWeaponSelections,
+  };
+  activeFeatEntriesBeingEvaluated.set(
+    featChoiceContext,
+    Object.entries(prerequisiteFeatSelections),
+  );
+  const weaponItems = getWeaponFeatChoiceItems(character).filter((item) =>
+    featId !== "rapid-reload" ||
+    ["Hand Crossbow", "Light Crossbow", "Heavy Crossbow"]
+      .includes(getWeaponFeatTypeName(item.name)),
+  );
   const weaponsByType = new Map<string, StoreItem>();
   weaponItems.forEach((item) => {
     const weaponType = getWeaponFeatTypeName(item.name);
@@ -3846,40 +5053,104 @@ export function getAvailableFeatWeaponChoices(
   });
 
   const selectedWeapons = new Set(
-    Object.entries(character.featSelections ?? {})
+    Object.entries(prerequisiteFeatSelections)
       .filter(([slotId, selectedFeatId]) => slotId !== excludingSlot && selectedFeatId === featId)
-      .map(([slotId]) => character.featWeaponSelections?.[slotId])
+      .map(([slotId]) => prerequisiteWeaponSelections[slotId])
       .filter((weapon): weapon is string => Boolean(weapon)),
   );
   if (featId === "weapon-focus") {
-    const warWeapon = getWarDomainWeapon(character);
+    const warWeapon = getWarDomainWeapon(prerequisiteCharacter);
     if (warWeapon) selectedWeapons.add(warWeapon);
   }
   const focusedWeapons = new Set(
-    Object.entries(character.featSelections ?? {})
+    Object.entries(prerequisiteFeatSelections)
       .filter(([slotId, selectedFeatId]) => slotId !== excludingSlot && selectedFeatId === "weapon-focus")
-      .map(([slotId]) => character.featWeaponSelections?.[slotId])
+      .map(([slotId]) => prerequisiteWeaponSelections[slotId])
       .filter((weapon): weapon is string => Boolean(weapon)),
   );
-  const warWeapon = getWarDomainWeapon(character);
+  const specializedWeapons = new Set(
+    Object.entries(prerequisiteFeatSelections)
+      .filter(([slotId, selectedFeatId]) => slotId !== excludingSlot && selectedFeatId === "weapon-specialization")
+      .map(([slotId]) => prerequisiteWeaponSelections[slotId])
+      .filter((weapon): weapon is string => Boolean(weapon)),
+  );
+  const greaterFocusedWeapons = new Set(
+    Object.entries(prerequisiteFeatSelections)
+      .filter(([slotId, selectedFeatId]) => slotId !== excludingSlot && selectedFeatId === "greater-weapon-focus")
+      .map(([slotId]) => prerequisiteWeaponSelections[slotId])
+      .filter((weapon): weapon is string => Boolean(weapon)),
+  );
+  const warWeapon = getWarDomainWeapon(prerequisiteCharacter);
   if (warWeapon) focusedWeapons.add(warWeapon);
 
-  return [...weaponsByType.entries()]
+  const weaponChoices = [...weaponsByType.entries()]
     .filter(([weaponType, item]) =>
+      !spellSpecializationWeaponChoices[featId] &&
+      (featId !== "rapid-reload" ||
+        ["Hand Crossbow", "Light Crossbow", "Heavy Crossbow"].includes(weaponType)) &&
       (featId !== "martial-weapon-proficiency" || weaponType !== "Shield Bash") &&
       (featId === "exotic-weapon-proficiency"
         ? getWeaponProficiencyCategory(character, item) === "Exotic" &&
-          !isWeaponProficient(character, item, excludingSlot) &&
-          meetsExoticWeaponStrengthPrerequisite(character, weaponType)
+          !isWeaponProficient(featChoiceContext, item, excludingSlot) &&
+          meetsExoticWeaponStrengthPrerequisite(
+            character,
+            weaponType,
+            prerequisiteSlot?.characterLevel,
+          )
         : featId === "martial-weapon-proficiency"
-          ? getWeaponProficiencyCategory(character, item) === "Martial" &&
-            !isWeaponProficient(character, item, excludingSlot)
-          : isWeaponProficient(character, item)) &&
-      !selectedWeapons.has(weaponType) &&
-      (featId !== "weapon-specialization" || focusedWeapons.has(weaponType)),
+          ? (getWeaponProficiencyCategory(character, item) === "Martial" ||
+              twoHandedMartialWeaponNames.has(weaponType)) &&
+            !isWeaponProficient(
+              featChoiceContext,
+              item,
+              excludingSlot,
+              twoHandedMartialWeaponNames.has(weaponType),
+            )
+            : isWeaponProficient(
+              featChoiceContext,
+              item,
+              excludingSlot,
+              twoHandedMartialWeaponNames.has(weaponType),
+            )) &&
+      (!selectedWeapons.has(weaponType) || featId === "power-critical") &&
+      (featId !== "power-critical" || focusedWeapons.has(weaponType)) &&
+      (featId !== "weapon-specialization" || focusedWeapons.has(weaponType)) &&
+      (featId !== "greater-weapon-focus" || focusedWeapons.has(weaponType)) &&
+      (featId !== "greater-weapon-specialization" ||
+        (focusedWeapons.has(weaponType) &&
+          specializedWeapons.has(weaponType) &&
+          greaterFocusedWeapons.has(weaponType))),
     )
-    .map(([weaponType]) => weaponType)
-    .sort((left, right) => left.localeCompare(right));
+    .map(([weaponType]) => weaponType);
+  const specialChoices: string[] = [];
+  const grappleChoiceIsEligible =
+    featId === "weapon-focus" ||
+    (["weapon-specialization", "greater-weapon-focus"].includes(featId) &&
+      focusedWeapons.has("Grapple")) ||
+    (featId === "greater-weapon-specialization" &&
+      focusedWeapons.has("Grapple") &&
+      specializedWeapons.has("Grapple") &&
+      greaterFocusedWeapons.has("Grapple"));
+  if (grappleChoiceIsEligible && !selectedWeapons.has("Grapple"))
+    specialChoices.push("Grapple");
+  if (
+    featId === "weapon-focus" &&
+    character.classLevels.some((entry) => spellProgressions[entry.classId]) &&
+    !selectedWeapons.has("Ray")
+  )
+    specialChoices.push("Ray");
+  if (
+    featId === "weapon-focus" &&
+    character.classLevels.some((entry) => spellProgressions[entry.classId]) &&
+    !selectedWeapons.has("Touch spell")
+  )
+    specialChoices.push("Touch spell");
+  const specializedSpellChoice = spellSpecializationWeaponChoices[featId];
+  if (specializedSpellChoice && focusedWeapons.has(specializedSpellChoice))
+    specialChoices.push(specializedSpellChoice);
+  return [...new Set([...weaponChoices, ...specialChoices])].sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 export function featQualifies(
@@ -3887,6 +5158,8 @@ export function featQualifies(
   feat: FeatDefinition,
   slot: FeatEligibilitySlot,
   excludingSlot?: string,
+  prerequisiteFeatIds?: readonly string[],
+  currentlyUsing = false,
 ) {
   if (
     feat.prerequisites?.flySpeed &&
@@ -3895,17 +5168,40 @@ export function featQualifies(
       character.flySpeed <= 0)
   )
     return false;
-  if (feat.firstLevelOnly && slot.characterLevel !== 1) return false;
+  if (feat.firstLevelOnly && slot.characterLevel !== 1 && !currentlyUsing)
+    return false;
   if (
     feat.prerequisites?.minimumCharacterLevel &&
     (slot.characterLevel ?? getTotalHitDice(character)) <
       feat.prerequisites.minimumCharacterLevel
   )
     return false;
-  if (slot.monkBonusLevel !== undefined)
-    return monkBonusFeats[slot.monkBonusLevel].includes(feat.id);
+  if (feat.prerequisites?.domains?.length) {
+    const activeDomains = getActiveClericDomains(character);
+    const activeMysticDomain = getActiveMysticDomain(character);
+    if (activeMysticDomain) activeDomains.push(activeMysticDomain);
+    if (
+      feat.prerequisites.domains.some((domain) => !activeDomains.includes(domain))
+    )
+      return false;
+  }
+  if (slot.monkBonusLevel !== undefined) {
+    if (!monkBonusFeats[slot.monkBonusLevel].includes(feat.id))
+      return false;
+    if (feat.id !== "water-splitting-stone") return true;
+    return (
+      (prerequisiteFeatIds ?? getChosenFeats(character, excludingSlot))
+        .includes("stunning-fist") &&
+      getBaseAttackBonusAtCharacterLevel(character, slot.characterLevel) >= 9
+    );
+  }
   if (slot.rangerStyleLevel !== undefined) {
     if (!rangerCombatStyleFeats[slot.rangerStyleLevel].includes(feat.id))
+      return false;
+    if (
+      (feat.id === "two-weapon-pounce" || feat.id === "two-weapon-rend") &&
+      !getRangerCombatStyleStatus(character).active
+    )
       return false;
     if (slot.rangerStyleLevel > 2) {
       const previousLevel = slot.rangerStyleLevel === 6 ? 2 : 6;
@@ -3919,14 +5215,214 @@ export function featQualifies(
     }
     return true;
   }
-  if (slot.fighterOnly && !feat.fighterBonus) return false;
+  if (
+    !currentlyUsing &&
+    ((slot.fighterOnly && !feat.fighterBonus) ||
+      (slot.metamagicOnly && !feat.categories?.includes("metamagic")) ||
+      (slot.redWizardOnly &&
+        !feat.categories?.some((category) =>
+          category === "metamagic" || category === "item-creation",
+        ) &&
+        feat.id !== "spell-mastery") ||
+      (slot.wizardOnly &&
+        !isWizardBonusFeat(character, feat, slot.characterLevel)))
+  )
+    return false;
   const prerequisites = feat.prerequisites;
+  if (prerequisites?.powerPointReserve && !character.hasPowerPointReserve)
+    return false;
+  if (prerequisites?.kiPower && !character.hasKiPower)
+    return false;
+  if (prerequisites?.kiStrikeMagic && !character.hasKiStrikeMagic)
+    return false;
+  if (
+    prerequisites?.allMartialWeaponProficiencies &&
+    !character.hasAllMartialWeaponProficiencies
+  )
+    return false;
+  if (prerequisites?.stealSpell && !character.hasStealSpell)
+    return false;
+  if (prerequisites?.swashbucklerGrace && !character.hasSwashbucklerGrace)
+    return false;
+  if (
+    prerequisites?.conjurationHealingSpell &&
+    !character.hasConjurationHealingSpell
+  )
+    return false;
+  if (
+    prerequisites?.spontaneousCureOrInflict &&
+    !getClericUndeadTurningMode(character) &&
+    !character.hasSpontaneousCureOrInflict
+  )
+    return false;
+  if (
+    prerequisites?.cureWoundsSpell &&
+    !character.hasCureWoundsSpell
+  )
+    return false;
+  if (
+    prerequisites?.summonNaturesAllySpell &&
+    !character.hasSummonNaturesAllySpell
+  )
+    return false;
+  if (
+    prerequisites?.inflictWoundsSpell &&
+    !character.hasInflictWoundsSpell
+  )
+    return false;
+  if (
+    prerequisites?.turnsElementalSubtype &&
+    !character.canTurnElementalSubtype
+  )
+    return false;
+  if (
+    prerequisites?.rebukesElementalSubtype &&
+    !character.canRebukeElementalSubtype
+  )
+    return false;
+  if (prerequisites?.fastWildShape && !character.hasFastWildShape)
+    return false;
+  if (prerequisites?.warmageLevelFour && !character.hasWarmageLevelFour)
+    return false;
+  if (
+    prerequisites?.graduatedFromApprenticeship &&
+    !character.hasGraduatedFromApprenticeship
+  )
+    return false;
+  if (
+    prerequisites?.mentorSkillPrerequisites &&
+    !character.hasMentorSkillPrerequisites
+  )
+    return false;
+  if (prerequisites?.guildMembership && !character.isGuildMember)
+    return false;
+  if (
+    prerequisites?.guildmasterPrerequisites &&
+    !character.hasGuildmasterPrerequisites
+  )
+    return false;
+  if (prerequisites?.bondingRitual && !character.hasCompletedBondingRitual)
+    return false;
+  if (
+    prerequisites?.rechargeableBreathWeapon &&
+    !character.hasRechargeableBreathWeapon
+  )
+    return false;
+  if (
+    prerequisites?.detectMagicAccess &&
+    !character.hasDetectMagicAccess
+  )
+    return false;
+  if (prerequisites?.thoonAffiliation && !character.isThoonAffiliate)
+    return false;
+  if (prerequisites?.alignmentMatchesDeity) {
+    const deity = deityDefinitions.find(
+      (candidate) => candidate.id === character.deity,
+    );
+    if (!deity || character.alignment !== deity.alignment) return false;
+  }
+  if (prerequisites?.alignmentWithinOneStepOfDeity) {
+    const deity = deityDefinitions.find(
+      (candidate) => candidate.id === character.deity,
+    );
+    if (
+      !deity ||
+      !validAlignments.has(character.alignment) ||
+      alignmentDistance(character.alignment, deity.alignment) > 1
+    )
+      return false;
+  }
+  if (
+    prerequisites?.manifesterLevel !== undefined &&
+    (character.manifesterLevel ?? 0) < prerequisites.manifesterLevel
+  )
+    return false;
   let prerequisiteCharacter: Character | undefined;
   const getPrerequisiteCharacter = () =>
     prerequisiteCharacter ??= getCharacterAtCharacterLevel(
       character,
       slot.characterLevel,
     );
+  if (
+    prerequisites?.minimumClericDomains !== undefined &&
+    new Set(getActiveClericDomains(getPrerequisiteCharacter())).size <
+      prerequisites.minimumClericDomains
+  )
+    return false;
+  if (prerequisites?.minimumDomains !== undefined) {
+    const activeDomains = new Set(
+      getActiveClericDomains(getPrerequisiteCharacter()),
+    );
+    const activeMysticDomain = getActiveMysticDomain(
+      getPrerequisiteCharacter(),
+    );
+    if (activeMysticDomain) activeDomains.add(activeMysticDomain);
+    if (activeDomains.size < prerequisites.minimumDomains) return false;
+  }
+  if (prerequisites?.minimumSize || prerequisites?.maximumSize) {
+    const size = getRaceDefinitionForCharacter(getPrerequisiteCharacter())?.size ??
+      "Medium";
+    const sizeIndex = creatureSizeCategories.indexOf(size);
+    if (
+      prerequisites.minimumSize &&
+      sizeIndex < creatureSizeCategories.indexOf(prerequisites.minimumSize)
+    )
+      return false;
+    if (
+      prerequisites.maximumSize &&
+      sizeIndex > creatureSizeCategories.indexOf(prerequisites.maximumSize)
+    )
+      return false;
+  }
+  if (prerequisites?.alignment) {
+    const alignment = getPrerequisiteCharacter().alignment;
+    if (!validAlignments.has(alignment)) return false;
+    if (
+      prerequisites.alignment.nonLawful &&
+      alignment.startsWith("Lawful ")
+    )
+      return false;
+    if (
+      prerequisites.alignment.nonGood &&
+      alignment.endsWith(" Good")
+    )
+      return false;
+    if (
+      prerequisites.alignment.nonEvil &&
+      alignment.endsWith(" Evil")
+    )
+      return false;
+    if (
+      prerequisites.alignment.component &&
+      !alignment.split(" ").includes(prerequisites.alignment.component)
+    )
+      return false;
+  }
+  if (
+    prerequisites?.hugeOrLarger &&
+    sizeModifier(getPrerequisiteCharacter()) > -2
+  )
+    return false;
+  if (
+    prerequisites?.minimumFavoredEnemies &&
+    (getPrerequisiteCharacter().rangerFavoredEnemies ?? []).filter(
+      (choice) =>
+        choice.classLevel <= getBaseClassLevel(getPrerequisiteCharacter(), "ranger"),
+    ).length < prerequisites.minimumFavoredEnemies
+  )
+    return false;
+  if (
+    prerequisites?.minimumSkirmishDamageDice !== undefined &&
+    (getPrerequisiteCharacter().skirmishDamageDice ?? 0) <
+      prerequisites.minimumSkirmishDamageDice
+  )
+    return false;
+  if (
+    prerequisites?.minimumSkirmishACBonus !== undefined &&
+    (getPrerequisiteCharacter().skirmishACBonus ?? 0) <
+      prerequisites.minimumSkirmishACBonus
+  )
+    return false;
   const getBaseClassLevelsAtSlot = () =>
     getPrerequisiteCharacter().classLevels.filter(
       (entry) => !("prestigeClassId" in entry && entry.prestigeClassId),
@@ -3941,15 +5437,72 @@ export function featQualifies(
     ? Math.max(
         0,
         ...getBaseClassLevelsAtSlot().map((entry) =>
-          getCasterLevel(entry.classId, entry.level),
+          getCasterLevel(
+            entry.classId,
+            entry.level,
+            getPrerequisiteCharacter(),
+          ),
         ),
       )
     : 0;
   if (prerequisites?.casterLevel && casterLevel < prerequisites.casterLevel)
     return false;
+  const requiredRacialSlaCasterLevel =
+    prerequisites?.racialSpellLikeAbilityCasterLevel;
+  if (
+    requiredRacialSlaCasterLevel &&
+    !getRacialSpellLikeAbilities(getPrerequisiteCharacter()).some(
+      (ability) => ability.casterLevel >= requiredRacialSlaCasterLevel,
+    )
+  )
+    return false;
+  const requiresArcaneSpellcasting =
+    prerequisites?.arcaneSpellcasting ||
+    prerequisites?.arcaneSpellcastingOrRacialSpellLikeAbility;
+  const hasArcaneSpellcasting =
+    requiresArcaneSpellcasting &&
+    getBaseClassLevelsAtSlot().some(
+      (entry) =>
+        arcaneSpellcastingClasses.has(entry.classId) &&
+        getDailySpellSlots(getPrerequisiteCharacter(), entry.classId, entry.level, 0) > 0,
+    );
+  if (prerequisites?.arcaneSpellcasting && !hasArcaneSpellcasting)
+    return false;
+  if (
+    prerequisites?.arcaneSpellcastingOrRacialSpellLikeAbility &&
+    !hasArcaneSpellcasting &&
+    getRacialSpellLikeAbilities(getPrerequisiteCharacter()).length === 0
+  )
+    return false;
+  const arcaneCasterLevel = prerequisites?.arcaneCasterLevel
+    ? Math.max(
+        0,
+        ...getBaseClassLevelsAtSlot()
+          .filter((entry) => arcaneSpellcastingClasses.has(entry.classId))
+          .map((entry) =>
+            getCasterLevel(
+              entry.classId,
+              entry.level,
+              getPrerequisiteCharacter(),
+            ),
+          ),
+      )
+    : 0;
+  if (
+    prerequisites?.arcaneCasterLevel &&
+    arcaneCasterLevel < prerequisites.arcaneCasterLevel
+  )
+    return false;
+  if (
+    prerequisites?.divineCasterLevel &&
+    (getPrerequisiteCharacter().divineCasterLevel ?? 0) <
+      prerequisites.divineCasterLevel
+  )
+    return false;
   const requiredArcaneSpellLevel = prerequisites?.arcaneSpellLevel;
   if (requiredArcaneSpellLevel && !getBaseClassLevelsAtSlot().some((entry) =>
     arcaneSpellcastingClasses.has(entry.classId) &&
+    (!prerequisites?.spontaneousArcane || entry.classId !== "wizard") &&
     getDailySpellSlots(
       getPrerequisiteCharacter(),
       entry.classId,
@@ -3958,15 +5511,131 @@ export function featQualifies(
     ) > 0,
   ))
     return false;
+  const requiredDivineSpellLevel = prerequisites?.divineSpellLevel;
+  if (
+    requiredDivineSpellLevel &&
+    !getBaseClassLevelsAtSlot().some(
+      (entry) =>
+        divineSpellcastingClasses.has(entry.classId) &&
+        getDailySpellSlots(
+          getPrerequisiteCharacter(),
+          entry.classId,
+          entry.level,
+          requiredDivineSpellLevel,
+        ) > 0,
+    )
+  )
+    return false;
+  const requiredSpellLevel = prerequisites?.spellLevel;
+  if (
+    requiredSpellLevel &&
+    !getBaseClassLevelsAtSlot().some(
+      (entry) =>
+        getDailySpellSlots(
+          getPrerequisiteCharacter(),
+          entry.classId,
+          entry.level,
+          requiredSpellLevel,
+        ) > 0,
+    )
+  )
+    return false;
+  const requiredPaladinSpellLevel = prerequisites?.paladinSpellLevel;
+  if (
+    requiredPaladinSpellLevel &&
+    !getBaseClassLevelsAtSlot().some(
+      (entry) =>
+        entry.classId === "paladin" &&
+        getDailySpellSlots(
+          getPrerequisiteCharacter(),
+          entry.classId,
+          entry.level,
+          requiredPaladinSpellLevel,
+        ) > 0,
+    )
+  )
+    return false;
+  const minimumArcaneSpellcastingAbilityScore =
+    prerequisites?.minimumArcaneSpellcastingAbilityScore;
+  if (
+    minimumArcaneSpellcastingAbilityScore &&
+    !getBaseClassLevelsAtSlot().some((entry) =>
+      arcaneSpellcastingClasses.has(entry.classId) &&
+      getEffectiveAbilityScore(
+        getPrerequisiteCharacter(),
+        getSpellcastingAbility(entry.classId),
+      ) >= minimumArcaneSpellcastingAbilityScore,
+    )
+  )
+    return false;
+  const canCastMaximumNormalSpellLevel = (
+    entry: Character["classLevels"][number],
+    arcaneOnly = false,
+  ) => {
+    if (arcaneOnly && !arcaneSpellcastingClasses.has(entry.classId))
+      return false;
+    const progression = spellProgressions[entry.classId];
+    const maximumSpellLevel = (progression?.[19]?.length ?? 0) - 1;
+    const effectiveClassLevel = Math.min(
+      getEffectiveSpellcastingClassLevel(
+        getPrerequisiteCharacter(),
+        entry.classId,
+      ),
+      20,
+    );
+    return (
+      maximumSpellLevel >= 0 &&
+      baseSpellSlots(
+        entry.classId,
+        effectiveClassLevel,
+        maximumSpellLevel,
+      ) > 0 &&
+      getEffectiveAbilityScore(
+        getPrerequisiteCharacter(),
+        getSpellcastingAbility(entry.classId),
+      ) >= 10 + maximumSpellLevel
+    );
+  };
+  if (
+    prerequisites?.maximumNormalSpellLevel &&
+    !getBaseClassLevelsAtSlot().some((entry) =>
+      canCastMaximumNormalSpellLevel(entry),
+    )
+  )
+    return false;
+  if (
+    prerequisites?.maximumNormalArcaneSpellLevel &&
+    !getBaseClassLevelsAtSlot().some((entry) =>
+      canCastMaximumNormalSpellLevel(entry, true),
+    )
+  )
+    return false;
+  const getClassLevelAtSlot = (classId: string) =>
+    getBaseClassLevel(getPrerequisiteCharacter(), classId as ClassId);
   if (
     prerequisites?.classLevels &&
-    Object.entries(prerequisites.classLevels).some(([classId, requiredLevel]) =>
-      getPrerequisiteCharacter().classLevels
-        .filter((entry) =>
-          entry.classId === classId &&
-          !("prestigeClassId" in entry && entry.prestigeClassId),
-        )
-        .reduce((total, entry) => total + entry.level, 0) < requiredLevel,
+    Object.entries(prerequisites.classLevels).some(
+      ([classId, requiredLevel]) =>
+        getClassLevelAtSlot(classId) < requiredLevel,
+    )
+  )
+    return false;
+  if (
+    prerequisites?.prestigeClassLevels &&
+    Object.entries(prerequisites.prestigeClassLevels).some(
+      ([prestigeClassId, requiredLevel]) =>
+        getPrestigeClassLevel(
+          getPrerequisiteCharacter(),
+          prestigeClassId as PrestigeClassId,
+        ) < requiredLevel,
+    )
+  )
+    return false;
+  if (
+    prerequisites?.anyClassLevels &&
+    !Object.entries(prerequisites.anyClassLevels).some(
+      ([classId, requiredLevel]) =>
+        getClassLevelAtSlot(classId) >= requiredLevel,
     )
   )
     return false;
@@ -4014,18 +5683,102 @@ export function featQualifies(
   )
     return false;
   if (
-    prerequisites?.classFeatures?.length
-  ) {
-    const availableClassFeatures = new Set(
-      getClassFeatureDisplay(getPrerequisiteCharacter()).map(({ ability }) =>
-        ability.toLowerCase(),
-      ),
-    );
+    prerequisites?.anySkills &&
+    !Object.entries(prerequisites.anySkills).some(
+      ([skill, ranks]) =>
+        getSkillRanksAtCharacterLevel(
+          character,
+          skill,
+          slot.characterLevel,
+        ) >= ranks,
+    )
+  )
+    return false;
+  if (prerequisites?.anySkillRanks !== undefined) {
+    const skillPrefix = prerequisites.anySkillPrefix?.toLowerCase();
+    const eligibleSkills = Object.keys(getPrerequisiteCharacter().skills)
+      .filter(
+        (skill) =>
+          !skillPrefix || skill.toLowerCase().startsWith(skillPrefix),
+      );
     if (
-      prerequisites.classFeatures.some(
+      Math.max(
+        0,
+        ...eligibleSkills.map((skill) =>
+          getSkillRanksAtCharacterLevel(
+            character,
+            skill,
+            slot.characterLevel,
+          ),
+        ),
+      ) < prerequisites.anySkillRanks
+    )
+      return false;
+  }
+  if (
+    prerequisites?.classFeatures?.length ||
+    prerequisites?.anyClassFeatures?.length ||
+    prerequisites?.anyClassFeatureGroups?.length ||
+    prerequisites?.smiteAbility
+  ) {
+    const prerequisiteCharacter = getPrerequisiteCharacter();
+    const availableClassFeatures =
+      getClassFeaturePrerequisiteNames(prerequisiteCharacter);
+    if (prerequisites.classFeatures?.some(
         (requiredFeature) =>
           !availableClassFeatures.has(requiredFeature.toLowerCase()),
+      ))
+      return false;
+    const hasAnyRequiredClassFeature =
+      prerequisites.anyClassFeatures?.some((requiredFeature) =>
+        availableClassFeatures.has(requiredFeature.toLowerCase()),
+      ) ?? false;
+    const sneakAttackPrerequisiteDice = (prerequisites.anyClassFeatures ?? [])
+      .map((requiredFeature) => {
+        const match = requiredFeature.match(/^Sneak Attack \+(\d+)d6$/i);
+        return match ? Number(match[1]) : undefined;
+      })
+      .filter((dice): dice is number => dice !== undefined);
+    const minimumSneakAttackDice = Math.min(
+      ...sneakAttackPrerequisiteDice,
+    );
+    const currentSneakAttackDice = Math.max(
+      0,
+      ...[...availableClassFeatures].map((feature) => {
+        const match = feature.match(/^Sneak Attack \+(\d+)d6$/i);
+        return match ? Number(match[1]) : 0;
+      }),
+    );
+    const qualifiesForAmbushThroughSwiftAmbusher =
+      feat.ambush &&
+      minimumSneakAttackDice > 0 &&
+      (prerequisiteFeatIds ??
+        getChosenFeats(getPrerequisiteCharacter(), excludingSlot))
+        .includes("swift-ambusher") &&
+      currentSneakAttackDice +
+        (getPrerequisiteCharacter().skirmishDamageDice ?? 0) >=
+        minimumSneakAttackDice;
+    if (
+      prerequisites.anyClassFeatures?.length &&
+      !hasAnyRequiredClassFeature &&
+      !qualifiesForAmbushThroughSwiftAmbusher
+    )
+      return false;
+    if (
+      prerequisites.anyClassFeatureGroups?.some(
+        (group) =>
+          !group.some((requiredFeature) =>
+            availableClassFeatures.has(requiredFeature.toLowerCase()),
+          ),
       )
+    )
+      return false;
+    if (
+      prerequisites.smiteAbility &&
+      ![...availableClassFeatures].some(
+        (feature) => feature === "smite" || feature.startsWith("smite "),
+      ) &&
+      !getActiveClericDomains(prerequisiteCharacter).includes("destruction")
     )
       return false;
   }
@@ -4034,10 +5787,376 @@ export function featQualifies(
     slot,
     excludingSlot,
   );
+  const armorShieldProficiencies = getArmorShieldProficiencies(
+    featPrerequisiteContext,
+    excludingSlot,
+    prerequisiteFeatIds,
+  );
+  if (
+    prerequisites?.anyArmorProficiency &&
+    !["light", "medium", "heavy"].some((armor) =>
+      armorShieldProficiencies.has(`armor-proficiency-${armor}`),
+    )
+  )
+    return false;
+  if (
+    prerequisites?.shieldProficiency &&
+    !armorShieldProficiencies.has("shield-proficiency")
+  )
+    return false;
+  if (
+    prerequisites?.anyWeaponProficiency &&
+    !getStoreItems().some(
+      (item) =>
+        item.category === "Weapons" &&
+        isWeaponProficient(
+          featPrerequisiteContext,
+          item,
+          excludingSlot,
+        ),
+    )
+  )
+    return false;
   const chosenFeats = [
-    ...getArmorShieldProficiencies(featPrerequisiteContext, excludingSlot),
-    ...getChosenFeats(featPrerequisiteContext, excludingSlot),
+    ...getArmorShieldProficiencies(
+      featPrerequisiteContext,
+      excludingSlot,
+      prerequisiteFeatIds,
+    ),
+    ...(prerequisiteFeatIds ??
+      getChosenFeats(featPrerequisiteContext, excludingSlot)),
   ];
+  if (
+    prerequisites?.featChoices?.some(
+      ({ anyOf, count }) =>
+        new Set(chosenFeats.filter((featId) => anyOf.includes(featId))).size <
+        count,
+    )
+  )
+    return false;
+  const selectedSpellFocusSchools = new Set<MagicSchool>();
+  for (const [slotId, selectedFeatId] of Object.entries(
+    featPrerequisiteContext.featSelections ?? {},
+  )) {
+    const school =
+      featPrerequisiteContext.featSpellSchoolSelections?.[slotId];
+    if (selectedFeatId === "spell-focus" && school)
+      selectedSpellFocusSchools.add(school);
+  }
+  if (
+    prerequisites?.prerequisiteAlternatives?.length &&
+    !prerequisites.prerequisiteAlternatives.some((alternative) => {
+      const hasAlternativeRequirement =
+        Boolean(alternative.feats?.length) ||
+        Boolean(alternative.classFeatures?.length) ||
+        Boolean(alternative.anyClassFeatures?.length) ||
+        Boolean(alternative.abilities && Object.keys(alternative.abilities).length) ||
+        Boolean(alternative.races?.length) ||
+        Boolean(alternative.skills && Object.keys(alternative.skills).length) ||
+        Boolean(alternative.anySkills && Object.keys(alternative.anySkills).length) ||
+        alternative.minimumSkirmishDamageDice !== undefined ||
+        Boolean(alternative.featSkillChoices?.length);
+      if (!hasAlternativeRequirement) return false;
+      if (
+        alternative.feats?.some((requiredFeat) =>
+          !chosenFeats.includes(requiredFeat),
+        )
+      )
+        return false;
+      if (
+        alternative.classFeatures?.some((requiredFeature) =>
+          !getClassFeaturePrerequisiteNames(getPrerequisiteCharacter()).has(
+            requiredFeature.toLowerCase(),
+          ),
+        )
+      )
+        return false;
+      if (
+        alternative.anyClassFeatures?.length &&
+        !alternative.anyClassFeatures.some((requiredFeature) =>
+          getClassFeaturePrerequisiteNames(getPrerequisiteCharacter()).has(
+            requiredFeature.toLowerCase(),
+          ),
+        )
+      )
+        return false;
+      if (
+        alternative.abilities &&
+        Object.entries(alternative.abilities).some(
+          ([ability, score]) =>
+            getEffectiveAbilityScore(character, ability as AbilityName) < score,
+        )
+      )
+        return false;
+      if (
+        alternative.races?.length &&
+        !alternative.races.some((race) =>
+          normalizeRace(race) === normalizeRace(character.race),
+        )
+      )
+        return false;
+      if (
+        alternative.skills &&
+        Object.entries(alternative.skills).some(
+          ([skill, ranks]) =>
+            getSkillRanksAtCharacterLevel(
+              character,
+              skill,
+              slot.characterLevel,
+            ) < ranks,
+        )
+      )
+        return false;
+      if (
+        alternative.anySkills &&
+        !Object.entries(alternative.anySkills).some(
+          ([skill, ranks]) =>
+            getSkillRanksAtCharacterLevel(
+              character,
+              skill,
+              slot.characterLevel,
+            ) >= ranks,
+        )
+      )
+        return false;
+      if (
+        alternative.minimumSkirmishDamageDice !== undefined &&
+        (getPrerequisiteCharacter().skirmishDamageDice ?? 0) <
+          alternative.minimumSkirmishDamageDice
+      )
+        return false;
+      if (
+        alternative.featSkillChoices?.length &&
+        !Object.entries(featPrerequisiteContext.featSelections ?? {}).some(
+          ([slotId, selectedFeatId]) =>
+            selectedFeatId === "skill-focus" &&
+            alternative.featSkillChoices?.includes(
+              featPrerequisiteContext.featSkillSelections?.[slotId] ?? "",
+            ),
+        )
+      )
+        return false;
+      return true;
+    })
+  )
+    return false;
+  const spellSpecializationWeaponChoice =
+    spellSpecializationWeaponChoices[feat.id];
+  if (
+    spellSpecializationWeaponChoice &&
+    !getAvailableFeatWeaponChoices(
+      character,
+      feat.id,
+      excludingSlot ?? slot.id,
+    ).includes(spellSpecializationWeaponChoice)
+  )
+    return false;
+  if (
+    prerequisites?.spellFocusSchools?.length &&
+    !prerequisites.spellFocusSchools.some((school) =>
+      selectedSpellFocusSchools.has(school),
+    )
+  )
+    return false;
+  const wizardSpecializationSchool =
+    getBaseClassLevel(getPrerequisiteCharacter(), "wizard") > 0
+      ? getPrerequisiteCharacter().coreWizardSpecializationSchool
+      : undefined;
+  if (
+    prerequisites?.spellFocusOrWizardSpecializationSchools?.length &&
+    !prerequisites.spellFocusOrWizardSpecializationSchools.some(
+      (school) =>
+        selectedSpellFocusSchools.has(school) ||
+        wizardSpecializationSchool === school,
+    )
+  )
+    return false;
+  const weaponFocusChoiceGroups = [
+    ...(prerequisites?.weaponFocusChoices?.length
+      ? [prerequisites.weaponFocusChoices]
+      : []),
+    ...(prerequisites?.weaponFocusChoiceGroups ?? []),
+  ];
+  if (weaponFocusChoiceGroups.length) {
+    const selectedWeaponFocusChoices = Object.entries(
+      featPrerequisiteContext.featSelections ?? {},
+    ).flatMap(([slotId, selectedFeatId]) => {
+      const weapon = featPrerequisiteContext.featWeaponSelections?.[slotId];
+      return selectedFeatId === "weapon-focus" && weapon
+        ? [{ slotId, weapon }]
+        : [];
+    });
+    const hasDistinctChoices = (
+      groupIndex: number,
+      usedSlotIds: Set<string>,
+    ): boolean => {
+      if (groupIndex === weaponFocusChoiceGroups.length) return true;
+      return selectedWeaponFocusChoices.some(({ slotId, weapon }) => {
+        if (
+          usedSlotIds.has(slotId) ||
+          !weaponFocusChoiceGroups[groupIndex].includes(weapon)
+        )
+          return false;
+        usedSlotIds.add(slotId);
+        const satisfied = hasDistinctChoices(groupIndex + 1, usedSlotIds);
+        usedSlotIds.delete(slotId);
+        return satisfied;
+      });
+    };
+    if (!hasDistinctChoices(0, new Set())) return false;
+  }
+  const selectedWeaponFeatChoices = Object.entries(
+    featPrerequisiteContext.featSelections ?? {},
+  ).flatMap(([slotId, featId]) => {
+    const weapon = featPrerequisiteContext.featWeaponSelections?.[slotId];
+    return featId && weapon ? [{ featId, weapon }] : [];
+  });
+  const weaponFeatChoiceItems = getWeaponFeatChoiceItems(
+    featPrerequisiteContext,
+  );
+  if (
+    prerequisites?.weaponFocusReach &&
+    !selectedWeaponFeatChoices.some(({ featId, weapon }) => {
+      if (featId !== "weapon-focus") return false;
+      const item = weaponFeatChoiceItems.find(
+        (candidate) => getWeaponFeatTypeName(candidate.name) === weapon,
+      );
+      return Boolean(
+        item &&
+        (reachWeaponNames.has(weapon) ||
+          item.reach ||
+          /\breach\b/i.test(item.specialProperties ?? "")),
+      );
+    })
+  )
+    return false;
+  if (
+    prerequisites?.weaponFeatChoiceGroups?.some((group) => {
+      const candidateWeapons = new Set(
+        selectedWeaponFeatChoices
+          .filter((choice) => group.featIds.includes(choice.featId))
+          .map((choice) => choice.weapon),
+      );
+      return ![...candidateWeapons].some((weapon) => {
+        if (
+          !group.featIds.every((featId) =>
+            selectedWeaponFeatChoices.some(
+              (choice) => choice.featId === featId && choice.weapon === weapon,
+            ),
+          )
+        )
+          return false;
+        const item = weaponFeatChoiceItems.find(
+          (candidate) => getWeaponFeatTypeName(candidate.name) === weapon,
+        );
+        if (
+          !item ||
+          !isWeaponProficient(
+            featPrerequisiteContext,
+            item,
+            excludingSlot,
+          )
+        )
+          return false;
+        if (!group.damageTypes?.length) return true;
+        const damageType = getWeaponDamageTypeForFeatChoice(
+          featPrerequisiteContext,
+          weapon,
+        ).toLowerCase();
+        return group.damageTypes.some((requiredType) =>
+          damageType.includes(requiredType),
+        );
+      });
+    })
+  )
+    return false;
+  if (
+    prerequisites?.weaponProficiencyChoices?.length &&
+    !prerequisites.weaponProficiencyChoices.some((weaponName) => {
+      const item = findStoreItem(weaponName, "Weapons");
+      return item && isWeaponProficient(
+        featPrerequisiteContext,
+        item,
+        excludingSlot,
+      );
+    })
+  )
+    return false;
+  const weaponProficiencyItems =
+    getWeaponFeatChoiceItems(featPrerequisiteContext);
+  if (
+    prerequisites?.weaponProficiencyChoiceGroups?.some(
+      (group) =>
+        !group.some((weaponName) => {
+          const item = weaponProficiencyItems.find(
+            (candidate) =>
+              getWeaponFeatTypeName(candidate.name) === weaponName,
+          );
+          return Boolean(
+            item &&
+            isWeaponProficient(
+              featPrerequisiteContext,
+              item,
+              excludingSlot,
+            ),
+          );
+        }),
+    )
+  )
+    return false;
+  const weaponFocusDamageTypes = prerequisites?.weaponFocusDamageTypes;
+  if (
+    weaponFocusDamageTypes?.length &&
+    !Object.entries(featPrerequisiteContext.featSelections ?? {}).some(
+      ([slotId, selectedFeatId]) => {
+        if (selectedFeatId !== "weapon-focus") return false;
+        const weaponType =
+          featPrerequisiteContext.featWeaponSelections?.[slotId];
+        if (!weaponType) return false;
+        const damageType = getWeaponDamageTypeForFeatChoice(
+          featPrerequisiteContext,
+          weaponType,
+        ).toLowerCase();
+        return weaponFocusDamageTypes.some((requiredType) =>
+          damageType.includes(requiredType),
+        );
+      },
+    )
+  )
+    return false;
+  if (
+    prerequisites?.minimumFeatsByCategory &&
+    Object.entries(prerequisites.minimumFeatsByCategory).some(
+      ([category, minimum]) =>
+        [...new Set(chosenFeats)].filter((chosenFeat) =>
+          featCatalog.find((candidate) => candidate.id === chosenFeat)
+            ?.categories?.includes(category as FeatCategory),
+        ).length < minimum,
+    )
+  )
+    return false;
+  if (
+    prerequisites?.featCategoryChoices?.some((choice) =>
+      new Set(
+        chosenFeats.filter((chosenFeat) =>
+          chosenFeat !== feat.id &&
+          featCatalog.find((candidate) => candidate.id === chosenFeat)
+            ?.categories?.some((category) => choice.anyOf.includes(category)),
+        ),
+      ).size < choice.count,
+    )
+  )
+    return false;
+  if (
+    prerequisites?.minimumSkillTricksByCategory &&
+    Object.entries(prerequisites.minimumSkillTricksByCategory).some(
+      ([category, minimum]) =>
+        getSkillTrickCountsByCategory(character, slot.characterLevel)[
+          category as SkillTrickCategory
+        ] < minimum,
+    )
+  )
+    return false;
   const raceId = getRaceDefinitionForCharacter(character)?.id;
   if (
     prerequisites?.draconianBreathWeapon &&
@@ -4055,6 +6174,12 @@ export function featQualifies(
   );
 }
 
+function getLaterDragonDiscipleBoost(character: Character, ability: AbilityName, characterLevel: number) {
+  return (character.hitPointRolls ?? []).reduce((total, roll) =>
+    roll.prestigeClassId === "dragon-disciple" && roll.characterLevel > characterLevel
+      ? total + (getDragonDiscipleAbilityBoost(roll.classLevel)[ability] ?? 0) : total, 0);
+}
+
 function getAbilityScoreAtCharacterLevel(
   character: Character,
   ability: AbilityName,
@@ -4068,7 +6193,7 @@ function getAbilityScoreAtCharacterLevel(
     ([level, increase]) =>
       Number(level) > characterLevel && increase === ability,
   ).length;
-  return score - laterIncreases;
+  return score - laterIncreases - getLaterDragonDiscipleBoost(character, ability, characterLevel);
 }
 
 function getSkillRanksAtCharacterLevel(
@@ -4121,8 +6246,8 @@ export function getAvailableFeats(
   ];
   return featCatalog.filter(
     (feat) =>
-      (feat.source !== "dragonlance-user-pack" ||
-        character.ruleset !== "core-35-srd") &&
+      (feat.source !== dragonlanceContentId ||
+        character.ruleset !== core35ContentId) &&
       (!chosenFeats.includes(feat.id) ||
         repeatableFeats.has(feat.id) ||
         slot.rangerStyleLevel !== undefined) &&
@@ -4134,8 +6259,31 @@ export function getAvailableFeats(
       (feat.id !== "spell-focus" ||
         getAvailableFeatSpellSchoolChoices(character, excludingSlot, "spell-focus").length > 0) &&
       (feat.id !== "greater-spell-focus" ||
-        getAvailableFeatSpellSchoolChoices(character, excludingSlot, "greater-spell-focus").length > 0),
+        getAvailableFeatSpellSchoolChoices(character, excludingSlot, "greater-spell-focus").length > 0) &&
+      (feat.id !== "arcane-defense" ||
+        getAvailableFeatSpellSchoolChoices(character, excludingSlot, "arcane-defense").length > 0) &&
+      (feat.id !== "simple-weapon-proficiency" ||
+        hasUnproficientSimpleWeaponAtFeatSlot(character, slot, excludingSlot)),
   );
+}
+
+function hasUnproficientSimpleWeaponAtFeatSlot(
+  character: Character,
+  slot: FeatEligibilitySlot,
+  excludingSlot?: string,
+) {
+  const historicalCharacter = getCharacterAtCharacterLevel(character, slot.characterLevel);
+  const prerequisiteCharacter = getFeatPrerequisiteContext(character, slot, excludingSlot);
+  const proficiencyCharacter = {
+    ...historicalCharacter,
+    featSelections: prerequisiteCharacter.featSelections,
+  };
+  return getStoreItems()
+    .filter((item) =>
+      item.category === "Weapons" &&
+      getWeaponProficiencyCategory(proficiencyCharacter, item) === "Simple",
+    )
+    .some((item) => !isWeaponProficient(proficiencyCharacter, item, excludingSlot));
 }
 
 export function normalizeFeatSelections(
@@ -4143,54 +6291,77 @@ export function normalizeFeatSelections(
   selections: Record<string, string>,
 ) {
   const chronologicalSelections: Record<string, string> = {};
-  getChronologicalFeatSlots(character).forEach((slot) => {
-    const featId = selections[slot.id];
-    const feat = featCatalog.find((entry) => entry.id === featId);
-    const featSelectionContext = {
-      ...character,
-      featSelections: chronologicalSelections,
-    };
-    const chosenFeats = getChosenFeats(
-      { ...character, featSelections: chronologicalSelections },
-      slot.id,
-    );
-    if (
-      feat &&
-      (!chosenFeats.includes(feat.id) ||
-        repeatableFeats.has(feat.id) ||
-        slot.rangerStyleLevel !== undefined) &&
-      featQualifies(featSelectionContext, feat, slot, slot.id) &&
-      (!weaponSelectionFeats.has(feat.id) ||
-        getAvailableFeatWeaponChoices(
-          { ...character, featSelections: chronologicalSelections },
-          feat.id,
-          slot.id,
-        ).length > 0) &&
-      (feat.id !== "skill-focus" ||
-        getAvailableFeatSkillChoices(
-          { ...character, featSelections: chronologicalSelections },
-          slot.id,
-        ).length > 0) &&
-      (feat.id !== "spell-focus" ||
-        getAvailableFeatSpellSchoolChoices(
-          featSelectionContext,
-          slot.id,
-          "spell-focus",
-        ).length > 0) &&
-      (feat.id !== "greater-spell-focus" ||
-        getAvailableFeatSpellSchoolChoices(
-          featSelectionContext,
-          slot.id,
-          "greater-spell-focus",
-        ).length > 0)
-    )
-      chronologicalSelections[slot.id] = feat.id;
-  });
+  const slots = getChronologicalFeatSlots(character);
+  let addedSelection = true;
+  while (addedSelection) {
+    addedSelection = false;
+    slots.forEach((slot) => {
+      if (chronologicalSelections[slot.id]) return;
+      const featId = selections[slot.id];
+      const feat = featCatalog.find((entry) => entry.id === featId);
+      const featSelectionContext = {
+        ...character,
+        featSelections: chronologicalSelections,
+      };
+      const chosenFeats = getChosenFeats(featSelectionContext, slot.id);
+      if (
+        feat &&
+        (!chosenFeats.includes(feat.id) ||
+          repeatableFeats.has(feat.id) ||
+          slot.rangerStyleLevel !== undefined) &&
+        featQualifies(featSelectionContext, feat, slot, slot.id) &&
+        (!weaponSelectionFeats.has(feat.id) ||
+          getAvailableFeatWeaponChoices(
+            featSelectionContext,
+            feat.id,
+            slot.id,
+          ).length > 0) &&
+        (feat.id !== "skill-focus" ||
+          getAvailableFeatSkillChoices(featSelectionContext, slot.id).length > 0) &&
+        (feat.id !== "spell-focus" ||
+          getAvailableFeatSpellSchoolChoices(
+            featSelectionContext,
+            slot.id,
+            "spell-focus",
+          ).length > 0) &&
+        (feat.id !== "greater-spell-focus" ||
+          getAvailableFeatSpellSchoolChoices(
+            featSelectionContext,
+            slot.id,
+            "greater-spell-focus",
+          ).length > 0) &&
+        (feat.id !== "arcane-defense" ||
+          getAvailableFeatSpellSchoolChoices(
+            featSelectionContext,
+            slot.id,
+            "arcane-defense",
+          ).length > 0) &&
+        (feat.id !== "simple-weapon-proficiency" ||
+          hasUnproficientSimpleWeaponAtFeatSlot(featSelectionContext, slot, slot.id))
+      ) {
+        chronologicalSelections[slot.id] = feat.id;
+        addedSelection = true;
+      }
+    });
+  }
   const normalized: Record<string, string> = {};
   getFeatSlots(character).forEach((slot) => {
     const featId = chronologicalSelections[slot.id];
     if (featId) normalized[slot.id] = featId;
   });
+  const usableSlotIds = Object.fromEntries(getActiveFeatEntries(character));
+  const structurallyStoredSlotIds = Object.fromEntries(
+    getStoredActiveFeatEntries(character),
+  );
+  const previousSelections = character.featSelections;
+  if (previousSelections)
+    for (const slotId in previousSelections)
+      if (
+        selections[slotId] === previousSelections[slotId] &&
+        structurallyStoredSlotIds[slotId] &&
+        !usableSlotIds[slotId]
+      )
+        normalized[slotId] = selections[slotId];
   return normalized;
 }
 
@@ -4230,7 +6401,7 @@ export function getAvailableFeatSkillChoices(
   excludingSlot?: string,
 ) {
   const selectedSkills = new Set(
-    Object.entries(character.featSelections ?? {})
+    getActiveFeatEntries(character)
       .filter(
         ([slotId, featId]) =>
           slotId !== excludingSlot && featId === "skill-focus",
@@ -4273,11 +6444,27 @@ export function getFeatSkillSelectionWarnings(
 export function getAvailableFeatSpellSchoolChoices(
   character: Character,
   excludingSlot?: string,
-  featId: "spell-focus" | "greater-spell-focus" = "spell-focus",
+  featId:
+    | "spell-focus"
+    | "greater-spell-focus"
+    | "arcane-defense"
+    | "metamagic-school-focus" = "spell-focus",
 ): MagicSchool[] {
+  const choiceSlot = excludingSlot &&
+    getFeatSlots(character).find((slot) => slot.id === excludingSlot);
+  const prerequisiteContext = choiceSlot
+    ? getFeatPrerequisiteContext(character, choiceSlot, excludingSlot)
+    : character;
+  const characterAtChoice = choiceSlot
+    ? getCharacterAtCharacterLevel(character, choiceSlot.characterLevel)
+    : character;
+  const wizardSpecializationSchool =
+    getBaseClassLevel(characterAtChoice, "wizard") > 0
+      ? characterAtChoice.coreWizardSpecializationSchool
+      : undefined;
   const selectedSchools = new Set<MagicSchool>();
   const focusedSchools = new Set<MagicSchool>();
-  for (const [slotId, selectedFeatId] of Object.entries(character.featSelections ?? {})) {
+  for (const [slotId, selectedFeatId] of getActiveFeatEntries(prerequisiteContext)) {
     if (slotId === excludingSlot) continue;
     const school = character.featSpellSchoolSelections?.[slotId];
     if (!school) continue;
@@ -4286,7 +6473,10 @@ export function getAvailableFeatSpellSchoolChoices(
   }
   return magicSchools.filter((school) =>
     !selectedSchools.has(school) &&
-    (featId !== "greater-spell-focus" || focusedSchools.has(school)),
+    (featId === "spell-focus" ||
+      focusedSchools.has(school) ||
+      (featId === "metamagic-school-focus" &&
+        wizardSpecializationSchool === school)),
   );
 }
 
@@ -4295,33 +6485,23 @@ export function normalizeFeatSpellSchoolSelections(
   selections: Record<string, MagicSchool>,
 ) {
   const normalized: Record<string, MagicSchool> = {};
-  const slots = getFeatSlots(character);
-  slots.forEach((slot) => {
-    if (character.featSelections?.[slot.id] !== "spell-focus") return;
-    const school = selections[slot.id];
-    const context = {
-      ...character,
-      featSpellSchoolSelections: normalized,
-    };
-    if (
-      school &&
-      getAvailableFeatSpellSchoolChoices(context, slot.id, "spell-focus").includes(school)
-    )
-      normalized[slot.id] = school;
-  });
-  slots.forEach((slot) => {
-    if (character.featSelections?.[slot.id] !== "greater-spell-focus") return;
-    const school = selections[slot.id];
-    const context = {
-      ...character,
-      featSpellSchoolSelections: normalized,
-    };
-    if (
-      school &&
-      getAvailableFeatSpellSchoolChoices(context, slot.id, "greater-spell-focus").includes(school)
-    )
-      normalized[slot.id] = school;
-  });
+  const slots = getChronologicalFeatSlots(character);
+  for (const featId of [
+    "spell-focus",
+    "greater-spell-focus",
+    "arcane-defense",
+    "metamagic-school-focus",
+  ] as const)
+    slots.forEach((slot) => {
+      if (character.featSelections?.[slot.id] !== featId) return;
+      const school = selections[slot.id];
+      const context = { ...character, featSpellSchoolSelections: normalized };
+      if (
+        school &&
+        getAvailableFeatSpellSchoolChoices(context, slot.id, featId).includes(school)
+      )
+        normalized[slot.id] = school;
+    });
   return normalized;
 }
 
@@ -4329,14 +6509,112 @@ export function getFeatSpellSchoolSelectionWarnings(
   character: Character,
   slots = getFeatSlots(character),
 ) {
+  const normalizedSelections = normalizeFeatSpellSchoolSelections(
+    character,
+    character.featSpellSchoolSelections ?? {},
+  );
   return slots.flatMap((slot) => {
     const featId = character.featSelections?.[slot.id];
-    if (featId !== "spell-focus" && featId !== "greater-spell-focus") return [];
+    if (
+      featId !== "spell-focus" &&
+      featId !== "greater-spell-focus" &&
+      featId !== "arcane-defense" &&
+      featId !== "metamagic-school-focus"
+    )
+      return [];
     const school = character.featSpellSchoolSelections?.[slot.id];
     return school &&
-      getAvailableFeatSpellSchoolChoices(character, slot.id, featId).includes(school)
+      normalizedSelections[slot.id] === school
       ? []
       : [`Choose a valid school of magic for ${slot.label}.`];
+  });
+}
+
+export function getFeatSpellMasteryChoiceCount(
+  character: Character,
+  slotId?: string,
+) {
+  const savedCount = slotId
+    ? character.featSpellMasterySelectionCounts?.[slotId]
+    : undefined;
+  return savedCount ?? Math.max(
+    0,
+    abilityModifier(getEffectiveAbilityScore(character, "int")),
+  );
+}
+
+export function getAvailableFeatSpellMasteryChoices(
+  character: Character,
+  excludingSlot?: string,
+) {
+  if (!isSpellCatalogLoaded()) return [];
+  const slots = getFeatSlots(character);
+  const targetIndex = excludingSlot
+    ? slots.findIndex((slot) => slot.id === excludingSlot)
+    : -1;
+  const consideredSlots = targetIndex >= 0
+    ? slots.slice(0, targetIndex)
+    : slots;
+  const alreadyMastered = new Set(
+    consideredSlots
+      .filter((slot) => character.featSelections?.[slot.id] === "spell-mastery")
+      .flatMap((slot) => character.featSpellMasterySelections?.[slot.id] ?? []),
+  );
+  const knownWizardSpells = new Set(
+    getClassSpellSelections(character, "knownSpells").wizard ?? [],
+  );
+  return getWizardSpellbookSpells(character)
+    .map((spell) => spell.name)
+    .filter((spell) =>
+      knownWizardSpells.has(spell) && !alreadyMastered.has(spell),
+    );
+}
+
+export function normalizeFeatSpellMasterySelections(
+  character: Character,
+  selections: Record<string, string[]>,
+) {
+  const normalized: Record<string, string[]> = {};
+  getFeatSlots(character).forEach((slot) => {
+    if (character.featSelections?.[slot.id] !== "spell-mastery") return;
+    const available = new Set(
+      getAvailableFeatSpellMasteryChoices(
+        { ...character, featSpellMasterySelections: normalized },
+        slot.id,
+      ),
+    );
+    const selected: string[] = [];
+    (selections[slot.id] ?? []).forEach((spell) => {
+      if (
+        selected.length < getFeatSpellMasteryChoiceCount(character, slot.id) &&
+        available.has(spell) &&
+        !selected.includes(spell)
+      )
+        selected.push(spell);
+    });
+    if (selected.length > 0) normalized[slot.id] = selected;
+  });
+  return normalized;
+}
+
+export function getFeatSpellMasterySelectionWarnings(
+  character: Character,
+  slots = getFeatSlots(character),
+) {
+  return slots.flatMap((slot) => {
+    if (character.featSelections?.[slot.id] !== "spell-mastery") return [];
+    const selected = character.featSpellMasterySelections?.[slot.id] ?? [];
+    const requiredCount = getFeatSpellMasteryChoiceCount(character, slot.id);
+    const available = new Set(
+      getAvailableFeatSpellMasteryChoices(character, slot.id),
+    );
+    return selected.length === requiredCount &&
+      new Set(selected).size === selected.length &&
+      selected.every((spell) => available.has(spell))
+      ? []
+      : [
+          `Choose ${requiredCount} distinct known Wizard spell${requiredCount === 1 ? "" : "s"} for ${slot.label}.`,
+        ];
   });
 }
 
@@ -4463,7 +6741,11 @@ export function getSkillAbility(skill: string): AbilityName | null {
   if (skill === "Speak Language") return null;
   if (dexteritySkills.includes(skill)) return "dex";
   if (constitutionSkills.includes(skill)) return "con";
-  if (intelligenceSkills.includes(skill) || skill.startsWith("Knowledge ("))
+  if (
+    intelligenceSkills.includes(skill) ||
+    skill.startsWith("Craft (") ||
+    skill.startsWith("Knowledge (")
+  )
     return "int";
   if (wisdomSkills.includes(skill)) return "wis";
   if (charismaSkills.includes(skill)) return "cha";
@@ -4709,24 +6991,38 @@ export function getSkillCheckModifier(
   const synergyBonus = getSkillSynergyBonus(character, skill, synergyContext);
   const sizeBonus = getSmallSizeHideBonus(character, skill);
   const skillFocusBonus = getSkillFocusBonus(character, skill);
+  const featSkillBonus = getFeatSkillBonuses(character, skill).reduce(
+    (total, entry) => total + entry.bonus,
+    0,
+  );
   const natureSenseBonus = getDruidNatureSenseBonus(character, skill);
   const equipmentBonus = getEquipmentSkillBonus(character, skill).bonus;
   const combatCastingBonus = skill === "Concentration"
     ? getCombatCastingBonus(character, combatCastingContext)
     : 0;
   if (!use.trained && use.untrainedUse === "limited")
-    return abilityBonus + penalty + activeChecks + synergyBonus + skillFocusBonus + equipmentBonus + combatCastingBonus + natureSenseBonus;
-  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks + skillFocusBonus + equipmentBonus + combatCastingBonus + natureSenseBonus;
+    return abilityBonus + penalty + activeChecks + synergyBonus + skillFocusBonus + featSkillBonus + equipmentBonus + combatCastingBonus + natureSenseBonus;
+  return abilityBonus + Math.floor(use.ranks) + getRacialSkillBonus(character, skill, condition) + sizeBonus + synergyBonus + penalty + activeChecks + skillFocusBonus + featSkillBonus + equipmentBonus + combatCastingBonus + natureSenseBonus;
 }
 
 export function getSkillFocusBonus(character: Character, skill: string) {
-  return Object.entries(character.featSelections ?? {}).some(
+  return getActiveFeatEntries(character).some(
     ([slotId, featId]) =>
       featId === "skill-focus" &&
       character.featSkillSelections?.[slotId] === skill,
   )
     ? 3
     : 0;
+}
+
+function getFeatSkillBonuses(character: Character, skill: string) {
+  const selectedFeatIds = new Set(getChosenFeats(character));
+  return featCatalog.flatMap((feat) => {
+    const bonus = feat.skillBonuses?.[skill];
+    return selectedFeatIds.has(feat.id) && bonus !== undefined
+      ? [{ name: feat.name, bonus }]
+      : [];
+  });
 }
 
 export type RacialSkillContextOption = {
@@ -4817,6 +7113,7 @@ export function getSkillTotalTooltip(
   const racialBonus = getRacialSkillBonus(character, skill, condition);
   const sizeBonus = getSmallSizeHideBonus(character, skill);
   const skillFocusBonus = getSkillFocusBonus(character, skill);
+  const featSkillBonuses = getFeatSkillBonuses(character, skill);
   const natureSenseBonus = getDruidNatureSenseBonus(character, skill);
   const combatCastingBonus = skill === "Concentration"
     ? getCombatCastingBonus(character, combatCastingContext)
@@ -4857,6 +7154,9 @@ export function getSkillTotalTooltip(
       : []),
     ...getCombatEffectDetails(character, "checks"),
     ...getEquipmentSkillBonus(character, skill).details,
+    ...featSkillBonuses.map(
+      ({ name, bonus }) => `${name}: ${formatModifier(bonus)}`,
+    ),
     racialBonus
       ? `${getCharacterRace(character)}${racialContext ? ` (${racialContext.label})` : ""}: ${formatModifier(racialBonus)}`
       : "",
@@ -4906,6 +7206,35 @@ export function isClericAlignmentAllowedForDeity(alignment: string, deity: Deity
   return deity.clericAlignments
     ? deity.clericAlignments.includes(alignment)
     : isClericAlignmentAllowed(alignment, deity.alignment);
+}
+
+function inferClericUndeadTurningMode(
+  character: Character,
+): Character["clericUndeadTurningMode"] {
+  const deity = deityDefinitions.find((entry) => entry.id === character.deity);
+  if (deity?.id === "st-cuthbert") return "turn";
+  if (deity?.id === "we-jas" && character.alignment === "Lawful Neutral")
+    return "rebuke";
+  if (deity?.id === "obad-hai" && !character.alignment.endsWith(" Evil"))
+    return "turn";
+  if (character.alignment.endsWith(" Good")) return "turn";
+  if (character.alignment.endsWith(" Evil")) return "rebuke";
+  if (deity?.alignment.endsWith(" Good")) return "turn";
+  if (deity?.alignment.endsWith(" Evil")) return "rebuke";
+  return undefined;
+}
+
+export function getClericUndeadTurningMode(
+  character: Character,
+): Character["clericUndeadTurningMode"] {
+  if (getBaseClassLevel(character, "cleric") === 0) return undefined;
+  return inferClericUndeadTurningMode(character) ??
+    character.clericUndeadTurningMode;
+}
+
+export function requiresManualClericUndeadTurningMode(character: Character) {
+  return getBaseClassLevel(character, "cleric") > 0 &&
+    inferClericUndeadTurningMode(character) === undefined;
 }
 
 const dragonlanceRangerPatronIds = {
@@ -4974,7 +7303,7 @@ export function getRangerFavoredEnemyWarnings(character: Character) {
       warnings.push(`Choose a favored enemy at level ${classLevel}.`);
       continue;
     }
-    if (choice.kind === "organization" && character.ruleset === "core-35-srd") {
+    if (choice.kind === "organization" && character.ruleset === core35ContentId) {
       warnings.push("Organizations require Dragonlance rules.");
     }
     if (choice.kind === "creature") {
@@ -5020,7 +7349,7 @@ export function getDragonlanceRangerPatron(alignment: string) {
 }
 
 export function getDragonlanceRangerWarnings(character: Character, rangerLevel: number) {
-  if (character.ruleset === "core-35-srd") return [];
+  if (character.ruleset === core35ContentId) return [];
   const deity = deityDefinitions.find((entry) => entry.id === character.deity);
   const expectedPatron = getDragonlanceRangerPatron(character.alignment);
   if (deity && deity.id !== expectedPatron?.id) {
@@ -5037,7 +7366,7 @@ export function getDragonlanceRangerWarnings(character: Character, rangerLevel: 
 }
 
 export function getDragonlanceDruidWarnings(character: Character) {
-  if (character.ruleset === "core-35-srd") return [];
+  if (character.ruleset === core35ContentId) return [];
   const expectedPatron = getDragonlanceRangerPatron(character.alignment);
   if (!expectedPatron) {
     return [

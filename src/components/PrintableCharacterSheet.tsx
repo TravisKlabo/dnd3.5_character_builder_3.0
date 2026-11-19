@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type Character, type ClassId, abilityModifier, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, raceDefinitions, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
+import { type Character, type SpellcastingClassId, abilityModifier, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, isIndependentSpellcastingClass, raceDefinitions, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
 import "../data/equipmentCatalog";
 import { abilities, featCatalog, skills } from "../data/characterCatalog";
 import {
@@ -16,6 +16,8 @@ import {
   getClassFeatureDisplay,
   getDailySpellSlots,
   getEffectiveSpellcastingClassLevel,
+  getSpellcastingClassDefinition,
+  getSpellcastingClassLevels,
   getEffectiveWeaponKey,
   getEncumbrance,
   getCharacterEquipmentCheckPenalty,
@@ -38,7 +40,7 @@ import {
   getWornArmor,
 } from "../rules";
 import { getMovement } from "../movementRules";
-import { findSpellByName, useSpellCatalog } from "../data/spellCatalog";
+import { findSpellByName, getClassSpells, useSpellCatalog } from "../data/spellCatalog";
 import type { SrdSpell } from "../srdSpells";
 import {
   formatSpellCastingTime,
@@ -103,7 +105,7 @@ type PrintableSpell = {
 };
 
 type PrintableSpellPage = {
-  classId: ClassId;
+  classId: SpellcastingClassId;
   classLevel: number;
   pageNumber: number;
   totalPages: number;
@@ -203,7 +205,7 @@ function SpellLevelTable({
   spells,
 }: {
   character: Character;
-  classId: ClassId;
+  classId: SpellcastingClassId;
   classLevel: number;
   spellLevel: number;
   spells: PrintableSpell[];
@@ -330,12 +332,12 @@ function SpellReferencePage({
   return (
     <section
       className="reference-sheet-page spell-form-page"
-      aria-label={`Spell record, ${classDefinitions[page.classId].name}, levels ${firstLevel} to ${lastLevel}`}
+      aria-label={`Spell record, ${getSpellcastingClassDefinition(page.classId).name}, levels ${firstLevel} to ${lastLevel}`}
     >
       <header className="spell-form-header">
         <div className="spell-form-title">
           <span>D&D 3.5 · SPELL RECORD</span>
-          <h2>{classDefinitions[page.classId].name} · {page.classLevel}</h2>
+          <h2>{getSpellcastingClassDefinition(page.classId).name} · {page.classLevel}</h2>
         </div>
         <div className="spell-form-identity">
           <div><span>Character name</span><strong>{character.name || "—"}</strong></div>
@@ -367,7 +369,7 @@ function SpellReferencePage({
       </div>
       <footer className="spell-form-footer">
         <span>Spell levels {firstLevel}–{lastLevel}</span>
-        <span>{classDefinitions[page.classId].name} · SPELL RECORD · PAGE {page.pageNumber + 1} OF {totalPages}</span>
+        <span>{getSpellcastingClassDefinition(page.classId).name} · SPELL RECORD · PAGE {page.pageNumber + 1} OF {totalPages}</span>
       </footer>
     </section>
   );
@@ -417,12 +419,9 @@ export function PrintableCharacterSheet({ character }: Props) {
     const stats = getEquippedWeaponStats(character, key, 0, slot);
     return stats ? [{ slot, stats }] : [];
   });
-  const spellcasterLevels = new Map<keyof typeof classDefinitions, number>();
-  for (const level of character.classLevels) {
-    if (!("prestigeClassId" in level) && classDefinitions[level.classId]?.spellcasting) {
-      spellcasterLevels.set(level.classId, (spellcasterLevels.get(level.classId) ?? 0) + level.level);
-    }
-  }
+  const spellcasterLevels = new Map<SpellcastingClassId, number>();
+  for (const { classId, level } of getSpellcastingClassLevels(character))
+    spellcasterLevels.set(classId, (spellcasterLevels.get(classId) ?? 0) + level);
   const spellcasters = [...spellcasterLevels.entries()];
   const spellCatalog = useSpellCatalog(spellcasters.length > 0);
   const knownSpellSelections = spellCatalog.ready
@@ -442,10 +441,14 @@ export function PrintableCharacterSheet({ character }: Props) {
         ];
         const knownNameSet = new Set(knownNames);
         const preparedNameSet = new Set(preparedNames);
+        const independentSpellList = isIndependentSpellcastingClass(classId)
+          ? getClassSpells(classId, character.ruleset, character) : undefined;
         const spells = [...new Set([...knownNames, ...preparedNames])]
           .map((name): PrintableSpell => ({
             name,
-            details: findSpellByName(name),
+            details: independentSpellList
+              ? independentSpellList.find((spell) => spell.name === name)
+              : findSpellByName(name),
             known: knownNameSet.has(name),
             prepared: preparedNameSet.has(name),
           }))
@@ -907,7 +910,7 @@ export function PrintableCharacterSheet({ character }: Props) {
                           ? getDailySpellSlots(character, primarySpellcasterClassId, primarySpellcasterLevel, spellLevel)
                           : undefined;
                         const knownSpellLimit = primarySpellcasterClassId && hasSpellLevel &&
-                          (primarySpellcasterClassId === "bard" || primarySpellcasterClassId === "sorcerer")
+                          (primarySpellcasterClassId === "assassin" || primarySpellcasterClassId === "bard" || primarySpellcasterClassId === "sorcerer")
                           ? getKnownSpellLimit(character, primarySpellcasterClassId, primarySpellcasterLevel, spellLevel)
                           : undefined;
                         const bonusSpells = primarySpellcasterClassId && hasSpellLevel && slotsPerDay !== undefined

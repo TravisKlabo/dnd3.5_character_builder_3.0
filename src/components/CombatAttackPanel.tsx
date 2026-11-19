@@ -113,7 +113,7 @@ export function CombatAttackPanel({
             <div className={`combat-weapon-stat${equippedWeapon ? "" : " unequipped-weapon"}`} key={slot}>
               <small>{slot.replace(" Weapon", "")}</small>
               {stats ? <>
-                <strong title={[stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.combatExpertisePenalty ? [`Combat Expertise ${formatModifier(stats.combatExpertisePenalty)} attack`] : []), ...(stats.powerAttackPenalty ? [`Power Attack ${formatModifier(stats.powerAttackPenalty)} attack`] : []), ...(stats.pointBlankShotBonus ? ["Point Blank Shot +1 attack and damage"] : []), ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
+                <strong title={[stats.rangeStatusMessage, stats.damageReductionStatus?.message, stats.weaponSizeDetail, ...(stats.shootingIntoMeleePenalty ? ["-4 shooting into melee"] : []), ...(stats.combatExpertisePenalty ? [`Combat Expertise ${formatModifier(stats.combatExpertisePenalty)} attack`] : []), ...(stats.powerAttackPenalty ? [`Power Attack ${formatModifier(stats.powerAttackPenalty)} attack`] : []), ...(stats.pointBlankShotBonus ? ["Point Blank Shot +1 attack and damage"] : []), ...(stats.weaponFocusBonus ? ["Weapon Focus +1"] : []), ...(stats.greaterWeaponFocusBonus ? ["Greater Weapon Focus +1"] : []), ...(stats.compositeBowStrengthRating !== undefined ? [`Composite bow Strength rating ${formatModifier(stats.compositeBowStrengthRating)}; positive Strength damage is capped at the rating`] : []), ...stats.racialAttackDetails, ...getCombatEffectDetails(character, "attack")].filter(Boolean).join("\n")}>
                   {stats.rangeOutOfRange ? "Out of range" : stats.attackActionWarning || targetContext.defense.cover === "total"
                     ? "Action unavailable"
                     : `Attack ${stats.attackSequence.map(formatModifier).join(" / ")}`}
@@ -139,6 +139,8 @@ export function CombatAttackPanel({
                   {formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating
                 </span>}
                 {stats.weaponFocusBonus > 0 && <span>+1 Weapon Focus</span>}
+                {stats.greaterWeaponFocusBonus > 0 && <span>+1 Greater Weapon Focus</span>}
+                {stats.loremasterAttackBonus > 0 && <span>+1 Loremaster Weapon Trick</span>}
                 {stats.pointBlankShotBonus > 0 && <span>+1 Point Blank Shot attack and damage</span>}
                 {stats.combatExpertisePenalty < 0 && <span className="attack-penalty">
                   {formatModifier(stats.combatExpertisePenalty)} Combat Expertise attack
@@ -148,6 +150,9 @@ export function CombatAttackPanel({
                 </span>}
                 {stats.rapidShotPenalty < 0 && <span className="attack-penalty">
                   {formatModifier(stats.rapidShotPenalty)} Rapid Shot
+                </span>}
+                {stats.shootingIntoMeleePenalty < 0 && <span className="attack-penalty">
+                  {formatModifier(stats.shootingIntoMeleePenalty)} shooting into melee
                 </span>}
                 <span title={getCombatEffectDetails(character, "damage").join("\n") || undefined}>Damage {stats.damage}</span>
                 {stats.sneakAttackDamage && (
@@ -163,6 +168,7 @@ export function CombatAttackPanel({
                 </span>}
                 {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
                 {stats.weaponSpecializationBonus > 0 && <span>+2 Weapon Specialization damage</span>}
+                {stats.greaterWeaponSpecializationBonus > 0 && <span>+2 Greater Weapon Specialization damage</span>}
                 <span>Crit {stats.critical}</span>
                 {(stats.rangeIncrement || stats.reach) && <span className="weapon-distance">
                   {[stats.reach && `Reach ${stats.reach}`, stats.rangeIncrement && `${stats.rangeLabel} ${stats.rangeIncrement}`].filter(Boolean).join(" · ")}

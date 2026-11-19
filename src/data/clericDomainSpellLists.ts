@@ -16,7 +16,7 @@ export const clericDomainSpellLists = {
   knowledge: ["Detect Secret Doors", "Detect Thoughts", "Clairaudience/Clairvoyance", "Divination", "True Seeing", "Find the Path", "Legend Lore", "Discern Location", "Foresight"],
   law: ["Protection from Chaos", "Calm Emotions", "Magic Circle against Chaos", "Order's Wrath", "Dispel Chaos", "Hold Monster", "Dictum", "Shield of Law", "Summon Monster IX"],
   luck: ["Entropic Shield", "Aid", "Protection from Energy", "Freedom of Movement", "Break Enchantment", "Mislead", "Spell Turning", "Moment of Prescience", "Miracle"],
-  magic: ["Magic Aura", "Identify", "Dispel Magic", "Imbue with Spell Ability", "Spell Resistance", "Antimagic Field", "Spell Turning", "Protection from Spells", "Mage's Disjunction"],
+  magic: ["Magic Aura", "Identify", "Dispel Magic", "Imbue with Spell Ability", "Spell Resistance", "Antimagic Field", "Spell Turning", "Protection from Spells", "Mordenkainen's Disjunction"],
   plant: ["Entangle", "Barkskin", "Plant Growth", "Command Plants", "Wall of Thorns", "Repel Wood", "Animate Plants", "Control Plants", "Shambler"],
   protection: ["Sanctuary", "Shield Other", "Protection from Energy", "Spell Immunity", "Spell Resistance", "Antimagic Field", "Repulsion", "Mind Blank", "Prismatic Sphere"],
   strength: ["Enlarge Person", "Bull's Strength", "Magic Vestment", "Spell Immunity", "Righteous Might", "Stoneskin", "Grasping Hand", "Clenched Fist", "Crushing Hand"],

@@ -1,3 +1,7 @@
+export function getSpellSchoolName(school: string) {
+  return school.split(/[([]/, 1)[0].trim();
+}
+
 export function formatSpellSchool(school?: string) {
   const abbreviations: Record<string, string> = {
     Abjuration: "Abj",

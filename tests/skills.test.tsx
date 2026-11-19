@@ -21,6 +21,68 @@ const performSkills = [
   "Perform (wind instruments)",
 ];
 
+const skillBonusFeatCases = [
+  { id: "acrobatic", name: "Acrobatic", targetSkills: ["Jump", "Tumble"] },
+  { id: "agile", name: "Agile", targetSkills: ["Balance", "Escape Artist"] },
+  { id: "alertness", name: "Alertness", targetSkills: ["Listen", "Spot"] },
+  {
+    id: "animal-affinity",
+    name: "Animal Affinity",
+    targetSkills: ["Handle Animal", "Ride"],
+  },
+  { id: "athletic", name: "Athletic", targetSkills: ["Climb", "Swim"] },
+  {
+    id: "deceitful",
+    name: "Deceitful",
+    targetSkills: ["Disguise", "Forgery"],
+  },
+  {
+    id: "deft-hands",
+    name: "Deft Hands",
+    targetSkills: ["Sleight of Hand", "Use Rope"],
+  },
+  {
+    id: "diligent",
+    name: "Diligent",
+    targetSkills: ["Appraise", "Decipher Script"],
+  },
+  {
+    id: "investigator",
+    name: "Investigator",
+    targetSkills: ["Search", "Gather Information"],
+  },
+  {
+    id: "magical-aptitude",
+    name: "Magical Aptitude",
+    targetSkills: ["Spellcraft", "Use Magic Device"],
+  },
+  {
+    id: "negotiator",
+    name: "Negotiator",
+    targetSkills: ["Diplomacy", "Sense Motive"],
+  },
+  {
+    id: "nimble-fingers",
+    name: "Nimble Fingers",
+    targetSkills: ["Disable Device", "Open Lock"],
+  },
+  {
+    id: "persuasive",
+    name: "Persuasive",
+    targetSkills: ["Bluff", "Intimidate"],
+  },
+  {
+    id: "self-sufficient",
+    name: "Self-Sufficient",
+    targetSkills: ["Heal", "Survival"],
+  },
+  {
+    id: "stealthy",
+    name: "Stealthy",
+    targetSkills: ["Hide", "Move Silently"],
+  },
+] as const;
+
 const coreSkillSynergyCases: {
   sourceSkill: string;
   targetSkill: string;
@@ -156,6 +218,34 @@ const coreClassSkillExpectations: readonly [ClassId, readonly string[]][] = [
 ];
 
 describe("skill training and untrained use", () => {
+  it.each(skillBonusFeatCases)(
+    "applies $name to both specified skills",
+    ({ id, name, targetSkills }) => {
+      const character = cloneCharacter(initialCharacter);
+      for (const skill of targetSkills) {
+        if (trainedOnlySkills.has(skill)) character.skills[skill] = 1;
+      }
+      const listenBaseline = getSkillCheckModifier(character, "Listen");
+      if (listenBaseline === null)
+        throw new Error("Missing usable skill fixture for Listen.");
+      const baselines = targetSkills.map((skill) => {
+        const modifier = getSkillCheckModifier(character, skill);
+        if (modifier === null)
+          throw new Error(`Missing usable skill fixture for ${skill}.`);
+        return modifier;
+      });
+
+      character.featSelections = { "general-1": id };
+      targetSkills.forEach((skill, index) => {
+        expect(getSkillCheckModifier(character, skill)).toBe(baselines[index] + 2);
+        expect(getSkillTotalTooltip(character, skill)).toContain(`${name}: +2`);
+      });
+      expect(getSkillCheckModifier(character, "Listen")).toBe(
+        listenBaseline + (new Set<string>(targetSkills).has("Listen") ? 2 : 0),
+      );
+    },
+  );
+
   it("applies the Druid Nature Sense bonus to Knowledge (nature) and Survival", () => {
     const character = cloneCharacter(initialCharacter);
     character.alignment = "Neutral Good";

@@ -11,7 +11,13 @@ const sourceLabels: Record<SpellAcquisition, string> = {
   spellbook: "Copied from spellbook", research: "Research", reward: "DM reward",
 };
 
-export function WizardSpellbook({ character, original, editable, onKnownSpellsChange, onAcquisitionChange }: {
+export function WizardSpellbook({
+  character,
+  original,
+  editable,
+  onKnownSpellsChange,
+  onAcquisitionChange,
+}: {
   character: Character;
   original?: Character;
   editable: boolean;
@@ -52,7 +58,7 @@ export function WizardSpellbook({ character, original, editable, onKnownSpellsCh
         <p>Your spellbook records learned spells; Daily Preparation chooses today's copies.
           Recorded spells: {known.length}. Known page usage: {pageCount}.
           Physical books and their 100-page capacities are not tracked yet.</p>
-        <p className="spell-rules-notice">Core school specialization is optional and chosen at Wizard 1. A specialist chooses two prohibited schools (one if specializing in Divination; Divination cannot be prohibited), gains one extra prepared spell per spell level each day from the chosen school, and gets +2 on Spellcraft checks to learn spells from that school. One of the two free spells gained at each new Wizard level must also be from the specialty school. These choices, extra slots, Spellcraft bonuses, and barred-school restrictions are not enforced here; manage them manually.</p>
+        <p className="spell-rules-notice">A core Wizard may choose a specialty school at Wizard 1. This records the school for feat prerequisites; prohibited schools, bonus slots, Spellcraft bonuses, and specialty-school spell learning remain manual. This choice is separate from Dragonlance High Sorcery.</p>
         <p className="spell-rules-notice">Preparing a spell from a borrowed spellbook requires that it is also in your own spellbook and a Spellcraft check (DC 15 + spell level) each time. Track borrowed-book preparation checks manually.</p>
         {editable && (
           <form className="spellbook-free-spells" onSubmit={(event) => {

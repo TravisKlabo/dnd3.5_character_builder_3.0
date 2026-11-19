@@ -1,7 +1,7 @@
 import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
 import "../data/equipmentCatalog";
-import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
+import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellMasterySelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
 import { formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
@@ -11,6 +11,8 @@ import { LanguagePicker } from "./pickers";
 import { handleScrollableMenuKeyDown } from "../menuNavigation";
 import { HighSorceryChoices } from "./HighSorceryChoices";
 import { RangerFavoredEnemies } from "./RangerFavoredEnemies";
+import { CoreWizardSpecializationChoice } from "./CoreWizardSpecializationChoice";
+import { getWizardBonusFeatWarnings } from "../rules";
 
 export function CreationPanel({
   draft,
@@ -155,7 +157,7 @@ export function CreationPanel({
       !["white-robed-wizard", "red-robed-wizard", "black-robed-wizard"].includes(
         definition.id,
       ) &&
-      isPrestigeClassEligible(definition, classId, draft.race),
+      isPrestigeClassEligible(definition, draft),
   );
   const raceOptions = Object.values(raceDefinitions).filter(
     (race) =>
@@ -274,7 +276,9 @@ export function CreationPanel({
   if (getFeatSlots(draft).some((slot) => !draft.featSelections?.[slot.id]))
     creationErrors.push("Select every required starting feat.");
   creationErrors.push(...getFeatWeaponSelectionWarnings(draft));
+  creationErrors.push(...getWizardBonusFeatWarnings(draft));
   creationErrors.push(...getFeatSkillSelectionWarnings(draft));
+  creationErrors.push(...getFeatSpellMasterySelectionWarnings(draft));
   if (!(draft.languages ?? []).length && !(draft.speakLanguages ?? []).length)
     creationErrors.push("Select at least one starting language.");
   const availableLanguageSet = new Set(getAvailableLanguages(ruleset));
@@ -592,8 +596,16 @@ export function CreationPanel({
                 )}
               </div>
             </label>
+            {classId === "wizard" && (
+              <CoreWizardSpecializationChoice
+                school={draft.coreWizardSpecializationSchool}
+                onChange={(school) =>
+                  onChange("coreWizardSpecializationSchool", school)
+                }
+              />
+            )}
             <label className="prestige-creation-field">
-              Prestige Class
+              Prestige Class (reference only)
               <div className="class-field menu-left">
                 <button
                   className="race-trigger"
@@ -613,6 +625,11 @@ export function CreationPanel({
                     aria-label="Prestige class choices"
                     onKeyDown={handleScrollableMenuKeyDown}
                   >
+                    <p className="spell-rules-notice">
+                      Only references with satisfied entry requirements are listed.
+                      This selection grants no levels or features; supported prestige
+                      classes are entered through level-up instead.
+                    </p>
                     <div className="menu-search">
                       <input
                         autoFocus

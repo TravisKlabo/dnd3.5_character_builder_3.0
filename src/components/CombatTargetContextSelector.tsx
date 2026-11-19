@@ -19,9 +19,57 @@ function TargetDefenseFields({
 }) {
   const { value: targetContext, onChange } = useCombatTargetContext();
   const { defense } = targetContext;
+  const targetEngagedWithFriendly = defense.targetEngagedWithFriendly === true;
+  const targetAtLeast10FeetFromNearestFriendly =
+    defense.targetAtLeast10FeetFromNearestFriendly === true;
+  const hasPreciseShot = hasActiveCombatFeat(character, "precise-shot");
   const hasImprovedPreciseShot = hasActiveCombatFeat(character, "improved-precise-shot");
   return (
     <div className="combat-target-defense-control">
+      <label>
+        <input
+          type="checkbox"
+          aria-label="Target engaged in melee with a friendly character"
+          checked={targetEngagedWithFriendly}
+          onChange={(event) => onChange({
+            ...targetContext,
+            defense: {
+              ...defense,
+              targetEngagedWithFriendly: event.currentTarget.checked,
+              targetAtLeast10FeetFromNearestFriendly: event.currentTarget.checked
+                ? targetAtLeast10FeetFromNearestFriendly
+                : false,
+            },
+          })}
+        />
+        Target engaged in melee with a friendly character
+      </label>
+      {targetEngagedWithFriendly && (
+        <label>
+          <input
+            type="checkbox"
+            aria-label="Target at least 10 feet from nearest friendly character"
+            checked={targetAtLeast10FeetFromNearestFriendly}
+            onChange={(event) => onChange({
+              ...targetContext,
+              defense: {
+                ...defense,
+                targetAtLeast10FeetFromNearestFriendly: event.currentTarget.checked,
+              },
+            })}
+          />
+          Target (or aimed-at portion) at least 10 ft. from nearest friendly character
+        </label>
+      )}
+      {targetEngagedWithFriendly && (
+        <small role="status">
+          {targetAtLeast10FeetFromNearestFriendly
+            ? "No shooting-into-melee penalty: the target is at least 10 ft. from the nearest friendly character."
+            : hasPreciseShot
+              ? "Precise Shot removes the -4 shooting-into-melee penalty."
+              : "Ranged attacks take a -4 penalty for shooting or throwing into melee."}
+        </small>
+      )}
       <label>
         Target cover
         <select

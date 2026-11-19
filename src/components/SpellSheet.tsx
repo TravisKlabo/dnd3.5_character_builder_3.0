@@ -1,7 +1,8 @@
-import { type Character, type ClassId, type DragonlanceMoonConjunction, type DragonlanceMoonId, type DragonlanceMoonPhase, type SpellAcquisition, type WizardSpellLearning, classDefinitions, abilityModifier } from "../domain";
+import { type Character, type SpellcastingClassId, type DragonlanceMoonConjunction, type DragonlanceMoonId, type DragonlanceMoonPhase, type SpellAcquisition, type WizardSpellLearning, abilityModifier, isIndependentSpellcastingClass } from "../domain";
 import { useState } from "react";
 import "../data/equipmentCatalog";
-import { getBaseClassLevels, getEffectiveSpellcastingClassLevel, hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getKnownSpellReplacementLevelLimit, getWizardSpellbookSpells, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier, getHighSorceryMoonModifier } from "../rules";
+import { getSpellcastingClassLevels, getSpellcastingClassDefinition, getEffectiveSpellcastingClassLevel, hasSpellLevelAtClassLevel, baseSpellSlots, getDailySpellSlots, getCasterLevel, getChosenFeats, getSpellcastingAbility, getClassSpellSelections, getKnownSpellLimit, getKnownSpellReplacementLevelLimit, getWizardSpellbookSpells, getSpellSaveDC, getArcaneSpellFailure, getSkillCheckModifier, getSkillTotalTooltip, formatModifier, getHighSorceryMoonModifier } from "../rules";
+import { getPrestigeSpellSlotAdjustment } from "../rules";
 import { formatSpellDuration, formatSpellSchool } from "../spellFormatting";
 import {
   findSpellByName,
@@ -32,18 +33,18 @@ type SpellSheetProps = {
   combatCastingContext?: CombatCastingContext;
   onCombatCastingContextChange: (context: CombatCastingContext | undefined) => void;
   levelUpOriginal?: Character;
-  levelUpClassId?: ClassId;
-  spellcastingClassId: ClassId;
-  onKnownSpellsChange: (spells: string[], classId?: ClassId) => void;
+  levelUpClassId?: SpellcastingClassId;
+  spellcastingClassId: SpellcastingClassId;
+  onKnownSpellsChange: (spells: string[], classId?: SpellcastingClassId) => void;
   onSpellAcquisitionChange: (
-    classId: ClassId,
+    classId: SpellcastingClassId,
     spell: string,
     acquisition: SpellAcquisition | null,
     record?: WizardSpellLearning,
   ) => void;
   onPreparedSpellsChange: (
     spells: string[],
-    classId?: ClassId,
+    classId?: SpellcastingClassId,
     spellSlotLevels?: Record<string, number[]>,
     spellEmpoweredCopies?: Record<string, boolean[]>,
     spellMaximizedCopies?: Record<string, boolean[]>,
@@ -56,7 +57,7 @@ type SpellSheetProps = {
     spellSculptedCopies?: Record<string, boolean[]>,
   ) => void;
   onCharacterUpdate: (update: (current: Character) => Character) => void;
-  onExpendedSpellSlotsChange: (classId: ClassId, slots: Record<string, number[]>) => void;
+  onExpendedSpellSlotsChange: (classId: SpellcastingClassId, slots: Record<string, number[]>) => void;
   onClericCastingChange: (update: ClericCastingUpdate) => void;
   editable: boolean;
 };
@@ -86,8 +87,8 @@ const getPreparedMetamagicSlotAdjustment = (
   Number(flags.sculpted);
 
 export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">) {
-  const [selectedClass, setSelectedClass] = useState<ClassId>();
-  const casters = getBaseClassLevels(props.character).filter(({ classId }) => classDefinitions[classId].spellcasting);
+  const [selectedClass, setSelectedClass] = useState<SpellcastingClassId>();
+  const casters = getSpellcastingClassLevels(props.character);
   const activeClass = casters.find(({ classId }) => classId === selectedClass)?.classId ??
     casters.find(({ classId }) => classId === props.levelUpClassId)?.classId ?? casters[0]?.classId;
   if (!activeClass) return <p>This character has no spellcasting classes.</p>;
@@ -116,7 +117,7 @@ export function SpellSheets(props: Omit<SpellSheetProps, "spellcastingClassId">)
               setSelectedClass(casters[next].classId);
               document.getElementById(`spell-tab-${casters[next].classId}`)?.focus();
             }}>
-            {classDefinitions[classId].name} · {level}
+            {getSpellcastingClassDefinition(classId).name} · {level}
           </button>
         ))}
       </div>
@@ -259,16 +260,12 @@ export function SpellSheet({
 }: SpellSheetProps) {
   const [openSpellLevel, setOpenSpellLevel] = useState<number | null>(null);
   const [wizardView, setWizardView] = useState<"spellbook" | "preparation">("spellbook");
-  const spellcastingLevel = getBaseClassLevels(character).find((level) => level.classId === spellcastingClassId);
-  if (!spellcastingLevel || !classDefinitions[spellcastingClassId].spellcasting) {
-    throw new Error(`No ${classDefinitions[spellcastingClassId].name} spellcasting progression exists for this character.`);
-  }
-  const spellcastingClass = classDefinitions[spellcastingClassId];
+  const spellcastingClass = getSpellcastingClassDefinition(spellcastingClassId);
   const castingAbility = getSpellcastingAbility(spellcastingClass.id);
   const learningMode =
     spellcastingClass.id === "wizard"
       ? "Spellbook"
-      : spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic"
+      : spellcastingClass.id === "assassin" || spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic"
         ? "Spells Known"
         : "Prepared Spells";
   const classLevel = getEffectiveSpellcastingClassLevel(character, spellcastingClassId);
@@ -287,6 +284,30 @@ export function SpellSheet({
   const hasStillSpell = selectedFeats.includes("still-spell");
   const hasWidenSpell = selectedFeats.includes("widen-spell");
   const hasSculptSpell = selectedFeats.includes("sculpt-spell");
+  const hasSplitRay = selectedFeats.includes("split-ray");
+  const hasDelaySpell = selectedFeats.includes("delay-spell");
+  const hasExplosiveSpell = selectedFeats.includes("explosive-spell");
+  const hasFortifySpell = selectedFeats.includes("fortify-spell");
+  const hasChainSpell = selectedFeats.includes("chain-spell");
+  const hasBlackLoreOfMoil = selectedFeats.includes("black-lore-of-moil");
+  const hasCooperativeSpell = selectedFeats.includes("cooperative-spell");
+  const hasPersistentSpell = selectedFeats.includes("persistent-spell");
+  const hasRepeatSpell = selectedFeats.includes("repeat-spell");
+  const hasSanctumSpell = selectedFeats.includes("sanctum-spell");
+  const hasTransdimensionalSpell = selectedFeats.includes("transdimensional-spell");
+  const hasTwinSpell = selectedFeats.includes("twin-spell");
+  const hasEnergySubstitution = selectedFeats.some((featId) =>
+    featId.startsWith("energy-substitution-"),
+  );
+  const hasEnergyAdmixture = selectedFeats.some((featId) =>
+    featId.startsWith("energy-admixture-"),
+  );
+  const hasNonlethalSubstitution = selectedFeats.includes("nonlethal-substitution");
+  const hasBornOfTheThreeThunders = selectedFeats.includes("born-of-the-three-thunders");
+  const hasLordOfTheUttercold = selectedFeats.includes("lord-of-the-uttercold");
+  const hasSuddenMetamagic = selectedFeats.some((featId) =>
+    ["sudden-empower", "sudden-extend", "sudden-maximize", "sudden-quicken", "sudden-silent", "sudden-still", "sudden-widen"].includes(featId),
+  );
   const availableLevels = Array.from({ length: 10 }, (_, index) => index).filter((level) =>
     hasSpellLevelAtClassLevel(spellcastingClass.id, classLevel, level),
   );
@@ -399,7 +420,8 @@ export function SpellSheet({
     const bonus = slotLevel > 0 && modifier >= slotLevel
       ? Math.floor((modifier - slotLevel) / 4) + 1
       : 0;
-    return baseSpellSlots(spellcastingClass.id, classLevel, slotLevel) + bonus;
+    return Math.max(0, baseSpellSlots(spellcastingClass.id, classLevel, slotLevel) + bonus +
+      getPrestigeSpellSlotAdjustment(character, spellcastingClass.id, slotLevel));
   };
   const getMetamagicSlotCapacity = (slotLevel: number) => Math.max(
     0,
@@ -585,8 +607,7 @@ export function SpellSheet({
     levelUpOriginal ? getClassSpellSelections(levelUpOriginal, "knownSpells")[spellcastingClass.id] ?? [] : [],
   );
   const knownSpellReplacementLevelLimit =
-    levelUpOriginal &&
-    ["bard", "sorcerer", "mystic"].includes(spellcastingClass.id)
+    levelUpOriginal && learningMode === "Spells Known"
       ? getKnownSpellReplacementLevelLimit(
           levelUpOriginal,
           character,
@@ -665,7 +686,7 @@ export function SpellSheet({
           <label>
             Spellcasting Class and Level
             <input
-              value={`${spellcastingClass.name} ${spellcastingLevel?.level ?? 0}`}
+              value={`${spellcastingClass.name} ${getSpellcastingClassLevels(character).find((entry) => entry.classId === spellcastingClassId)?.level ?? 0}`}
               readOnly
             />
           </label>
@@ -728,18 +749,21 @@ export function SpellSheet({
           {learningMode === "Spellbook" ? " Record learned spells in Spellbook; choose today's copies and track slots in Daily Preparation." :
             learningMode === "Spells Known" ? " Choose spells known; daily slots are shared among this class's spells of the same level. No preparation is required." :
               " Prepare from this class's spell list. Each spell level has its own preparation limit."}</p>
-        {(spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer") && (
+        {(spellcastingClass.id === "assassin" || spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer") && (
           <p className="spell-rules-notice">
-            {spellcastingClass.id === "sorcerer"
+            {spellcastingClass.id === "assassin"
+              ? "At Assassin 6, 8, and 10, you may replace one known spell with a spell of the same level that is at least two levels below the highest-level spell you can cast."
+              : spellcastingClass.id === "sorcerer"
               ? "At Sorcerer 4 and every even Sorcerer level thereafter, you may replace one known spell with a spell of the same level that is at least two levels below the highest-level spell you can cast."
               : "At Bard 5 and every three Bard levels thereafter, you may replace one known spell with a spell of the same level that is at least two levels below the highest-level spell you can cast."}{" "}
-            Applying a metamagic feat while casting spontaneously takes a full-round action, or adds a full-round action if the spell already takes longer; Quicken Spell is an exception. Track the adjusted slot and casting time manually.
+            Applying a metamagic feat while casting spontaneously takes a full-round action, or adds a full-round action if the spell already takes longer. Quicken Spell cannot be applied to spontaneously cast spells. Track the adjusted slot and casting time manually.
           </p>
         )}
         {spellcastingClass.id === "cleric" && <>
           <p>Daily slots below are ordinary cleric slots. Domain slots are prepared and tracked separately above the ordinary spell list.</p>
           <p>Spontaneous casting: good clerics (and neutral clerics of good deities) may lose a prepared non-domain spell to cast a cure spell of equal or lower level. Evil clerics (and neutral clerics of evil deities) do likewise with inflict spells. Neutral clerics of neutral deities choose one mode permanently. Domain slots cannot be converted; track the replacement manually.</p>
         </>}
+        {spellcastingClass.id === "blackguard" && <p>Blackguards have no domain slots and cannot spontaneously convert prepared spells into cure or inflict spells. Their Summon Monster spells can summon only evil creatures.</p>}
         {spellcastingClass.id === "paladin" && <p>Paladins prepare spells from their class list and cannot spontaneously replace prepared spells with cure spells. They gain no cleric domain spells or granted powers.</p>}
         {spellcastingClass.id === "ranger" && <p>Rangers cannot spontaneously replace prepared spells with cure spells and have no domain spells or granted powers.</p>}
         {spellcastingClass.id === "druid" && <p>Druids can replace a prepared spell with summon nature's ally of the same or lower level, but cannot spontaneously replace prepared spells with cure spells. Druids have no cleric domain spells or granted powers.</p>}
@@ -815,8 +839,8 @@ export function SpellSheet({
             : "Enlarge Spell is tracked per prepared copy for slot use; manually increase only distance-defined close, medium, or long ranges.")}
           {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell) && hasQuickenSpell ? " " : ""}
           {hasQuickenSpell && (learningMode === "Spells Known"
-            ? "Quicken Spell for spontaneous casting remains manual, including higher-level slot use and casting time."
-            : "Quicken Spell is tracked per prepared copy for its +4 slot cost; casting-time eligibility, free-action casting, the once-per-round limit, and the no-attack-of-opportunity effect remain manual.")}
+            ? "Quicken Spell cannot be applied to spontaneously cast spells."
+            : "Quicken Spell is tracked per prepared copy for its +4 slot cost; casting-time eligibility, swift-action casting, the once-per-round and shared swift-action limits, and the no-attack-of-opportunity effect remain manual. It cannot quicken spontaneously converted cleric or druid spells.")}
           {(hasHeightenSpell || hasEmpowerSpell || hasMaximizeSpell || hasExtendSpell || hasEnlargeSpell || hasQuickenSpell) && hasSilentSpell ? " " : ""}
           {hasSilentSpell && (learningMode === "Spells Known"
             ? "Silent Spell for spontaneous casting remains manual; bard spells cannot use this feat."
@@ -837,6 +861,32 @@ export function SpellSheet({
           {hasHeightenSpell && " Non-DC spell-level effects remain manual."}
         </p>}
         {availableLevels.length === 0 && <p>{spellcastingClass.name} spellcasting begins at class level 4. No spell slots are available yet.</p>}
+        {hasSplitRay && <p className="spell-rules-notice">
+          Split Ray remains manual: use a slot two levels higher and fire one additional ray simultaneously, with a separate ranged touch attack. All targets must be within 30 feet of each other. Spontaneous casting timing also remains manual.
+        </p>}
+        {hasSuddenMetamagic && <p className="spell-rules-notice">
+          Sudden metamagic effects remain manual: each selected feat can be used once per day without increasing the spell slot or preparing the spell ahead of time. Track uses and apply effects manually; handle spontaneous casting time manually, except Sudden Quicken is cast as a swift action.
+        </p>}
+        {(hasBlackLoreOfMoil || hasChainSpell || hasCooperativeSpell || hasDelaySpell || hasExplosiveSpell || hasFortifySpell || hasPersistentSpell || hasRepeatSpell || hasSanctumSpell || hasTransdimensionalSpell || hasTwinSpell) && <p className="spell-rules-notice">
+          {hasBlackLoreOfMoil && "Black Lore of Moil remains manual: choose a necromancy spell, expend a runebone costing 25 gp per bonus damage die, add damage limited by the spell and rune, and halve the bonus damage on a successful save. "}
+          {hasChainSpell && "Chain Spell remains manual: choose a single-target spell with range greater than touch, select secondary targets within 30 feet, and resolve their reduced damage or save DC; slot +3. "}
+          {hasCooperativeSpell && "Cooperative Spell remains manual: adjacent casters with this feat must cast the same spell simultaneously; apply the save DC and spell-resistance check bonuses. "}
+          {hasDelaySpell && "Delay Spell remains manual: use an area, personal, or touch spell, set a 1–5-round delay, choose targets when cast, resolve effects when it triggers, and use a slot three levels higher. "}
+          {hasExplosiveSpell && "Explosive Spell remains manual: only area spells with Reflex saves qualify (cone, cylinder, line, or burst); use a slot two levels higher and resolve the push, extra damage, and prone effect. "}
+          {hasFortifySpell && "Fortify Spell remains manual: use a slot at least one level higher, gaining +2 on spell resistance checks per added level; spells without spell resistance are unaffected. "}
+          {hasPersistentSpell && "Persistent Spell remains manual: only fixed- or personal-range spells with eligible durations qualify; use a slot six levels higher. "}
+          {hasRepeatSpell && "Repeat Spell remains manual: use a slot three levels higher; the spell repeats next turn from its original location, and a ranged target must remain within 30 feet of that location. Touch spells are ineligible. "}
+          {hasSanctumSpell && "Sanctum Spell remains manual: track whether you are in your designated sanctum and apply +1 effective spell level there or −1 outside without changing the slot. "}
+          {hasTransdimensionalSpell && "Transdimensional Spell remains manual: slot +1 for incorporeal, Ethereal, Plane of Shadow, or extradimensional creatures; perceive direct targets; bursts, cones, emanations, and spreads affect unseen creatures."}
+          {hasTwinSpell && "Twin Spell remains manual: use a slot four levels higher and resolve both simultaneous spell effects separately."}
+        </p>}
+        {(hasEnergySubstitution || hasEnergyAdmixture || hasNonlethalSubstitution || hasBornOfTheThreeThunders || hasLordOfTheUttercold) && <p className="spell-rules-notice">
+          {hasEnergySubstitution && "Energy Substitution remains manual: apply the selected energy type shown in the feat name only to eligible energy spells, including the damage and descriptor change; use the normal slot. "}
+          {hasEnergyAdmixture && "Energy Admixture remains manual: add equal damage of the selected type, track each damage type separately toward caps, apply both descriptors, and use a slot four levels higher. "}
+          {hasNonlethalSubstitution && "Nonlethal Substitution remains manual: record one chosen energy type, convert matching energy damage to nonlethal, and use a slot one level higher; it cannot damage objects or ignite combustibles. "}
+          {hasBornOfTheThreeThunders && "Born of the Three Thunders remains manual: for hit-point-damaging electricity or sonic spells, split damage evenly, apply both descriptors, resolve the Fortitude and then Reflex saves at the spell DC, and track your 1-round daze; the slot is unchanged. "}
+          {hasLordOfTheUttercold && "Lord of the Uttercold remains manual: verify you can cast a cold-descriptor spell; split eligible cold damage evenly between cold and negative energy, apply cold resistance only to the cold portion, and allow the negative-energy portion to heal undead; the slot is unchanged."}
+        </p>}
         {requiresPreparation && preparationView && (
           preparationComplete
             ? <p role="status">Daily preparation complete.</p>
@@ -888,7 +938,8 @@ export function SpellSheet({
       {learningMode === "Spellbook" && wizardView === "spellbook" ? (
         <div role="tabpanel" id="wizard-spellbook-panel" aria-labelledby="wizard-spellbook-tab">
           <WizardSpellbook character={character} original={levelUpOriginal} editable={editable}
-            onKnownSpellsChange={onKnownSpellsChange} onAcquisitionChange={onSpellAcquisitionChange} />
+            onKnownSpellsChange={onKnownSpellsChange} onAcquisitionChange={onSpellAcquisitionChange}
+          />
         </div>
       ) : (
       <div role={learningMode === "Spellbook" ? "tabpanel" : undefined}
@@ -958,8 +1009,14 @@ export function SpellSheet({
               ))}
             </div>
             {getEffectiveAbilityScore(character, castingAbility) < 10 + level && <p className="spell-rules-notice">
-              {castingAbility.toUpperCase()} {10 + level} is required to {["bard", "sorcerer"].includes(spellcastingClass.id) ? "learn or cast" : "cast"} spells of this level.
+              {castingAbility.toUpperCase()} {10 + level} is required to {["assassin", "bard", "sorcerer"].includes(spellcastingClass.id) ? "learn or cast" : "cast"} spells of this level.
             </p>}
+            {isIndependentSpellcastingClass(spellcastingClassId) &&
+              baseSpellSlots(spellcastingClassId, classLevel, level) === 0 && (
+                <p className="spell-rules-notice">
+                  Bonus slots only: {castingAbility.toUpperCase()} {10 + 2 * level} is required to cast spells of this level at this class level.
+                </p>
+              )}
             {preparationCount > dailySlotCount && <p role="alert" className="spell-rules-notice">
               Too many {spellcastingClass.name} spells prepared at level {level}. Reduce preparation to {dailySlotCount}.
             </p>}
@@ -1822,11 +1879,14 @@ export function SpellSheet({
                                   metamagic.length ? `${metamagic.join(" and ")} in level ${usedSlotLevel} slot` : "",
                                 ].filter(Boolean);
                                 return <small key={copyIndex} className="prepared-spell-dc">
-                                  Copy {copyIndex + 1}: DC {getSpellSaveDC(character, spellcastingClassId, preparedLevel, spell.school)}
+                                  Copy {copyIndex + 1}: {spell.saveDCAdjustment ? "Base DC" : "DC"} {getSpellSaveDC(character, spellcastingClassId, preparedLevel, spell.school, true, spell.saveDCFormula)}
                                   {notes.length ? ` (${notes.join("; ")})` : ""}
                                 </small>;
                               })
-                            : <small>DC {getSpellSaveDC(character, spellcastingClassId, level, spell.school)}</small>
+                            : <small>{spell.saveDCAdjustment ? "Base DC" : "DC"} {getSpellSaveDC(character, spellcastingClassId, level, spell.school, true, spell.saveDCFormula)}</small>
+                        )}
+                        {spell?.saveDCAdjustment === "caster-level-minus-target-hd" && (
+                          <small>Final DC = base DC + caster level - target HD</small>
                         )}
                       </td>
                       <td>

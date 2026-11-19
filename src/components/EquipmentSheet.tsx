@@ -266,7 +266,9 @@ export function EquipmentSheet({
         )}
         {shieldBashState.enabled && (
           <p className="combat-note" role="status">
-            The shield's AC bonus is lost until your next action, usually next round. Clear this setting manually when the bonus returns.
+            {shieldBashState.retainsShieldACBonus
+              ? "Improved Shield Bash lets you retain the shield's AC bonus while bashing."
+              : "The shield's AC bonus is lost until your next action, usually next round. Clear this setting manually when the bonus returns."}
           </p>
         )}
         <SpecialAttackStats character={character} />
@@ -382,7 +384,7 @@ export function EquipmentSheet({
                   </span>}
                   {stats.rangeIncrement && <span>{stats.rangeLabel}: {stats.rangeIncrement}</span>}
                   {stats.reach && <span>Reach: {stats.reach}</span>}
-                  <span title={[stats.weaponSizeDetail, stats.rangeStatusMessage].filter(Boolean).join("\n")}>Attack: {stats.rangeOutOfRange ? "OUT OF RANGE" : stats.attackActionWarning || targetContext.defense.cover === "total" ? "UNAVAILABLE" : formatModifier(stats.attack)} ({formatModifier(stats.baseAttackBonus)} base, {formatModifier(stats.abilityAttackBonus)} ability, {formatModifier(stats.sizeAttackBonus)} size{stats.weaponSizePenalty !== 0 ? `, ${formatModifier(stats.weaponSizePenalty)} weapon size` : ""}{stats.rangeAttackPenalty !== 0 ? `, ${formatModifier(stats.rangeAttackPenalty)} range` : ""}, {formatModifier(stats.attackEnhancement)} enhancement{stats.weaponFocusBonus ? `, +${stats.weaponFocusBonus} Weapon Focus` : ""}{stats.attackPenalty !== 0 ? `, ${formatModifier(stats.attackPenalty)} two-weapon` : ""}{stats.combatExpertisePenalty !== 0 ? `, ${formatModifier(stats.combatExpertisePenalty)} Combat Expertise` : ""}{stats.finessePenalty !== 0 ? `, ${formatModifier(stats.finessePenalty)} finesse shield penalty` : ""}{stats.nonproficiencyPenalty !== 0 ? `, ${formatModifier(stats.nonproficiencyPenalty)} nonproficiency` : ""}{stats.towerShieldAttackPenalty !== 0 ? `, ${formatModifier(stats.towerShieldAttackPenalty)} tower shield` : ""}{stats.compositeBowStrengthPenalty !== 0 ? `, ${formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating` : ""})</span>
+                  <span title={[stats.weaponSizeDetail, stats.rangeStatusMessage].filter(Boolean).join("\n")}>Attack: {stats.rangeOutOfRange ? "OUT OF RANGE" : stats.attackActionWarning || targetContext.defense.cover === "total" ? "UNAVAILABLE" : formatModifier(stats.attack)} ({formatModifier(stats.baseAttackBonus)} base, {formatModifier(stats.abilityAttackBonus)} ability, {formatModifier(stats.sizeAttackBonus)} size{stats.weaponSizePenalty !== 0 ? `, ${formatModifier(stats.weaponSizePenalty)} weapon size` : ""}{stats.rangeAttackPenalty !== 0 ? `, ${formatModifier(stats.rangeAttackPenalty)} range` : ""}{stats.shootingIntoMeleePenalty !== 0 ? `, ${formatModifier(stats.shootingIntoMeleePenalty)} shooting into melee` : ""}, {formatModifier(stats.attackEnhancement)} enhancement{stats.weaponFocusBonus ? `, +${stats.weaponFocusBonus} Weapon Focus` : ""}{stats.greaterWeaponFocusBonus ? `, +${stats.greaterWeaponFocusBonus} Greater Weapon Focus` : ""}{stats.attackPenalty !== 0 ? `, ${formatModifier(stats.attackPenalty)} two-weapon` : ""}{stats.combatExpertisePenalty !== 0 ? `, ${formatModifier(stats.combatExpertisePenalty)} Combat Expertise` : ""}{stats.finessePenalty !== 0 ? `, ${formatModifier(stats.finessePenalty)} finesse shield penalty` : ""}{stats.nonproficiencyPenalty !== 0 ? `, ${formatModifier(stats.nonproficiencyPenalty)} nonproficiency` : ""}{stats.towerShieldAttackPenalty !== 0 ? `, ${formatModifier(stats.towerShieldAttackPenalty)} tower shield` : ""}{stats.compositeBowStrengthPenalty !== 0 ? `, ${formatModifier(stats.compositeBowStrengthPenalty)} composite-bow rating` : ""})</span>
                   {stats.maximumRangeFeet !== undefined && <span>Maximum range: {stats.maximumRangeFeet} ft.</span>}
                   {stats.rangeStatusMessage && <span className={stats.rangeOutOfRange ? "combat-warning" : ""} role="status">{stats.rangeStatusMessage}</span>}
                   {stats.ammunitionStatus && <span className={stats.ammunitionStatus.status === "ready" ? "" : "combat-warning"} role={stats.ammunitionStatus.status === "missing" ? "alert" : "status"}>{stats.ammunitionStatus.message}</span>}
@@ -393,6 +395,9 @@ export function EquipmentSheet({
                   />}
                   {stats.damageReductionStatus && <span className={stats.damageReductionStatus.status === "applies" || stats.damageReductionStatus.status === "manual" ? "combat-warning" : ""} role="status">{stats.damageReductionStatus.message}</span>}
                   {stats.rapidShotPenalty < 0 && <span className="attack-penalty">{formatModifier(stats.rapidShotPenalty)} Rapid Shot</span>}
+                  {stats.shootingIntoMeleePenalty < 0 && <span className="attack-penalty">
+                    {formatModifier(stats.shootingIntoMeleePenalty)} shooting into melee
+                  </span>}
                   {stats.reloadNote && <span>{stats.reloadNote}</span>}
                   {stats.nonproficiencyPenalty < 0 && <span className="attack-penalty"
                     title={stats.nonproficiencyPenalties.map((entry) => `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency`).join("\n")}>
@@ -430,6 +435,7 @@ export function EquipmentSheet({
                   </span>}
                   {stats.materialDamageNote && <span className="combat-warning">{stats.materialDamageNote}</span>}
                   {stats.weaponSpecializationBonus > 0 && <span>Weapon Specialization: +2 damage</span>}
+                  {stats.greaterWeaponSpecializationBonus > 0 && <span>Greater Weapon Specialization: +2 damage</span>}
                   <span>Critical: {stats.critical}</span>
                   {stats.enchantmentDamage.map((damage) => <span key={damage}>{damage}</span>)}
                 </div>

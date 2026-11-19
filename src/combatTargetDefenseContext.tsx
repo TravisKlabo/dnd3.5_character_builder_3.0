@@ -18,7 +18,12 @@ const CombatTargetContextState = createContext<CombatTargetContextValue | undefi
 export function CombatTargetContextProvider({ children }: { children: ReactNode }) {
   const [value, onChange] = useState<CombatTargetContext>({
     damageReduction: "",
-    defense: { cover: "none", concealment: "none" },
+    defense: {
+      cover: "none",
+      concealment: "none",
+      targetEngagedWithFriendly: false,
+      targetAtLeast10FeetFromNearestFriendly: false,
+    },
     targetTypes: [],
   });
   return (

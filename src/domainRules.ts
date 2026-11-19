@@ -4,22 +4,24 @@ import { clericDomainRuleMetadata } from "./data/clericDomainRuleMetadata";
 import { clericDomainSpellLists } from "./data/clericDomainSpellLists";
 import { getEffectiveAbilityScore } from "./abilityEquipment";
 
+const core35ContentId = "core-35-srd";
+const dragonlanceContentId = "dragonlance-user-pack";
 const domainAlignments: Partial<Record<ClericDomainId, string>> = {
   chaos: "Chaotic", evil: "Evil", good: "Good", law: "Lawful",
 };
 
 export function isDeityAvailableForRuleset(deity: DeityDefinition | undefined, ruleset: RulesetId) {
   if (!deity) return true;
-  return deity.source === (ruleset === "core-35-srd" ? "core-35-srd" : "dragonlance-user-pack");
+  return deity.source === (ruleset === core35ContentId ? core35ContentId : dragonlanceContentId);
 }
 
 export function clericDomainAllowed(character: Character, id: ClericDomainId) {
   const alignment = domainAlignments[id];
   const deity = deityDefinitions.find((entry) => entry.id === character.deity);
   const definition = clericDomainRuleMetadata[id];
-  if (definition.source === "dragonlance-user-pack" && character.ruleset === "core-35-srd") return false;
-  if (definition.mysticOnly || (definition.mysticOnlyInDragonlance && character.ruleset !== "core-35-srd")) return false;
-  if (definition.source === "dragonlance-user-pack" &&
+  if (definition.source === dragonlanceContentId && character.ruleset === core35ContentId) return false;
+  if (definition.mysticOnly || (definition.mysticOnlyInDragonlance && character.ruleset !== core35ContentId)) return false;
+  if (definition.source === dragonlanceContentId &&
     !definition.clericDeities?.includes(character.deity ?? "")) return false;
   return (!alignment || character.alignment.includes(alignment)) &&
     isDeityAvailableForRuleset(deity, character.ruleset) &&
@@ -34,7 +36,7 @@ export function getActiveClericDomains(character: Character) {
 
 export function isMysticDomainAllowed(character: Character, id: ClericDomainId) {
   if (id === "magic") return false;
-  if (character.ruleset === "core-35-srd" && isDragonlanceDomainId(id)) return false;
+  if (character.ruleset === core35ContentId && isDragonlanceDomainId(id)) return false;
   const alignment = domainAlignments[id];
   return !alignment || character.alignment.includes(alignment);
 }
@@ -47,7 +49,7 @@ export function getMysticDomainOptions(character: Character) {
 
 export function getActiveMysticDomain(character: Character) {
   if (
-    character.ruleset === "core-35-srd" ||
+    character.ruleset === core35ContentId ||
     !character.classLevels.some((entry) => !("prestigeClassId" in entry) && entry.classId === "mystic") ||
     !character.mysticDomain ||
     !isMysticDomainAllowed(character, character.mysticDomain)
@@ -69,7 +71,7 @@ export function getMysticDomainSpellNote(character: Character, level: number) {
 
 export function getMysticDomainWarnings(character: Character) {
   if (
-    character.ruleset === "core-35-srd" ||
+    character.ruleset === core35ContentId ||
     !character.classLevels.some((entry) => !("prestigeClassId" in entry) && entry.classId === "mystic")
   ) return [];
   if (!character.mysticDomain) return ["Choose one Mystic domain; its bonus spells are inactive until selected."];
@@ -136,12 +138,12 @@ export function getClericDomainWarnings(character: Character) {
   for (const id of domains) {
     const definition = clericDomainRuleMetadata[id];
     const alignment = domainAlignments[id];
-    if (definition.source === "dragonlance-user-pack" && character.ruleset === "core-35-srd") {
+    if (definition.source === dragonlanceContentId && character.ruleset === core35ContentId) {
       warnings.push(`${definition.name} is a Dragonlance domain; its cleric benefits are inactive in the Core 3.5 SRD ruleset.`);
     } else if (definition.mysticOnly ||
-      (definition.mysticOnlyInDragonlance && character.ruleset !== "core-35-srd")) {
+      (definition.mysticOnlyInDragonlance && character.ruleset !== core35ContentId)) {
       warnings.push(`${definition.name} is available only to Mystics in Dragonlance; its cleric benefits are inactive.`);
-    } else if (definition.source === "dragonlance-user-pack" &&
+    } else if (definition.source === dragonlanceContentId &&
       !definition.clericDeities?.includes(character.deity ?? "")) {
       warnings.push(`${definition.name} is not granted to this cleric by the selected deity. Its benefits are inactive.`);
     } else if (alignment && !character.alignment.includes(alignment)) {

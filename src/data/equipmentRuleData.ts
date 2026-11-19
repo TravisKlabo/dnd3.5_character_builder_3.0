@@ -6,6 +6,7 @@ export const armorBonuses: Record<string, number> = {
   "Scale Mail": 4,
   Chainmail: 5,
   "Splint Mail": 6,
+  "Banded Mail": 6,
   "Half-Plate": 7,
   "Full Plate": 8,
   "Chain Shirt": 4,
@@ -23,6 +24,7 @@ export const armorMaximumDexterity: Record<string, number> = {
   "Scale Mail": 3,
   Chainmail: 2,
   "Splint Mail": 0,
+  "Banded Mail": 1,
   "Half-Plate": 0,
   "Full Plate": 1,
   "Chain Shirt": 4,
@@ -39,7 +41,8 @@ export const armorCheckPenalties: Record<string, number> = {
   "Hide Armor": -3,
   "Scale Mail": -4,
   Chainmail: -5,
-  "Splint Mail": -6,
+  "Splint Mail": -7,
+  "Banded Mail": -6,
   "Half-Plate": -7,
   "Full Plate": -6,
   "Chain Shirt": -2,
@@ -61,6 +64,7 @@ export const armorClasses: Record<string, "Light" | "Medium" | "Heavy"> = {
   Breastplate: "Medium",
   "Mithral Breastplate": "Medium",
   "Splint Mail": "Heavy",
+  "Banded Mail": "Heavy",
   "Half-Plate": "Heavy",
   "Full Plate": "Heavy",
   "Mithral Full Plate": "Heavy",
@@ -111,6 +115,7 @@ export const weaponProfiles: Record<string, WeaponProfile> = {
   Club: { damage: "1d6", crit: "x2" },
   "Short Sword": { damage: "1d6", crit: "19–20/x2" },
   "Heavy Mace": { damage: "1d8", crit: "x2" },
+  "Bastard Sword": { damage: "1d10", crit: "19–20/x2" },
   "Dwarven Waraxe": { damage: "1d10", crit: "x3" },
   Longsword: { damage: "1d8", crit: "19–20/x2" },
   Dagger: { damage: "1d4", crit: "19–20/x2" },
@@ -174,6 +179,9 @@ export const weaponProfiles: Record<string, WeaponProfile> = {
 export const weaponDamageTypes: Record<string, string> = {
   Longsword: "slashing",
   Dagger: "piercing or slashing",
+  "Dagger, Punching": "piercing",
+  Gauntlet: "bludgeoning",
+  "Gauntlet, Spiked": "piercing",
   Handaxe: "slashing",
   Greatsword: "slashing",
   Shortbow: "piercing",
@@ -219,12 +227,21 @@ export const weaponDamageTypes: Record<string, string> = {
   Dart: "piercing",
   Shuriken: "piercing",
   Sling: "bludgeoning",
+  Bolas: "bludgeoning",
+  Greatclub: "bludgeoning",
+  "Heavy Flail": "bludgeoning",
+  "Heavy Pick": "piercing",
+  "Light Pick": "piercing",
+  Ranseur: "piercing",
+  Scythe: "piercing or slashing",
+  "Throwing Axe": "slashing",
 };
 
 export const armorSpellFailure: Record<string, number> = {
   "Padded Armor": 5, "Leather Armor": 10, "Studded Leather": 15,
   "Chain Shirt": 20, "Hide Armor": 20, "Scale Mail": 25, Chainmail: 30,
   Breastplate: 25, "Splint Mail": 40, "Half-Plate": 40, "Full Plate": 35,
+  "Banded Mail": 35,
   "Mithral Chain Shirt": 10, "Mithral Breastplate": 15, "Mithral Full Plate": 25,
 };
 
@@ -234,7 +251,7 @@ export const shieldSpellFailure: Record<string, number> = {
 };
 
 export const weaponRangeIncrements: Record<string, number> = {
-  Club: 10, Dagger: 10, "Throwing Axe": 10, "Light Hammer": 20,
+  Club: 10, Dagger: 10, Sai: 10, "Throwing Axe": 10, "Light Hammer": 20,
   Spear: 20, "Short Spear": 20, Shortspear: 20, Trident: 10,
   Dart: 20, Javelin: 30, Shuriken: 10, Net: 10, Bolas: 10,
   Sling: 50, Shortbow: 60, "Composite Shortbow": 70,
@@ -244,7 +261,7 @@ export const weaponRangeIncrements: Record<string, number> = {
 };
 
 export const reachWeaponNames = new Set([
-  "Glaive", "Guisarme", "Lance", "Longspear", "Long Spear", "Ranseur", "Spiked Chain",
+  "Glaive", "Guisarme", "Lance", "Longspear", "Long Spear", "Ranseur", "Spiked Chain", "Whip",
 ]);
 
 export const rangedWeaponNames = new Set([
@@ -258,6 +275,10 @@ export const rangedWeaponNames = new Set([
   "Dart",
   "Javelin",
   "Shuriken",
+  "Bolas",
+  "Throwing Axe",
+  "Light Hammer",
+  "Sai",
 ]);
 
 export const lightOffHandWeaponNames = new Set([
@@ -276,6 +297,9 @@ export const lightOffHandWeaponNames = new Set([
   "Siangham",
   "Shuriken",
   "Dart",
+  "Throwing Axe",
+  "Dagger, Punching",
+  "Gauntlet, Spiked",
 ]);
 
 export const twoHandedWeaponNames = new Set([
@@ -312,12 +336,14 @@ export const twoHandedWeaponNames = new Set([
 export const simpleWeaponNames = new Set([
   "Club",
   "Dagger",
+  "Dagger, Punching",
+  "Gauntlet, Spiked",
   "Light Mace",
   "Heavy Mace",
   "Mace",
-  "Light Hammer",
   "Morningstar",
   "Quarterstaff",
+  "Gauntlet",
   "Sickle",
   "Short Spear",
   "Shortspear",
@@ -352,6 +378,16 @@ export const martialWeaponNames = new Set([
   "Lance",
   "Scimitar",
   "Warhammer",
+  "Armor Spikes",
+  "Throwing Axe",
+  "Light Hammer",
+  "Light Pick",
+  "Sap",
+  "Heavy Pick",
+  "Greatclub",
+  "Heavy Flail",
+  "Ranseur",
+  "Scythe",
 ]);
 
 export const martialWeaponClasses = new Set(["barbarian", "fighter", "paladin", "ranger"]);

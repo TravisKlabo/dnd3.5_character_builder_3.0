@@ -11,7 +11,7 @@ const nobleConfidenceDescription =
 const nobleGreatnessDescription =
   "Once per day, after a full round of listening and observation, inspire up to the listed number of allies (not yourself) for 5 rounds. Each gains +2d6 temporary hit points, +2 competence on attacks, and +2 morale on saves.";
 const druidWildShapeDescription =
-  "Assume a known animal form for up to 1 hour per Druid level as a standard action that provokes no attacks of opportunity; the form's Hit Dice cannot exceed your Druid level. Each use heals 1 hit point per Hit Die, and gear melds and becomes nonfunctional. At Druid level 16, elemental forms may be Small, Medium, or Large; at level 20, Huge elementals are also available. Elemental uses are a separate daily pool. Eligible size, plant, and elemental forms and daily uses are shown in this feature; resolve form statistics and abilities manually.";
+  "Assume a known animal form for up to 1 hour per Druid level as a standard action that provokes no attacks of opportunity; the form's Hit Dice cannot exceed your Druid level. Each use heals 1 hit point per Hit Die, and gear melds and becomes nonfunctional. At Druid level 16, elemental forms may be Small, Medium, or Large; at level 20, Huge elementals are also available. Elemental uses are a separate daily pool. If you have Natural Spell, you can provide verbal and somatic components and use material components and focuses while in wild shape, even if melded; the feat does not let you speak or use magic items your form could not ordinarily use. Resolve spellcasting in form manually. Eligible size, plant, and elemental forms and daily uses are shown in this feature; resolve form statistics and abilities manually.";
 const paladinSmiteDescription =
   "Against an evil target, add your positive Charisma modifier to one melee attack and your Paladin level to damage. A non-evil target wastes the use. The listed daily uses are shown here; resolve the attack and use tracking manually.";
 const paladinWeeklyRemoveDiseaseDescription = (uses: string) =>
@@ -100,7 +100,9 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Bardic Knowledge":
     bardicKnowledgeDescription,
   "Turn or Rebuke Undead":
-    "Good clerics and neutral clerics of good deities turn or destroy undead; evil clerics and neutral clerics of evil deities rebuke or command them. Neutral clerics of neutral deities choose permanently. Wee Jas's lawful neutral clerics rebuke; St. Cuthbert's clerics and non-evil clerics of Obad-Hai turn. Attempts per day equal 3 + Charisma modifier; 5 ranks in Knowledge (religion) add +2 on checks. Resolve attempts and effects manually.",
+    "Good clerics and neutral clerics of good deities turn or destroy undead; evil clerics and neutral clerics of evil deities rebuke or command them. Neutral clerics of neutral deities choose permanently. Wee Jas's lawful neutral clerics rebuke; St. Cuthbert's clerics and non-evil clerics of Obad-Hai turn. Attempts per day equal 3 + Charisma modifier; 5 ranks in Knowledge (religion) add +2 on checks. Extra Turning adds 4 daily uses to each turning or rebuking ability per selection; repetitions stack. Improved Turning raises your effective level by 1 for turning or rebuking. Resolve attempts and effects manually.",
+  "Turn Undead":
+    "Paladins turn undead as clerics three levels lower. Attempts per day equal 3 + Charisma modifier; 5 ranks in Knowledge (religion) add +2 on turning checks. Extra Turning adds 4 daily uses to each turning ability per selection; repetitions stack. Improved Turning raises your effective level by 1 for turning. Resolve attempts and effects manually.",
   Domains:
     "Choose two domains allowed by your deity, or representing your beliefs if you have no deity, subject to alignment restrictions. Gain both granted powers and one separate domain spell slot for each spell level you can cast; prepare a spell from either domain in each slot.",
   "Smite Evil": paladinSmiteDescription,
@@ -145,7 +147,7 @@ export const classFeatureDescriptions: Record<string, string> = {
   "Summon Familiar":
     "A Wizard or Sorcerer can obtain one familiar after 24 hours and 100 gp in materials. Wizard and Sorcerer levels stack for familiar abilities; the familiar's special bonuses to its master apply only within 1 mile. Track its type, statistics, and death or replacement manually.",
   "Wizard Bonus Feat":
-    "Gain an additional feat at Wizard levels 5, 10, 15, and 20; normal feat prerequisites still apply.",
+    "At Wizard levels 5, 10, 15, and 20, choose a metamagic or item creation feat, Spell Mastery, or an explicitly permitted supplemental feat. Complete Mage also permits reserve feats. Normal prerequisites still apply; specialist-only exceptions require the matching specialty.",
   "Wild Shape (1/day)": druidWildShapeDescription,
   "Wild Shape (2/day)": druidWildShapeDescription,
   "Wild Shape (3/day)": druidWildShapeDescription,

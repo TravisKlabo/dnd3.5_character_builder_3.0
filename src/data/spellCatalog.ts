@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import type { Character, ClassId, ContentSourceId, RulesetId } from "../domain";
+import { dragonlancePrestigeClasses, isIndependentSpellcastingClass, type Character, type ContentSourceId, type RulesetId, type SpellcastingClassId } from "../domain";
 import type { SrdSpell } from "../srdSpells";
 
 export const srdSpellContentSource: ContentSourceId = "core-35-srd";
@@ -11,6 +11,8 @@ const spellNameAliases: Record<string, string> = {
   "greater heroism": "heroism, greater",
   "greater restoration": "restoration, greater",
   "lesser restoration": "restoration, lesser",
+  "lesser planar ally": "planar ally, lesser",
+  "phantom trap": "leomund's trap",
   "otto's irresistible dance": "irresistible dance",
   "rary's telepathic bond": "telepathic bond",
   "tasha's hideous laughter": "hideous laughter",
@@ -50,8 +52,9 @@ export function loadSpellCatalog(): Promise<void> {
   pending = Promise.all([
     import("../srdSpells"),
     import("./dragonlanceSpells"),
-  ]).then(([{ srdSpells }, { dragonlanceSpells }]) => {
-    spells.push(...srdSpells, ...dragonlanceSpells);
+    import("./monsterManualSpells"),
+  ]).then(([{ srdSpells }, { dragonlanceSpells }, { monsterManualSpells }]) => {
+    spells.push(...srdSpells, ...dragonlanceSpells, ...monsterManualSpells);
     for (const spell of spells) {
       if (!spellsByName.has(spell.name)) spellsByName.set(spell.name, spell);
       const normalizedName = normalizeSpellName(spell.name);
@@ -64,6 +67,10 @@ export function loadSpellCatalog(): Promise<void> {
     throw error;
   }).finally(() => { pending = undefined; });
   return pending;
+}
+
+export function isSpellCatalogLoaded() {
+  return state.status === "ready";
 }
 
 export function getSpellLevelForClass(spell: SrdSpell, classId: string): number {
@@ -83,7 +90,7 @@ export function isSpellClassAccessAllowed(
 }
 
 export function getClassSpells(
-  classId: ClassId,
+  classId: SpellcastingClassId,
   ruleset: RulesetId = "core-35-srd",
   character?: Pick<Character, "highSorceryOrder">,
 ): SrdSpell[] {
@@ -91,6 +98,23 @@ export function getClassSpells(
   const whiteWizardAccess = classId === "wizard" && character?.highSorceryOrder === "white";
   const cacheKey = `${classId}:${ruleset}:${whiteWizardAccess ? "white" : "standard"}`;
   let entries = spellsByClass.get(cacheKey);
+  if (!entries && isIndependentSpellcastingClass(classId)) {
+    entries = Object.entries(dragonlancePrestigeClasses[classId].referenceSpellList?.levels ?? {})
+      .flatMap(([level, names]) => names.flatMap((name) => {
+        const spell = findSpellByName(name === "Protection from Elements" ? "Protection from Energy" : name);
+        if (!spell) return [];
+        return [{
+          ...spell,
+          level: Number(level),
+          ...(name === "Protection from Elements" ? {
+            description: `${spell.description} The DMG lists “Protection from Elements”; confirm this 3.5 equivalent with the DM.`,
+          } : /^Summon Monster /.test(name) ? {
+            description: `${spell.description} This Blackguard spell can summon only evil creatures.`,
+          } : {}),
+        }];
+      }));
+    spellsByClass.set(cacheKey, entries);
+  }
   if (!entries) {
     entries = spells.filter((spell) =>
       spell.classes.includes(classId) ||

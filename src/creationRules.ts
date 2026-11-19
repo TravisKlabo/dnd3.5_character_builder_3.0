@@ -1,5 +1,5 @@
 import { classDefinitions, dragonlancePrestigeClasses, raceDefinitions, type AbilityName, type Character, type ClassId, type PrestigeClassId } from "./domain";
-import { isNeutralAlignment } from "./rules";
+import { getPrestigeClassPrerequisiteErrors, isNeutralAlignment } from "./rules";
 
 export function formatRaceModifiers(modifiers: Partial<Record<AbilityName, number>>) {
   const entries = Object.entries(modifiers).filter(([, value]) => value);
@@ -71,22 +71,49 @@ export function formatPrestigeClassDetails(
       : "",
     prerequisites.races?.length ? prerequisites.races.join(" or ") : "",
     prerequisites.feats?.length ? prerequisites.feats.join(", ") : "",
+    prerequisites.anyFeats?.length ? `One of: ${prerequisites.anyFeats.join(", ")}` : "",
+    ...(prerequisites.featChoices ?? []).map(({ anyOf, count }) =>
+      `${count} distinct feats from ${anyOf.join(" or ")}`),
+    ...(prerequisites.featCategoryChoices ?? []).map(({ anyOf, count }) =>
+      `${count} distinct ${anyOf.join(" or ")} feats`),
+    prerequisites.anySkillRanks
+      ? `${prerequisites.minimumMatchingSkills ?? 1} ${prerequisites.anySkillPrefix?.replace(/ \($/, "") ?? ""} skill(s) with ${prerequisites.anySkillRanks} ranks each` : "",
+    prerequisites.weaponFocusChoices?.length
+      ? `Weapon Focus (${prerequisites.weaponFocusChoices.join(" or ")})` : "",
+    prerequisites.skillFocusPrefix ? `Skill Focus (${prerequisites.skillFocusPrefix.replace(/ \($/, "")} skill)` : "",
+    prerequisites.skillFocus ? `Skill Focus (${prerequisites.skillFocus})` : "",
+    ...(prerequisites.spellFocusSchools ?? []).map((school) => `Spell Focus (${school})`),
+    prerequisites.minimumSpellFocusSchools ? `Spell Focus in ${prerequisites.minimumSpellFocusSchools} distinct schools` : "",
+    prerequisites.allMartialWeaponProficiencies ? "Proficient with all martial weapons" : "",
+    prerequisites.languages?.length ? `Languages: ${prerequisites.languages.join(", ")}` : "",
+    prerequisites.sneakAttackDice ? `Sneak attack +${prerequisites.sneakAttackDice}d6` : "",
+    prerequisites.spontaneousArcaneSpellcasting ? "Arcane spellcasting without preparation" : "",
+    ...(prerequisites.classFeatures ?? []),
+    ...Object.entries(prerequisites.prestigeClasses ?? {}).map(([id, level]) =>
+      `${dragonlancePrestigeClasses[id as PrestigeClassId].name} ${level}`),
+    ...[
+      ...(prerequisites.spellcasting ? [prerequisites.spellcasting] : []),
+      ...(prerequisites.additionalSpellcasting ?? []),
+    ].map(({ type, level }) => `${type} spells of level ${level} or higher`),
+    prerequisites.spells?.length ? `Able to cast ${prerequisites.spells.join(", ")}` : "",
+    prerequisites.spellSchoolSpells
+      ? `${prerequisites.spellSchoolSpells.count} different ${prerequisites.spellSchoolSpells.school} spells, including one of level ${prerequisites.spellSchoolSpells.minimumLevel} or higher` : "",
+    prerequisites.arcaneSpellRepertoire
+      ? `Cast a level ${prerequisites.arcaneSpellRepertoire.castableLevel} arcane spell and know level ${prerequisites.arcaneSpellRepertoire.minimumSchoolSpellLevel}+ arcane spells from ${prerequisites.arcaneSpellRepertoire.schoolCount} distinct schools` : "",
   ].filter(Boolean);
-  return `${requirements.length ? `Prerequisites: ${requirements.join("; ")}. ` : ""}${prestigeClass.roleplayPrerequisite ? `Special: ${prestigeClass.roleplayPrerequisite} ` : ""}Features: ${prestigeClass.features.join(", ")}.`;
+  const spellList = prestigeClass.referenceSpellList;
+  const spellListDetails = spellList
+    ? ` ${prestigeClass.levelUpEnabled ? "Class spells (independent casting)" : "Reference spells"}: ${Object.entries(spellList.levels).map(([level, spells]) => `Level ${level}: ${spells.join(", ")}`).join("; ")}.${spellList.note ? ` ${spellList.note}` : ""}`
+    : "";
+  return `${requirements.length ? `Prerequisites: ${requirements.join("; ")}. ` : ""}${prestigeClass.roleplayPrerequisite ? `Special: ${prestigeClass.roleplayPrerequisite} ` : ""}Features: ${prestigeClass.features.join(", ")}.${!prestigeClass.levelUpEnabled ? " Reference only: complete level-up progression is not implemented." : ""}${spellListDetails}`;
 }
 
 export function isPrestigeClassEligible(
   definition: (typeof dragonlancePrestigeClasses)[PrestigeClassId],
-  classId: ClassId,
-  race: string,
+  character: Character,
 ) {
   if (definition.levelUpEnabled) return false;
-  const prerequisites = definition.prerequisites;
-  const raceId = race.toLowerCase().replaceAll(" ", "-");
-  return (
-    (!prerequisites.classes?.length || prerequisites.classes.includes(classId)) &&
-    (!prerequisites.races?.length || prerequisites.races.includes(raceId))
-  );
+  return getPrestigeClassPrerequisiteErrors(character, definition.id, false).length === 0;
 }
 
 export function isHighSorceryAlignmentAllowed(order: Character["highSorceryOrder"], alignment: string) {

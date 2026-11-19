@@ -21,6 +21,80 @@ function savedHero() {
 }
 
 describe("application workflows", () => {
+  it("levels an Assassin, learns bonus-slot spells and tracks an independent expended slot", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "rogue", level: 6 }];
+    character.race = "Half-Elf";
+    character.alignment = "Neutral Evil";
+    character.abilities.int = 12;
+    character.skills = { Disguise: 4, Hide: 8, "Move Silently": 8 };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:assassin");
+    await user.click(await screen.findByRole("checkbox", { name: /join the assassins/i }));
+    expect(await screen.findByText("Learn 2 additional 1st-level Assassin spells.")).toBeDefined();
+    for (const name of ["Ghost Sound", "True Strike"]) {
+      await user.click((await screen.findAllByRole("button", { name: "Choose a new spell" }))[0]);
+      await user.click(screen.getByRole("option", { name: new RegExp(name) }));
+    }
+    const tabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(tabs.getByRole("button", { name: "Character" }));
+    for (const skill of ["Balance", "Bluff", "Climb", "Diplomacy", "Disguise"])
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled,
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBe(false);
+    await user.click(confirm);
+    await user.click(tabs.getByRole("button", { name: "Spells" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Expended level 1 slot 1" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const saved = readStoredCharacter();
+    expect(saved.classLevels).toEqual([{ classId: "rogue", level: 6 }, { classId: "rogue", prestigeClassId: "assassin", level: 1 }]);
+    expect(saved.knownSpellsByClass).toEqual({ assassin: ["Ghost Sound", "True Strike"] });
+    expect(saved.expendedSpellSlotsByClass).toEqual({ assassin: { "1": [0] } });
+  });
+
+  it("levels a Blackguard and expends a prepared spell without using Cleric preparation", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "fighter", level: 6 }, { classId: "cleric", level: 4 }];
+    character.alignment = "Lawful Evil";
+    character.abilities = { ...character.abilities, str: 13, int: 10, wis: 12 };
+    character.skills = { Hide: 5, "Knowledge (religion)": 2 };
+    character.featSelections = { "general-1": "power-attack", "general-3": "cleave", "general-6": "improved-sunder" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:blackguard");
+    await user.click(await screen.findByRole("checkbox", { name: /peaceful contact/i }));
+    const tabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    await user.click(tabs.getByRole("button", { name: "Character" }));
+    for (const skill of ["Concentration", "Diplomacy", "Heal"])
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled,
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBe(false);
+    await user.click(confirm);
+    await user.click(tabs.getByRole("button", { name: "Spells" }));
+    await user.click(await screen.findByRole("tab", { name: "Blackguard · 1" }));
+    fireEvent.change(await screen.findByRole("spinbutton", { name: "Prepare Corrupt Weapon" }), { target: { value: "1" } });
+    expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Prepare Doom" }).max).toBe("0");
+    await user.click(screen.getByRole("button", { name: "Complete Blackguard daily preparation" }));
+    await user.click(screen.getByRole("checkbox", { name: "Expended level 1 slot 1" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const saved = readStoredCharacter();
+    expect(saved.classLevels).toEqual([...character.classLevels, { classId: "fighter", prestigeClassId: "blackguard", level: 1 }]);
+    expect(saved.preparedSpellsByClass).toEqual({ blackguard: ["Corrupt Weapon"] });
+    expect(saved.spellPreparationCompletedByClass).toEqual({ blackguard: true });
+    expect(saved.expendedSpellSlotsByClass).toEqual({ blackguard: { "1": [0] } });
+  });
+
   it("persists Dragonlance Cleric Medallion of Faith state", async () => {
     const character = savedHero();
     character.ruleset = "dragonlance-user-pack";
@@ -55,6 +129,66 @@ describe("application workflows", () => {
     expect(readStoredCharacter().flySpeed).toBe(30);
   });
 
+  it("keeps Feats and Special Abilities visible while collapsing manual prerequisites", async () => {
+    savedHero();
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Feats" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Special Abilities" }),
+    ).toBeTruthy();
+    const summary = screen.getByText(
+      "Additional prerequisites and manual tracking",
+    );
+    const details = summary.closest("details") as HTMLDetailsElement | null;
+    expect(details?.open).toBe(false);
+    const powerPointReserve = screen.getByRole("checkbox", {
+      name: /power point reserve/i,
+    });
+    expect(powerPointReserve.closest("details")).toBe(details);
+    const featsPanel = details?.closest(".feats-panel");
+    const panelCheckboxes = featsPanel?.querySelectorAll(
+      'input[type="checkbox"]',
+    );
+    expect(panelCheckboxes?.length).toBeGreaterThan(0);
+    expect(
+      Array.from(panelCheckboxes ?? []).every(
+        (checkbox) => checkbox.closest("details") === details,
+      ),
+    ).toBe(true);
+    expect(
+      screen
+        .getByRole("spinbutton", { name: "Divine Caster Level (manual)" })
+        .closest("details"),
+    ).toBe(details);
+
+    await user.click(summary);
+
+    expect(details?.open).toBe(true);
+  });
+
+  it("locks a neutral Cleric's undead turning choice once selected", async () => {
+    const character = savedHero();
+    character.alignment = "True Neutral";
+    character.deity = "gilean";
+    character.classLevels = [{ classId: "cleric", level: 1 }];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    const turningMode = await screen.findByRole("combobox", {
+      name: "Cleric undead turning mode",
+    }) as HTMLSelectElement;
+
+    await user.selectOptions(turningMode, "turn");
+
+    expect(turningMode.value).toBe("turn");
+    expect(turningMode.disabled).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().clericUndeadTurningMode).toBe("turn");
+  });
+
   it("explains that Noble is only available as a first-level class choice", async () => {
     const character = savedHero();
     character.ruleset = "dragonlance-user-pack";
@@ -70,6 +204,168 @@ describe("application workflows", () => {
       (await screen.findByRole("option", { name: "Noble (1st-level only)" }))
         .hasAttribute("disabled"),
     ).toBe(true);
+  });
+
+  it("levels a Mystic Theurge and saves both spellcasting targets", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "wizard", level: 3 }, { classId: "cleric", level: 3 }];
+    character.abilities = { ...character.abilities, int: 12, wis: 12 };
+    character.skills = { "Knowledge (arcana)": 6, "Knowledge (religion)": 6 };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:mystic-theurge");
+    const divine = await screen.findByRole<HTMLSelectElement>("combobox", { name: "Advance divine spellcasting in" });
+    expect(divine.value).toBe("cleric");
+    for (const skill of ["Concentration", "Spellcraft", "Sense Motive", "Decipher Script"])
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+    await user.click(screen.getByRole("button", { name: "Confirm Level-Up" }));
+    expect(screen.queryByRole("button", { name: "Confirm Level-Up" }),
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const saved = readStoredCharacter();
+    expect(saved.classLevels).toContainEqual({
+      classId: "wizard", prestigeClassId: "mystic-theurge", divineSpellcastingClassId: "cleric", level: 1,
+    });
+    expect(saved.hitPointRolls).toContainEqual(expect.objectContaining({
+      classId: "wizard", divineSpellcastingClassId: "cleric", prestigeClassId: "mystic-theurge", classLevel: 1,
+    }));
+  });
+
+  it("saves an Archmage level with its permanent High Arcana cost", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "wizard", level: 13 }];
+    character.abilities.int = 18;
+    character.skills = { "Knowledge (arcana)": 15, Spellcraft: 15 };
+    character.featSelections = { "general-1": "skill-focus", "general-3": "spell-focus", "general-6": "spell-focus" };
+    character.featSkillSelections = { "general-1": "Spellcraft" };
+    character.featSpellSchoolSelections = { "general-3": "Abjuration", "general-6": "Evocation" };
+    character.knownSpellsByClass = { wizard: ["Dismissal", "Cloudkill", "Cone of Cold", "Dominate Person", "Finger of Death"] };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:archmage");
+    const arcana = await screen.findByRole("combobox", { name: "High Arcana" });
+    expect(within(arcana).queryByRole("option", { name: "Arcane Fire" })).toBeNull();
+    await user.selectOptions(arcana, "Mastery of Shaping");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Permanent High Arcana slot cost" }), "7");
+    for (let rank = 0; rank < 7; rank++)
+      await user.click(screen.getByRole("button", { name: "Add rank to Concentration" }));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled,
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBe(false);
+    await user.click(confirm);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter()).toMatchObject({
+      highArcanaChoices: [{ ability: "Mastery of Shaping", classId: "wizard", slot: 7 }],
+    });
+  });
+
+  it("collects Red Wizard schools and confirms specialist arcane advancement", async () => {
+    const character = savedHero();
+    character.race = "Human";
+    character.alignment = "Neutral";
+    character.classLevels = [{ classId: "wizard", level: 13 }];
+    character.abilities.int = 16;
+    character.skills = { Spellcraft: 8 };
+    character.coreWizardSpecializationSchool = "Abjuration";
+    character.feats = ["Empower Spell", "Extend Spell", "Silent Spell"];
+    character.featSelections = {
+      "general-1": "empower-spell",
+      "general-3": "extend-spell",
+      "general-6": "silent-spell",
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:red-wizard");
+    const specialist = await screen.findByRole<HTMLSelectElement>("combobox", { name: "Red Wizard specialist school" });
+    expect(within(specialist).getAllByRole("option")).toHaveLength(2);
+    await user.selectOptions(specialist, "Abjuration");
+    await user.selectOptions(
+      screen.getByRole("listbox", { name: "Additional prohibited school(s)" }),
+      "Evocation",
+    );
+    await user.click(screen.getByRole("checkbox", { name: /confirm Thayan origin and Tattoo Focus/i }));
+    await user.click(within(screen.getByRole("navigation", { name: "Character sheets" }))
+      .getByRole("button", { name: "Character" }));
+    for (const skill of ["Bluff", "Concentration", "Knowledge (arcana)", "Craft", "Intimidate", "Spellcraft"])
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled,
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBe(false);
+    await user.click(confirm);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter()).toMatchObject({
+      classLevels: [{ classId: "wizard", level: 13 }, { classId: "wizard", prestigeClassId: "red-wizard", level: 1 }],
+      redWizardSpecializationSchool: "Abjuration",
+      redWizardProhibitedSchools: ["Evocation"],
+    });
+  });
+
+  it("requires Dragon Disciple ancestry and saves a bonus slot on the chosen casting track", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "sorcerer", level: 6 }];
+    character.abilities = { ...character.abilities, int: 10, cha: 16 };
+    character.skills = { "Knowledge (arcana)": 8 };
+    character.languages.push("Draconic");
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:dragon-disciple");
+    await user.click(await screen.findByRole("checkbox", { name: /neither a dragon/i }));
+    for (const skill of ["Concentration", "Diplomacy", "Spellcraft"])
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled).toBe(true);
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Dragon variety" }), "Bronze");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Dragon Disciple bonus spell slot" }), "sorcerer:3");
+    expect(confirm.disabled,
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBe(false);
+    await user.click(confirm);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter()).toMatchObject({
+      dragonDiscipleVariety: "Bronze", dragonDiscipleBonusSlots: [{ classId: "sorcerer", level: 3 }],
+    });
+  });
+
+  it("requires a Hierophant special ability and saves the chosen ability", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "cleric", level: 13 }];
+    character.abilities = { ...character.abilities, int: 10, wis: 18 };
+    character.skills = { "Knowledge (religion)": 15 };
+    character.feats = ["Empower Spell"];
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Enter Level-Up Mode" }));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Class" }), "prestige:hierophant");
+    const ability = await screen.findByRole("combobox", { name: "Hierophant special ability" });
+    expect(screen.queryByRole("option", { name: "Power of Nature" })).toBeNull();
+    for (const skill of ["Concentration", "Diplomacy", "Spellcraft"])
+      await user.click(screen.getByRole("button", { name: `Add rank to ${skill}` }));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: "Confirm Level-Up" });
+    expect(confirm.disabled).toBe(true);
+    await user.selectOptions(ability, "Spell Power");
+    expect(confirm.disabled,
+      Array.from(document.querySelectorAll(".level-todo-list .validation-error"), (error) => error.textContent).join("; "),
+    ).toBe(false);
+    await user.click(confirm);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter().hierophantAbilities).toEqual(["Spell Power"]);
   });
 
   it("adds a Knight of the Crown level after confirming eligibility and sponsorship", async () => {
@@ -425,6 +721,33 @@ describe("application workflows", () => {
       .toContain("Source: D&D 3.5 Core SRD");
     expect(document.querySelector(".finalized-prestige-field")?.textContent)
       .toContain("Book: Dungeon Master's Guide (3.5)");
+    expect(document.querySelector(".finalized-prestige-field")?.textContent)
+      .toContain("reference only");
+    expect(document.querySelector(".finalized-class-field")?.textContent)
+      .not.toContain("Arcane Trickster 1");
+    expect(screen.queryByText("Ranged legerdemain")).toBeNull();
+  });
+
+  it("warns about an imported illegal Wizard bonus feat without discarding it on load", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "wizard", level: 5 }];
+    character.featSelections = { "wizard-5": "improved-initiative" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    expect(await screen.findByText(/Improved Initiative is not a permitted Wizard bonus feat/)).toBeDefined();
+    expect(readStoredCharacter().featSelections["wizard-5"]).toBe("improved-initiative");
+  });
+
+  it("warns when a saved feat is unusable after losing a prerequisite", async () => {
+    const character = savedHero();
+    character.abilities.str = 12;
+    character.featSelections = { "general-1": "power-attack" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    expect(await screen.findByText(/Power Attack is recorded but unusable/)).toBeDefined();
+    expect(readStoredCharacter().featSelections["general-1"]).toBe("power-attack");
   });
 
   it.each([false, true])("preserves free-form age and weight in setup/finalized mode (saved: %s)", async (saved) => {
@@ -504,6 +827,7 @@ describe("application workflows", () => {
     character.knownSpellsByClass = { wizard: ["Magic Missile"] };
     character.preparedSpells = ["Shield"];
     character.preparedSpellsByClass = { wizard: ["Shield"] };
+    character.featSelections = { "general-1": "alertness" };
     character.equipment = {
       "Main Weapon": "Longsword (Medium)",
       "Ranged Weapon": "Longbow (Medium)",
@@ -514,7 +838,11 @@ describe("application workflows", () => {
       Head: "Circlet of Insight",
       "Rings 1": "Ring of Protection +1",
     };
-    character.inventory = { "Rope (50 ft.)": 1 };
+    character.inventory = {
+      "Rope (50 ft.)": 1,
+      "Rations, Trail (per day)": 3,
+      "Banded Mail": 1,
+    };
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     render(<App />);
 
@@ -565,6 +893,11 @@ describe("application workflows", () => {
     expect(combatNotes?.textContent).toContain("Temporary HP");
     expect(pageOne.querySelector(".reference-identity")?.textContent)
       .toContain("Print Regression");
+    expect(pageOne.querySelector(".reference-identity")?.textContent)
+      .toContain("Wizard 1 / Cleric 2");
+    expect(pageOne.querySelector(".reference-identity")?.textContent)
+      .toContain("Human");
+    expect(screen.getByText("Alertness", { exact: true })).toBeDefined();
     expect(screen.getByText("Longsword", { exact: false })).toBeDefined();
     expect(pageOne.querySelector(".reference-attack-table thead th:last-child")?.textContent)
       .toBe("Range / Reach");
@@ -615,6 +948,8 @@ describe("application workflows", () => {
     expect(document.querySelector(".reference-worn-item.has-item")?.textContent)
       .toContain("Circlet of Insight");
     expect(document.querySelectorAll(".reference-inventory-list .reference-inventory-row")).toHaveLength(28);
+    expect(screen.getByText("Rations, Trail (per day)")).toBeDefined();
+    expect(screen.getByText("Banded Mail")).toBeDefined();
     const sidebar = document.querySelector(".reference-xp-sidebar");
     const feats = document.querySelector(".reference-feats");
     const featsDetails = document.querySelector(".reference-feats-details");
@@ -900,7 +1235,7 @@ describe("application workflows", () => {
     });
     Object.defineProperty(file, "text", { value: async () => exportedJson });
     fireEvent.change(input, { target: { files: [file] } });
-    const importedNameInputs = await screen.findAllByRole<HTMLInputElement>("textbox", { name: "Character name" });
+    const importedNameInputs = await screen.findAllByDisplayValue<HTMLInputElement>("Portable Setup Draft");
     expect(importedNameInputs[0].value).toBe("Portable Setup Draft");
     expect(screen.getByRole("button", { name: "Finalize Character" })).toBeDefined();
     expect(alert).toHaveBeenLastCalledWith("Character imported.");
@@ -914,7 +1249,7 @@ describe("application workflows", () => {
     const user = userEvent.setup();
     const original = savedHero();
     render(<App />);
-    const tabs = within(screen.getByRole("navigation", { name: "Character sheets" }));
+    const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
     await user.click(tabs.getByRole("button", { name: "Equipment" }));
     await screen.findByText("EQUIPMENT SLOTS");
     await user.click(tabs.getByRole("button", { name: "Store" }));
@@ -1673,6 +2008,11 @@ describe("application workflows", () => {
     const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
     await user.click(tabs.getByRole("button", { name: "Spells" }));
     await screen.findByLabelText("Spellcasting Class and Level");
+    expect(
+      screen.queryByRole("combobox", {
+        name: /Core Wizard specialty school/,
+      }),
+    ).toBeNull();
     expect(screen.getByLabelText<HTMLInputElement>("Spellcasting Class and Level").value)
       .toBe("Wizard 1");
     const firstCasterLevel = screen.getByText("Caster Level", {
@@ -1887,7 +2227,7 @@ describe("application workflows", () => {
       screen.getByRole("navigation", { name: "Character sheets" }),
     );
     await user.click(tabs.getByRole("button", { name: "Equipment" }));
-    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Attack action" }).value)
+    expect((await screen.findByRole<HTMLSelectElement>("combobox", { name: "Attack action" })).value)
       .toBe("manyshot");
     expect(screen.getByText("3 arrows use one Manyshot attack roll")).toBeDefined();
     expect(screen.getByText(/Weapon damage expression: .* per arrow\. Apply damage reduction and other resistances separately against each arrow; add precision-based damage once\. On a critical, only the first arrow deals critical damage\./)).toBeDefined();
@@ -1896,7 +2236,11 @@ describe("application workflows", () => {
   it("shares target cover and concealment context across character and equipment sheets", async () => {
     const user = userEvent.setup();
     const original = savedHero();
-    original.featSelections = { "general-1": "improved-precise-shot" };
+    original.featSelections = {
+      "general-1": "point-blank-shot",
+      "general-3": "precise-shot",
+      "general-6": "improved-precise-shot",
+    };
     original.equipment["Ranged Weapon"] = "Longbow (Medium)";
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(original));
     render(<App />);
@@ -1968,12 +2312,20 @@ describe("application workflows", () => {
     const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
     const view = render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Class" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Class" }),
+    );
     await user.click(
       within(screen.getByRole("listbox", { name: "Class choices" })).getByRole(
         "option",
         { name: /^Wizard/ },
       ),
+    );
+    await user.selectOptions(
+      await screen.findByRole("combobox", {
+        name: /Core Wizard specialty school/,
+      }),
+      "Conjuration",
     );
     const tabs = within(await screen.findByRole("navigation", { name: "Character sheets" }));
     await user.click(screen.getByRole("button", { name: "Alignment" }));
@@ -2050,6 +2402,7 @@ describe("application workflows", () => {
     const saved = readStoredCharacter();
     expect(saved).toMatchObject({
       race: "Human",
+      coreWizardSpecializationSchool: "Conjuration",
       classLevels: [{ classId: "wizard", level: 1 }],
       knownSpellsByClass: {
         wizard: expect.arrayContaining(["Detect Magic", "Mage Armor", "Magic Missile", "Shield"]),

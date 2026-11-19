@@ -1,15 +1,19 @@
 import { lazy, Suspense, useState } from "react";
 import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
 import "../data/equipmentCatalog";
-import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSkillPointsPerLevel, getSpentSkillPoints, getAvailableSkillCount, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier } from "../rules";
+import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSkillPointsPerLevel, getSpentSkillPoints, getAvailableSkillCount, getAvailableSkillTricks, getAvailableSkillTrickGrants, getSkillTrickGrantFeatSlots, getSkillTrickLimit, getSkillTrickSelections, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getAvailableFeatSpellMasteryChoices, getFeatSpellMasteryChoiceCount, getWizardSpellbookSpells, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier, requiresManualClericUndeadTurningMode } from "../rules";
 import { type CombatAttackMode, type CombatCastingContext, type SkillSynergyContext } from "../rules";
 import { getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay } from "../rules";
+import { getWizardBonusFeatWarnings } from "../rules";
 import { getMovement } from "../movementRules";
 import { abilities, skills, skillDescriptions, abilityLabels, featCatalog } from "../data/characterCatalog";
+import { skillTrickCatalog } from "../data/skillTricks";
 import { classFeatureDescriptions } from "../data/classFeatureDescriptions";
 import { prestigeClassFeatureDescriptions } from "../data/prestigeClassFeatureDescriptions";
+import { getDuelistImprovedReactionBonus } from "../rules";
 import { Panel, Stat, ArmorClassStat, SavingThrowStat, DodgeTargetControl, AttacksOfOpportunityStat, CombatCastingContextControl, ContentSourceLabel } from "./shared";
 import { RangerFavoredEnemies } from "./RangerFavoredEnemies";
+import { SpellPicker } from "./pickers";
 import { type HitPointAction, getCurrentHitPoints, getMaximumHitPoints } from "../hitPoints";
 import { getAbilityEquipmentBonus, getEffectiveAbilityScore } from "../abilityEquipment";
 import { getCombatEffectDetails, type CombatEffect } from "../combatEffects";
@@ -102,10 +106,13 @@ export function CharacterSheet({
   levelUpClassId,
   creationMode,
   onSkillRankChange,
+  onSkillTrickLearn,
+  onSkillTrickRemove,
   onFeatChange,
   onFeatWeaponChange,
   onFeatSkillChange,
   onFeatSpellSchoolChange,
+  onFeatSpellMasteryChange,
   onLanguagesChange,
   onSpeakLanguagesChange,
   onRegionalLanguageChange,
@@ -147,10 +154,17 @@ export function CharacterSheet({
     change: number,
     sourceId?: SkillRankSourceId,
   ) => void;
+  onSkillTrickLearn: (
+    trickId: string,
+    sourceId?: SkillRankSourceId,
+    featSlotId?: string,
+  ) => void;
+  onSkillTrickRemove: (trickId: string) => void;
   onFeatChange: (slotId: string, featId: string) => void;
   onFeatWeaponChange: (slotId: string, weaponName: string) => void;
   onFeatSkillChange: (slotId: string, skill: string) => void;
   onFeatSpellSchoolChange: (slotId: string, school: MagicSchool | undefined) => void;
+  onFeatSpellMasteryChange: (slotId: string, selections: string[]) => void;
   onLanguagesChange: (languages: string[]) => void;
   onSpeakLanguagesChange: (languages: string[]) => void;
   onRegionalLanguageChange: (language: string | undefined) => void;
@@ -166,7 +180,7 @@ export function CharacterSheet({
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   onCharacterFeatureChange: (
-    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed">>,
+    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed" | "hasPowerPointReserve" | "hasKiPower" | "hasKiStrikeMagic" | "hasAllMartialWeaponProficiencies" | "hasStealSpell" | "hasSwashbucklerGrace" | "hasConjurationHealingSpell" | "hasSpontaneousCureOrInflict" | "hasCureWoundsSpell" | "hasSummonNaturesAllySpell" | "hasInflictWoundsSpell" | "canTurnElementalSubtype" | "canRebukeElementalSubtype" | "hasFastWildShape" | "hasWarmageLevelFour" | "hasGraduatedFromApprenticeship" | "hasMentorSkillPrerequisites" | "isGuildMember" | "hasGuildmasterPrerequisites" | "hasCompletedBondingRitual" | "hasRechargeableBreathWeapon" | "hasDetectMagicAccess" | "isThoonAffiliate" | "divineCasterLevel" | "clericUndeadTurningMode" | "manifesterLevel" | "skirmishDamageDice" | "skirmishACBonus">>,
   ) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
@@ -226,6 +240,33 @@ export function CharacterSheet({
         ? defaultSkillSourceId
         : creationSkillSourceId ?? defaultSkillSourceId
       : undefined;
+  const currentCharacterLevel = getTotalHitDice(character);
+  const wizardBonusFeatWarnings = getWizardBonusFeatWarnings(character);
+  const chosenFeatIds = new Set(getChosenFeats(character));
+  const featPrerequisiteWarnings = getFeatSlots(character).flatMap((slot) => {
+    const featId = character.featSelections?.[slot.id];
+    const feat = featCatalog.find((entry) => entry.id === featId);
+    if (
+      !feat ||
+      chosenFeatIds.has(feat.id) ||
+      wizardBonusFeatWarnings.some((warning) =>
+        warning.startsWith(`${slot.label}:`),
+      ) ||
+      (slot.metamagicOnly && !feat.categories?.includes("metamagic")) ||
+      (slot.redWizardOnly &&
+        !feat.categories?.some((category) =>
+          category === "metamagic" || category === "item-creation",
+        ) &&
+        feat.id !== "spell-mastery")
+    )
+      return [];
+    return [`${slot.label}: ${feat.name} is recorded but unusable because its prerequisites are unmet.`];
+  });
+  const learnedSkillTricks = getSkillTrickSelections(character);
+  const availableSkillTricks = getAvailableSkillTricks(character);
+  const skillTrickGrantFeatSlots = getSkillTrickGrantFeatSlots(character);
+  const skillTrickSourceId = activeLevelUpClassId ?? skillDisplaySourceId;
+  const skillTrickPointsRemaining = availableSkillPoints - spentSkillPoints;
   const skillRankSourceIds = [...new Set(character.classLevels.map((level) =>
     "prestigeClassId" in level ? level.prestigeClassId : level.classId,
   ))];
@@ -235,13 +276,6 @@ export function CharacterSheet({
       (level) => "prestigeClassId" in level
         ? `${dragonlancePrestigeClasses[level.prestigeClassId]?.name ?? level.prestigeClassId} ${level.level}`
         : `${classDefinitions[level.classId]?.name ?? level.classId} ${level.level}`,
-    ),
-    ...(
-      character.prestigeClass &&
-        character.prestigeClass !== "wizard-of-high-sorcery" &&
-        !character.classLevels.some((level) => "prestigeClassId" in level)
-        ? [`${dragonlancePrestigeClasses[character.prestigeClass]?.name ?? "Prestige Class"} 1`]
-        : []
     ),
   ].join(" / ");
   const totalHitDice = getTotalHitDice(character);
@@ -301,18 +335,10 @@ export function CharacterSheet({
       })
       .flat(),
     ...getClassFeatureDisplay(character),
-    ...(character.prestigeClass
-      ? (
-          dragonlancePrestigeClasses[character.prestigeClass]?.features ?? []
-        ).map((ability) => ({
-          source: dragonlancePrestigeClasses[character.prestigeClass!].name,
-          ability,
-          isPrestigeClass: true,
-        }))
-      : []),
   ];
   const initiativeFeatBonus = getImprovedInitiativeBonus(character);
   const knightInitiativeBonus = getKnightOfCrownHeroicInitiativeBonus(character);
+  const duelistInitiativeBonus = getDuelistImprovedReactionBonus(character);
   const knightOfTheCrownLevel = getPrestigeClassLevel(character, "knight-of-the-crown");
   const crownState = character.knightOfTheCrownState ?? {};
   const strengthOfHonorUses = crownState.strengthOfHonorUsesUsed ?? 0;
@@ -382,7 +408,7 @@ export function CharacterSheet({
           </label>
           {character.prestigeClass && (
             <label className="finalized-prestige-field">
-              Prestige Class:
+              Prestige Class (reference only):
               <span className="sheet-value">
                 {dragonlancePrestigeClasses[character.prestigeClass]?.name ?? "Prestige Class"}
               </span>
@@ -605,12 +631,14 @@ export function CharacterSheet({
             detail={[
               ...(initiativeFeatBonus ? [`${formatModifier(initiativeFeatBonus)} Improved Initiative`] : []),
               ...(knightInitiativeBonus ? [`${formatModifier(knightInitiativeBonus)} Heroic Initiative`] : []),
+              ...(duelistInitiativeBonus ? [`${formatModifier(duelistInitiativeBonus)} Improved Reaction`] : []),
               ...getArmorNonproficiencyPenalties(character).map((entry) => `${formatModifier(entry.penalty)} ${entry.source}`),
               ...getCombatEffectDetails(character, "checks"),
             ]}
             title={[
               ...(initiativeFeatBonus ? [`${formatModifier(initiativeFeatBonus)} Improved Initiative`] : []),
               ...(knightInitiativeBonus ? [`${formatModifier(knightInitiativeBonus)} Heroic Initiative`] : []),
+              ...(duelistInitiativeBonus ? [`${formatModifier(duelistInitiativeBonus)} Improved Reaction`] : []),
               ...getArmorNonproficiencyPenalties(character).map((entry) =>
                 `${entry.name}: ${formatModifier(entry.penalty)} nonproficiency penalty to Dexterity checks`),
               ...getCombatEffectDetails(character, "checks"),
@@ -1037,10 +1065,549 @@ export function CharacterSheet({
           ); })}
         </div>
       </Panel>
+      <Panel
+        title={`Skill Tricks (${learnedSkillTricks.length}/${getSkillTrickLimit(character)})`}
+        className="skill-tricks-panel"
+      >
+        <p className="skill-trick-notes">
+        Ordinary learning costs 2 skill points and is limited to one trick
+        per character level. Feat-granted tricks are free. Your total limit is
+        half your character level, rounded up, plus any feat bonuses. Trick
+        uses and effects are resolved manually.
+      </p>
+        {(creationMode || levelUpOriginal) && (
+          <label className="skill-trick-picker">
+            <span>Learn a skill trick ({skillTrickPointsRemaining} skill points remaining)</span>
+            <select
+              aria-label="Learn a skill trick"
+              value=""
+              disabled={
+                skillTrickPointsRemaining < 2 ||
+                !skillTrickSourceId ||
+                availableSkillTricks.length === 0
+              }
+              onChange={(event) => {
+                if (event.currentTarget.value && skillTrickSourceId)
+                  onSkillTrickLearn(
+                    event.currentTarget.value,
+                    skillTrickSourceId,
+                  );
+              }}
+            >
+              <option value="">
+                {availableSkillTricks.length
+                  ? "Choose an eligible skill trick"
+                  : "No eligible tricks at this level"}
+              </option>
+              {availableSkillTricks.map((trick) => (
+                <option key={trick.id} value={trick.id}>
+                  {trick.name} ({trick.category})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {skillTrickGrantFeatSlots
+          .filter((slot) => slot.characterLevel === currentCharacterLevel)
+          .map((slot) => {
+            const featName =
+              featCatalog.find((feat) => feat.id === slot.featId)?.name ??
+              slot.featId;
+            const availableGrants = getAvailableSkillTrickGrants(
+              character,
+              slot.slotId,
+            );
+            const grantCount = learnedSkillTricks.filter(
+              (selection) => selection.featSlotId === slot.slotId,
+            ).length;
+            return (
+              <label className="skill-trick-picker" key={slot.slotId}>
+                <span>
+                  {featName}: choose a free {slot.category} trick (
+                  {grantCount}/2)
+                </span>
+                <select
+                  aria-label={`${featName} free skill trick`}
+                  value=""
+                  disabled={availableGrants.length === 0}
+                  onChange={(event) => {
+                    if (event.currentTarget.value)
+                      onSkillTrickLearn(
+                        event.currentTarget.value,
+                        undefined,
+                        slot.slotId,
+                      );
+                  }}
+                >
+                  <option value="">
+                    {availableGrants.length
+                      ? "Choose an eligible skill trick"
+                      : "No eligible tricks or trick slots available"}
+                  </option>
+                  {availableGrants.map((trick) => (
+                    <option key={trick.id} value={trick.id}>
+                      {trick.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          })}
+        {learnedSkillTricks.length ? (
+          <ul className="skill-trick-list">
+            {learnedSkillTricks.map((selection) => {
+              const trick = skillTrickCatalog.find(
+                (entry) => entry.id === selection.trickId,
+              );
+              if (!trick) return null;
+              const grantingFeat = selection.featSlotId
+                ? skillTrickGrantFeatSlots.find(
+                    (slot) => slot.slotId === selection.featSlotId,
+                  )
+                : undefined;
+              const grantingFeatName = grantingFeat
+                ? featCatalog.find((feat) => feat.id === grantingFeat.featId)
+                    ?.name
+                : undefined;
+              return (
+                <li key={`${selection.characterLevel}-${selection.trickId}`}>
+                  <span>
+                    {trick.name} ({trick.category};{" "}
+                    {grantingFeatName
+                      ? `granted by ${grantingFeatName}`
+                      : `learned at level ${selection.characterLevel}`})
+                  </span>
+                  {(creationMode || levelUpOriginal) &&
+                    selection.characterLevel === currentCharacterLevel && (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${trick.name} skill trick`}
+                        onClick={() => onSkillTrickRemove(trick.id)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="empty-state">No skill tricks learned.</p>
+        )}
+      </Panel>
       <Panel title="Feats & Special Abilities" className="feats-panel">
+        <details className="feat-prerequisite-details">
+          <summary>Additional prerequisites and manual tracking</summary>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasPowerPointReserve ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasPowerPointReserve: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has a power point reserve (source and total tracked manually)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasKiPower ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasKiPower: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has the Ki Power class feature (source and uses tracked manually)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasKiStrikeMagic ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasKiStrikeMagic: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has Ki Strike (magic) (source confirmed manually)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasAllMartialWeaponProficiencies ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasAllMartialWeaponProficiencies: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Proficient with all martial weapons (confirmed manually)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasStealSpell ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasStealSpell: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has the Steal Spell class feature (source confirmed manually)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasSwashbucklerGrace ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasSwashbucklerGrace: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has Swashbuckler Grace +1 (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasConjurationHealingSpell ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasConjurationHealingSpell: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can cast a conjuration (healing) spell (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasSpontaneousCureOrInflict ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasSpontaneousCureOrInflict: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can spontaneously cast cure or inflict spells (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasCureWoundsSpell ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasCureWoundsSpell: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can cast any cure wounds spell (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasSummonNaturesAllySpell ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasSummonNaturesAllySpell: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can cast any summon nature's ally spell (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasInflictWoundsSpell ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasInflictWoundsSpell: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can cast any inflict wounds spell (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.canTurnElementalSubtype ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                canTurnElementalSubtype: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can turn creatures with an elemental subtype (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.canRebukeElementalSubtype ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                canRebukeElementalSubtype: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can rebuke creatures with an elemental subtype (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasFastWildShape ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasFastWildShape: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>Has Fast Wild Shape (manually confirmed)</span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasWarmageLevelFour ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasWarmageLevelFour: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>Warmage level 4 or higher (manually confirmed)</span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasRechargeableBreathWeapon ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasRechargeableBreathWeapon: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has a breath weapon with recharge time expressed in rounds
+            (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasDetectMagicAccess ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasDetectMagicAccess: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Can use detect magic as a spell or spell-like ability (manually
+            confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.isThoonAffiliate ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                isThoonAffiliate: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>Is affiliated with Thoon (manually confirmed)</span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasGraduatedFromApprenticeship ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasGraduatedFromApprenticeship: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>Graduated from an apprenticeship (manually confirmed)</span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasMentorSkillPrerequisites ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasMentorSkillPrerequisites: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Has 8 ranks in at least two skills associated with the mentor
+            category (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.isGuildMember ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                isGuildMember: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>Is a member of a guild (manually confirmed)</span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasGuildmasterPrerequisites ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasGuildmasterPrerequisites: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>
+            Meets the other Guildmaster prerequisites: an associated feat,
+            eligible followers and cohorts, and a guild-associated class skill
+            at maximum rank (manually confirmed)
+          </span>
+        </label>
+        <label className="manual-prerequisite-control">
+          <input
+            type="checkbox"
+            checked={character.hasCompletedBondingRitual ?? false}
+            onChange={(event) =>
+              onCharacterFeatureChange({
+                hasCompletedBondingRitual: event.currentTarget.checked,
+              })
+            }
+          />
+          <span>Completed a bonding ritual (manually confirmed)</span>
+        </label>
+        {requiresManualClericUndeadTurningMode(character) && (
+          <label className="manual-manifester-level">
+            <span>Cleric undead turning mode (choose once)</span>
+            <select
+              aria-label="Cleric undead turning mode"
+              value={character.clericUndeadTurningMode ?? ""}
+              disabled={character.clericUndeadTurningMode !== undefined}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                onCharacterFeatureChange({
+                  clericUndeadTurningMode:
+                    value === "turn" || value === "rebuke" ? value : undefined,
+                });
+              }}
+            >
+              <option value="">Choose one</option>
+              <option value="turn">Turn undead</option>
+              <option value="rebuke">Rebuke undead</option>
+            </select>
+          </label>
+        )}
+        <label className="manual-manifester-level">
+          <span>Divine Caster Level (manual)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            aria-label="Divine Caster Level (manual)"
+            value={character.divineCasterLevel ?? ""}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              onCharacterFeatureChange({
+                divineCasterLevel: value === "" ? undefined : Number(value),
+              });
+            }}
+          />
+        </label>
+        <label className="manual-manifester-level">
+          <span>Manifester Level (manual)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            aria-label="Manifester Level (manual)"
+            value={character.manifesterLevel ?? ""}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              onCharacterFeatureChange({
+                manifesterLevel: value === "" ? undefined : Number(value),
+              });
+            }}
+          />
+        </label>
+        <label className="manual-manifester-level">
+          <span>Skirmish extra damage (d6, manual)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            aria-label="Skirmish extra damage dice (manual)"
+            value={character.skirmishDamageDice ?? ""}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              onCharacterFeatureChange({
+                skirmishDamageDice: value === "" ? undefined : Number(value),
+              });
+            }}
+          />
+        </label>
+        <label className="manual-manifester-level">
+          <span>Skirmish AC bonus (manual)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            aria-label="Skirmish AC bonus (manual)"
+            value={character.skirmishACBonus ?? ""}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              onCharacterFeatureChange({
+                skirmishACBonus: value === "" ? undefined : Number(value),
+              });
+            }}
+          />
+        </label>
+        </details>
         <div className="feats-abilities-grid">
           <div className="feats-column">
             <h3>Feats</h3>
+            {wizardBonusFeatWarnings.map((warning) => (
+              <p className="spell-rules-notice" role="alert" key={warning}>{warning}</p>
+            ))}
+            {featPrerequisiteWarnings.map((warning) => (
+              <p className="spell-rules-notice" role="status" key={warning}>{warning}</p>
+            ))}
             <div className="chosen-feats">
               {Object.entries(character.featSelections ?? {})
                 .filter(([, featId]) => Boolean(featId))
@@ -1049,13 +1616,32 @@ export function CharacterSheet({
                   const weapon = character.featWeaponSelections?.[slotId];
                   const skill = character.featSkillSelections?.[slotId];
                   const spellSchool = character.featSpellSchoolSelections?.[slotId];
+                  const spellMasterySelections =
+                    character.featSpellMasterySelections?.[slotId] ?? [];
+                  const spellMasteryCount = featId === "spell-mastery"
+                    ? getFeatSpellMasteryChoiceCount(character, slotId)
+                    : 0;
+                  const spellMasteryChoices = featId === "spell-mastery"
+                    ? getAvailableFeatSpellMasteryChoices(character, slotId)
+                    : [];
+                  const validSpellMasterySelections =
+                    spellMasterySelections.length === spellMasteryCount &&
+                    new Set(spellMasterySelections).size ===
+                      spellMasterySelections.length &&
+                    spellMasterySelections.every((spell) =>
+                      spellMasteryChoices.includes(spell),
+                    );
                   const requiresWeapon = featId === "exotic-weapon-proficiency" ||
                     featId === "improved-critical" ||
                     featId === "weapon-focus" ||
-                    featId === "weapon-specialization";
+                    featId === "weapon-specialization" ||
+                    featId === "ranged-spell-specialization" ||
+                    featId === "touch-spell-specialization";
                   const requiresSkill = featId === "skill-focus";
                   const schoolFeatId = featId === "spell-focus" ||
-                    featId === "greater-spell-focus" ? featId : undefined;
+                    featId === "greater-spell-focus" ||
+                    featId === "arcane-defense" ||
+                    featId === "metamagic-school-focus" ? featId : undefined;
                   const requiresSpellSchool = schoolFeatId !== undefined;
                   const weaponChoices = requiresWeapon
                     ? getAvailableFeatWeaponChoices(character, featId, slotId)
@@ -1101,6 +1687,12 @@ export function CharacterSheet({
                       ? `${feat.description} ${validSkill ? `Selected skill: ${validSkill}.` : "Skill choice required."}`
                       : feat && requiresSpellSchool
                         ? `${feat.description} ${validSpellSchool ? `Selected school: ${validSpellSchool}.` : "School choice required."}`
+                        : feat && featId === "spell-mastery"
+                          ? validSpellMasterySelections
+                            ? spellMasteryCount
+                              ? `${feat.description} Mastered spells: ${spellMasterySelections.join(", ")}.`
+                              : `${feat.description} No spell choices are required by the selected Intelligence modifier.`
+                            : `${feat.description} Choose ${spellMasteryCount} distinct known Wizard spell${spellMasteryCount === 1 ? "" : "s"}.`
                         : feat?.description;
                   return feat ? (
                     <div className="chosen-feat" key={slotId}>
@@ -1200,7 +1792,15 @@ export function CharacterSheet({
             {allowFeatSelection && (
                 <div className="feat-choices level-up-feat-choices">
                   {(levelUpOriginal
-                    ? getNewLevelUpFeatSlots(levelUpOriginal, character)
+                    ? getChronologicalFeatSlots(character).filter((slot) => {
+                        const newSlot = getNewLevelUpFeatSlots(levelUpOriginal, character)
+                          .some((entry) => entry.id === slot.id);
+                        const selected = character.featSelections?.[slot.id];
+                        const invalidWizardChoice = slot.wizardOnly && selected &&
+                          !getAvailableFeats(character, slot, slot.id)
+                            .some((feat) => feat.id === selected);
+                        return newSlot || invalidWizardChoice;
+                      })
                     : getChronologicalFeatSlots(character)
                   ).map((slot) => {
                     const options = getAvailableFeats(character, slot, slot.id);
@@ -1212,7 +1812,9 @@ export function CharacterSheet({
                     selected === "exotic-weapon-proficiency" ||
                     selected === "improved-critical" ||
                     selected === "weapon-focus" ||
-                    selected === "weapon-specialization"
+                    selected === "weapon-specialization" ||
+                    selected === "ranged-spell-specialization" ||
+                    selected === "touch-spell-specialization"
                       ? getAvailableFeatWeaponChoices(character, selected, slot.id)
                       : [];
                   const skillChoices =
@@ -1221,11 +1823,25 @@ export function CharacterSheet({
                       : [];
                   const selectedSkill = character.featSkillSelections?.[slot.id];
                   const schoolFeatId = selected === "spell-focus" ||
-                    selected === "greater-spell-focus" ? selected : undefined;
+                    selected === "greater-spell-focus" ||
+                    selected === "arcane-defense" ||
+                    selected === "metamagic-school-focus" ? selected : undefined;
                   const spellSchoolChoices = schoolFeatId
                     ? getAvailableFeatSpellSchoolChoices(character, slot.id, schoolFeatId)
                     : [];
                   const selectedSpellSchool = character.featSpellSchoolSelections?.[slot.id];
+                  const spellMasterySelections =
+                    character.featSpellMasterySelections?.[slot.id] ?? [];
+                  const spellMasteryCount = selected === "spell-mastery"
+                    ? getFeatSpellMasteryChoiceCount(character, slot.id)
+                    : 0;
+                  const spellMasteryChoices = selected === "spell-mastery"
+                    ? getAvailableFeatSpellMasteryChoices(character, slot.id)
+                    : [];
+                  const spellMasterySpells = selected === "spell-mastery"
+                    && spellMasteryChoices.length > 0
+                    ? getWizardSpellbookSpells(character)
+                    : [];
                     return (
                       <label key={slot.id}>
                         {slot.label}
@@ -1244,7 +1860,9 @@ export function CharacterSheet({
                       selected === "exotic-weapon-proficiency" ||
                       selected === "improved-critical" ||
                       selected === "weapon-focus" ||
-                      selected === "weapon-specialization" ? (
+                      selected === "weapon-specialization" ||
+                      selected === "ranged-spell-specialization" ||
+                      selected === "touch-spell-specialization" ? (
                         <div className="feat-weapon-choice">
                           <span>Weapon type</span>
                           <select
@@ -1325,6 +1943,56 @@ export function CharacterSheet({
                               </option>
                             ))}
                           </select>
+                        </div>
+                      ) : null}
+                      {selected === "spell-mastery" ? (
+                        <div className="feat-weapon-choice spell-mastery-choices">
+                          <span>
+                            Spell Mastery ({spellMasterySelections.length}/{spellMasteryCount})
+                          </span>
+                          {spellMasteryCount > 0 &&
+                            spellMasteryChoices.length === 0 && (
+                              <span>No eligible known Wizard spells are available.</span>
+                            )}
+                          {Array.from(
+                            { length: spellMasteryCount },
+                            (_, choiceIndex) => {
+                              const excluded = new Set(
+                                spellMasterySelections.filter(
+                                  (_, index) => index !== choiceIndex,
+                                ),
+                              );
+                              const availableSpells = spellMasterySpells.filter(
+                                (spell) =>
+                                  spellMasteryChoices.includes(spell.name) &&
+                                  !excluded.has(spell.name),
+                              );
+                              return (
+                                <div key={`${slot.id}-spell-mastery-${choiceIndex}`}>
+                                  <span>Spell {choiceIndex + 1}</span>
+                                  <SpellPicker
+                                    spells={availableSpells}
+                                    selected={spellMasterySelections[choiceIndex]}
+                                    disabled={
+                                      availableSpells.length === 0 ||
+                                      choiceIndex > spellMasterySelections.length
+                                    }
+                                    placeholder={`Choose spell ${choiceIndex + 1}...`}
+                                    onChange={(spell) => {
+                                      const nextSelections = [
+                                        ...spellMasterySelections,
+                                      ];
+                                      nextSelections[choiceIndex] = spell;
+                                      onFeatSpellMasteryChange(
+                                        slot.id,
+                                        nextSelections.filter(Boolean),
+                                      );
+                                    }}
+                                  />
+                                </div>
+                              );
+                            },
+                          )}
                         </div>
                       ) : null}
                       </label>

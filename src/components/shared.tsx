@@ -292,6 +292,7 @@ export function ArmorClassStat({
           ]
         : []),
       ...(defenses.dodgeFeatBonus ? ["+1 Dodge AC against selected opponent"] : []),
+      ...(defenses.twoWeaponDefenseBonus ? ["+1 Two-Weapon Defense shield bonus while wielding two weapons"] : []),
       ...(defenses.towerShieldCoverActive ? ["Total cover via tower shield; no attacks until the start of your next turn."] : []),
       ...(defenses.shieldBashACBonusLost ? ["Shield AC bonus lost until your next action after a shield bash."] : []),
       ...getArmorClassRestrictions(character),

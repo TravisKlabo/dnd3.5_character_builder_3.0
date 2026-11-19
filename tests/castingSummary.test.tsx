@@ -152,6 +152,15 @@ describe("casting summary", () => {
     expect(getArcaneSpellFailure(character, "sorcerer")?.percent).toBe(30);
   });
 
+  it("uses Battle Caster for medium armor on Bard spells only, not shields", () => {
+    const character = caster();
+    character.classLevels = [{ classId: "bard", level: 1 }];
+    character.equipment = { Armor: "Breastplate (Medium)", Shield: "Buckler (Medium)" };
+    character.featSelections = { "general-1": "battle-caster" };
+    expect(getArcaneSpellFailure(character, "bard")?.percent).toBe(5);
+    expect(getArcaneSpellFailure(character, "wizard")?.percent).toBe(30);
+  });
+
   it("honors custom values, caps at 100%, and explicitly identifies missing failure data", () => {
     const armorName = "Casting test armor";
     const shieldName = "Casting test shield";

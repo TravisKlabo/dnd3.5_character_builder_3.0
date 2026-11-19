@@ -171,6 +171,20 @@
 .skills-panel .list-row { grid-template-columns: minmax(0, 1.5fr) 92px 72px 112px .35fr; }
 .skills-panel .list-row > strong { border-left: 1px solid #c6c9c2; padding-left: 12px; }
 .skill-use-legend { margin: 12px 17px 0; color: #59635e; font-size: .78rem; text-align: left; }
+.skill-tricks-panel { grid-column: 1 / -1; }
+.skill-trick-notes { margin: 12px 17px; color: #59635e; font-size: .78rem; line-height: 1.45; }
+.skill-trick-picker { max-width: 520px; margin: 0 17px 14px; }
+.skill-trick-list { display: grid; gap: 8px; margin: 0; padding: 0 17px 17px; list-style: none; }
+.skill-trick-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #d6d7d1; color: #243447; font-size: .82rem; }
+.manual-prerequisite-control { display: flex; align-items: center; gap: 8px; margin: 0 16px 14px; padding: 10px; border: 1px solid #c6c9c2; color: #423121; font-size: .78rem; }
+.manual-prerequisite-control input[type="checkbox"] { width: 16px; height: 16px; margin: 0; padding: 0; accent-color: #2878c8; }
+.feat-prerequisite-details { margin: 0 16px 16px; border: 1px solid #c6c9c2; background: #fff; }
+.feat-prerequisite-details summary { padding: 10px 12px; color: #423121; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.feat-prerequisite-details[open] summary { border-bottom: 1px solid #c6c9c2; }
+.feat-prerequisite-details > .manual-prerequisite-control, .feat-prerequisite-details > .manual-manifester-level { margin-left: 12px; margin-right: 12px; }
+.manual-manifester-level { display: flex; align-items: center; gap: 8px; margin: 0 16px 14px; padding: 10px; border: 1px solid #c6c9c2; color: #423121; font-size: .78rem; }
+.manual-manifester-level input { width: 5rem; margin-left: auto; }
+.manual-manifester-level select { min-width: 10rem; margin-left: auto; }
 .skill-use-status { margin-left: 6px; color: #59635e; font-size: .62rem; font-weight: 400; white-space: nowrap; }
 .skill-penalty { display: inline-block; margin-left: 6px; color: #a04430; font-size: .65rem; font-weight: 400; }
 .cleric-domains { margin: 16px; padding: 14px; border: 1px solid #c6c9c2; background: #fff; }

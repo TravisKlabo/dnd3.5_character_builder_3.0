@@ -8,12 +8,80 @@ export type AbilityName = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
 export type AbilityScores = Record<AbilityName, number>
 
 export type ClassId = 'barbarian' | 'bard' | 'cleric' | 'druid' | 'fighter' | 'monk' | 'paladin' | 'ranger' | 'rogue' | 'sorcerer' | 'wizard' | 'mystic' | 'noble'
+export type IndependentSpellcastingClassId = 'assassin' | 'blackguard'
+export type SpellcastingClassId = ClassId | IndependentSpellcastingClassId
+export const dragonDiscipleBonusLevels = [1, 2, 4, 5, 6, 8, 9] as const
+export const dragonDiscipleVarieties = ['Black', 'Blue', 'Green', 'Red', 'White', 'Brass', 'Bronze', 'Copper', 'Gold', 'Silver'] as const
+export type DragonDiscipleVariety = typeof dragonDiscipleVarieties[number]
+export type DragonDiscipleSlot = { classId: SpellcastingClassId; level: number }
+export const highArcanaMinimumSlots = {
+  'Arcane Fire': 9, 'Arcane Reach': 7, 'Mastery of Counterspelling': 7,
+  'Mastery of Elements': 8, 'Mastery of Shaping': 6, 'Spell Power': 5, 'Spell-Like Ability': 5,
+} as const
+export type HighArcana = keyof typeof highArcanaMinimumSlots
+export type HighArcanaChoice = { ability: HighArcana; classId: ClassId; slot: number; reserve?: number; spellNote?: string }
+export function canRepeatHighArcana(ability: HighArcana, prior: readonly (HighArcanaChoice | null)[]) {
+  return ability === 'Spell-Like Ability' ||
+    prior.filter((choice) => choice?.ability === ability).length < (ability === 'Arcane Reach' ? 2 : 1)
+}
+export function getDragonDiscipleAbilityBoost(level: number): Partial<AbilityScores> {
+  if (level === 2 || level === 4) return { str: 2 }
+  if (level === 6) return { con: 2 }
+  if (level === 8) return { int: 2 }
+  if (level === 10) return { str: 4, cha: 2 }
+  return {}
+}
+
+export function isIndependentSpellcastingClass(id: unknown): id is IndependentSpellcastingClassId {
+  return id === 'assassin' || id === 'blackguard'
+}
 export type SkillRankSourceId = ClassId | PrestigeClassId | 'racial-hit-dice'
+export type SkillTrickCategory = 'interaction' | 'manipulation' | 'mental' | 'movement'
+export interface SkillTrickSelection {
+  trickId: string
+  sourceId?: SkillRankSourceId
+  featSlotId?: string
+}
 export const magicSchools = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'] as const
+export const horizonWalkerTerrains = ['Aquatic', 'Desert', 'Forest', 'Hills', 'Marsh', 'Mountains', 'Plains', 'Underground'] as const
+export const horizonWalkerPlanarTerrains = ['Aligned', 'Cavernous', 'Cold', 'Fiery', 'Shifting', 'Weightless'] as const
+export type HorizonWalkerTerrain = typeof horizonWalkerTerrains[number] | typeof horizonWalkerPlanarTerrains[number]
+
+export function getHorizonWalkerTerrainOptions(level: number): readonly HorizonWalkerTerrain[] {
+  return level >= 6 ? [...horizonWalkerTerrains, ...horizonWalkerPlanarTerrains] : horizonWalkerTerrains
+}
+
+export function isHorizonWalkerTerrainHistory(value: unknown, level: number): value is HorizonWalkerTerrain[] {
+  return level <= 10 && Array.isArray(value) && value.length === level &&
+    new Set(value).size === value.length &&
+    value.every((terrain: unknown, index) => getHorizonWalkerTerrainOptions(index + 1).some((option) => option === terrain))
+}
 export type MagicSchool = (typeof magicSchools)[number]
-export type PrestigeClassId = 'knight-of-the-crown' | 'knight-of-the-sword' | 'knight-of-the-rose' | 'knight-of-the-lily' | 'knight-of-the-skull' | 'knight-of-the-thorn' | 'knight-of-neraka' | 'steel-legionnaire' | 'wizard-of-high-sorcery' | 'white-robed-wizard' | 'red-robed-wizard' | 'black-robed-wizard' | 'dragon-rider' | 'inquisitor' | 'legendary-tactician' | 'righteous-zealot' | 'renegade-hunter' | 'master-of-the-way' | 'arcane-archer' | 'arcane-trickster' | 'assassin' | 'dragon-disciple' | 'duelist' | 'dwarven-defender' | 'eldritch-knight' | 'hierophant' | 'horizon-walker' | 'loremaster' | 'mystic-theurge' | 'shadowdancer' | 'thaumaturgist'
+export const loremasterSecrets = [
+  'Instant Mastery', 'Secret Health', 'Secrets of Inner Strength', 'The Lore of True Stamina',
+  'Secret Knowledge of Avoidance', 'Weapon Trick', 'Dodge Trick', 'Applicable Knowledge',
+  'Newfound Arcana', 'More Newfound Arcana',
+] as const
+export const hierophantAbilities = [
+  'Blast Infidel', 'Divine Reach', 'Faith Healing', 'Gift of the Divine', 'Mastery of Energy',
+  'Metamagic Feat', 'Power of Nature', 'Spell Power', 'Spell-Like Ability',
+] as const
+export type LoremasterSecret = typeof loremasterSecrets[number]
+export type HierophantAbility = typeof hierophantAbilities[number]
+
+export function getHierophantAbilityOptions(character: Pick<Character, 'classLevels'>, prior: readonly HierophantAbility[]) {
+  const hasClass = (classId: ClassId) => character.classLevels.some((entry) =>
+    !('prestigeClassId' in entry) && entry.classId === classId)
+  return hierophantAbilities.filter((ability) => {
+    if ((ability === 'Gift of the Divine' || ability === 'Mastery of Energy') && !hasClass('cleric')) return false
+    if (ability === 'Power of Nature' && !hasClass('druid')) return false
+    if (ability === 'Spell Power' || ability === 'Metamagic Feat' || ability === 'Spell-Like Ability') return true
+    return prior.filter((selected) => selected === ability).length < (ability === 'Divine Reach' ? 2 : 1)
+  })
+}
+export type PrestigeClassId = 'knight-of-the-crown' | 'knight-of-the-sword' | 'knight-of-the-rose' | 'knight-of-the-lily' | 'knight-of-the-skull' | 'knight-of-the-thorn' | 'knight-of-neraka' | 'steel-legionnaire' | 'wizard-of-high-sorcery' | 'white-robed-wizard' | 'red-robed-wizard' | 'black-robed-wizard' | 'dragon-rider' | 'inquisitor' | 'legendary-tactician' | 'righteous-zealot' | 'renegade-hunter' | 'master-of-the-way' | 'arcane-archer' | 'arcane-trickster' | 'archmage' | 'assassin' | 'blackguard' | 'dragon-disciple' | 'duelist' | 'dwarven-defender' | 'eldritch-knight' | 'hierophant' | 'horizon-walker' | 'loremaster' | 'mystic-theurge' | 'red-wizard' | 'shadowdancer' | 'thaumaturgist'
 export type FeatId = string
-export type FeatCategory = 'metamagic' | 'item-creation'
+export type FeatCategory = 'metamagic' | 'item-creation' | 'draconic' | 'luck' | 'domain' | 'divine' | 'reserve' | 'tactical' | 'wild' | 'shifter'
 export type SpellAcquisition = 'starting' | 'level-up' | 'spellbook' | 'scroll' | 'research' | 'reward'
 export interface WizardSpellLearning {
   source: 'scroll' | 'spellbook' | 'research' | 'reward'
@@ -27,6 +95,7 @@ export interface HitPointRollRecord {
   characterLevel: number
   classId: ClassId
   prestigeClassId?: PrestigeClassId
+  divineSpellcastingClassId?: ClassId
   classLevel: number
   hitDie: number
   roll: number
@@ -141,6 +210,7 @@ export interface RaceDefinition {
   id: string
   name: string
   source: ContentSourceId
+  sourceBook?: string
   selectable?: boolean
   abilityModifiers: Partial<Record<AbilityName, number>>
   racialHitDice?: {
@@ -203,19 +273,36 @@ export interface PrestigeClassDefinition {
     skills?: Record<string, number>
     anySkillRanks?: number
     anySkillPrefix?: string
+    minimumMatchingSkills?: number
     alignment?: string
     feats?: string[]
     anyFeats?: string[]
     featChoices?: { anyOf: string[]; count: number }[]
     featCategoryChoices?: { anyOf: FeatCategory[]; count: number }[]
+    weaponFocusChoices?: string[]
+    skillFocus?: string
+    skillFocusPrefix?: string
+    spellFocusSchools?: MagicSchool[]
+    minimumSpellFocusSchools?: number
+    allMartialWeaponProficiencies?: boolean
+    languages?: string[]
+    sneakAttackDice?: number
+    spontaneousArcaneSpellcasting?: boolean
     classes?: ClassId[]
     prestigeClasses?: Partial<Record<PrestigeClassId, number>>
     classFeatures?: string[]
     spellcasting?: { type: 'arcane' | 'divine'; level: number }
+    additionalSpellcasting?: { type: 'arcane' | 'divine'; level: number }[]
+    spellSchoolSpells?: { school: MagicSchool; count: number; minimumLevel: number }
+    arcaneSpellRepertoire?: { castableLevel: number; schoolCount: number; minimumSchoolSpellLevel: number }
     spells?: string[]
     races?: string[]
   }
   features: string[]
+  referenceSpellList?: {
+    levels: Readonly<Record<number, readonly string[]>>
+    note?: string
+  }
   hitDie?: ClassDefinition['hitDie']
   skillPoints?: number
   baseAttackBonus?: ClassDefinition['baseAttackBonus']
@@ -227,7 +314,7 @@ export interface PrestigeClassDefinition {
   armorProficiencies?: Array<'light' | 'medium' | 'heavy'>
   shieldProficiency?: boolean
   towerShieldProficiency?: boolean
-  spellcastingProgression?: { type: 'arcane' | 'divine'; startsAtLevel?: number }
+  spellcastingProgression?: { type: 'arcane' | 'divine' | 'either'; startsAtLevel?: number; chooseEachLevel?: boolean }
   maximumLevel?: number
   levelUpEnabled?: boolean
   roleplayPrerequisite?: string
@@ -241,6 +328,7 @@ export interface ClassLevel {
 export interface PrestigeClassLevel {
   classId: ClassId
   prestigeClassId: PrestigeClassId
+  divineSpellcastingClassId?: ClassId
   level: number
 }
 
@@ -251,23 +339,117 @@ export interface FeatDefinition {
   sourceBook?: string
   description: string
   categories?: FeatCategory[]
+  ambush?: boolean
+  skillBonuses?: Partial<Record<string, number>>
   prerequisites?: {
     abilities?: Partial<Record<AbilityName, number>>
     baseAttackBonus?: number
     baseSaves?: Partial<Record<'fortitude' | 'reflex' | 'will', number>>
     minimumCharacterLevel?: number
+    minimumFavoredEnemies?: number
+    minimumSkirmishDamageDice?: number
+    minimumSkirmishACBonus?: number
+    hugeOrLarger?: boolean
+    minimumSize?: NonNullable<RaceDefinition['size']>
+    maximumSize?: NonNullable<RaceDefinition['size']>
+    anyWeaponProficiency?: boolean
+    anyArmorProficiency?: boolean
+    shieldProficiency?: boolean
     casterLevel?: number
+    arcaneCasterLevel?: number
+    arcaneSpellcasting?: boolean
+    spontaneousArcane?: boolean
+    divineCasterLevel?: number
+    manifesterLevel?: number
+    racialSpellLikeAbilityCasterLevel?: number
+    arcaneSpellcastingOrRacialSpellLikeAbility?: boolean
+    powerPointReserve?: boolean
+    kiPower?: boolean
+    kiStrikeMagic?: boolean
+    allMartialWeaponProficiencies?: boolean
+    stealSpell?: boolean
+    swashbucklerGrace?: boolean
     classLevels?: Partial<Record<ClassId, number>>
+    anyClassLevels?: Partial<Record<ClassId, number>>
+    prestigeClassLevels?: Partial<Record<PrestigeClassId, number>>
     classFeatures?: string[]
+    anyClassFeatures?: string[]
+    anyClassFeatureGroups?: string[][]
+    smiteAbility?: boolean
+    alignment?: {
+      component?: 'Lawful' | 'Chaotic' | 'Good' | 'Evil' | 'Neutral'
+      nonLawful?: boolean
+      nonGood?: boolean
+      nonEvil?: boolean
+    }
+    alignmentMatchesDeity?: boolean
+    alignmentWithinOneStepOfDeity?: boolean
     arcaneSpellLevel?: number
+    divineSpellLevel?: number
+    paladinSpellLevel?: number
+    spellLevel?: number
+    conjurationHealingSpell?: boolean
+    spontaneousCureOrInflict?: boolean
+    cureWoundsSpell?: boolean
+    summonNaturesAllySpell?: boolean
+    inflictWoundsSpell?: boolean
+    turnsElementalSubtype?: boolean
+    rebukesElementalSubtype?: boolean
+    fastWildShape?: boolean
+    warmageLevelFour?: boolean
+    graduatedFromApprenticeship?: boolean
+    mentorSkillPrerequisites?: boolean
+    guildMembership?: boolean
+    guildmasterPrerequisites?: boolean
+    bondingRitual?: boolean
+    rechargeableBreathWeapon?: boolean
+    detectMagicAccess?: boolean
+    thoonAffiliation?: boolean
+    minimumArcaneSpellcastingAbilityScore?: number
+    maximumNormalSpellLevel?: boolean
+    maximumNormalArcaneSpellLevel?: boolean
     flySpeed?: boolean
     feats?: FeatId[]
     anyFeats?: FeatId[]
+    featCategoryChoices?: { anyOf: FeatCategory[]; count: number }[]
     draconianBreathWeapon?: boolean
     races?: string[]
     skills?: Record<string, number>
+    anySkills?: Record<string, number>
+    anySkillRanks?: number
+    anySkillPrefix?: string
+    prerequisiteAlternatives?: Array<{
+      feats?: FeatId[]
+      classFeatures?: string[]
+      anyClassFeatures?: string[]
+      abilities?: Partial<Record<AbilityName, number>>
+      races?: string[]
+      skills?: Record<string, number>
+      anySkills?: Record<string, number>
+      minimumSkirmishDamageDice?: number
+      featSkillChoices?: string[]
+    }>
+    featChoices?: { anyOf: FeatId[]; count: number }[]
+    domains?: ClericDomainId[]
+    minimumDomains?: number
+    minimumClericDomains?: number
+    spellFocusOrWizardSpecializationSchools?: MagicSchool[]
+    minimumFeatsByCategory?: Partial<Record<FeatCategory, number>>
+    minimumSkillTricksByCategory?: Partial<Record<SkillTrickCategory, number>>
+    spellFocusSchools?: MagicSchool[]
+    weaponFocusChoices?: string[]
+    weaponFocusChoiceGroups?: string[][]
+    weaponProficiencyChoices?: string[]
+    weaponProficiencyChoiceGroups?: string[][]
+    weaponFeatChoiceGroups?: Array<{
+      featIds: FeatId[]
+      damageTypes?: Array<'bludgeoning' | 'piercing' | 'slashing'>
+    }>
+    weaponFocusReach?: boolean
+    weaponFocusDamageTypes?: Array<'bludgeoning' | 'piercing' | 'slashing'>
   }
   fighterBonus?: boolean
+  wizardBonus?: true | MagicSchool
   firstLevelOnly?: boolean
 }
 
@@ -314,32 +496,35 @@ export interface Character {
   featWeaponSelections?: Record<string, string>
   featSkillSelections?: Record<string, string>
   featSpellSchoolSelections?: Record<string, MagicSchool>
+  featSpellMasterySelections?: Record<string, string[]>
+  featSpellMasterySelectionCounts?: Record<string, number>
   skills: Record<string, number>
   skillRanksByClass: Record<string, Record<string, number>>
   skillRanksByLevel?: Partial<Record<number, Record<string, number>>>
+  skillTricksByLevel?: Partial<Record<number, SkillTrickSelection[]>>
   knownSpells: string[]
-  knownSpellClasses?: Record<string, ClassId>
-  knownSpellsByClass?: Partial<Record<ClassId, string[]>>
-  spellAcquisitionByClass?: Partial<Record<ClassId, Record<string, SpellAcquisition>>>
+  knownSpellClasses?: Record<string, SpellcastingClassId>
+  knownSpellsByClass?: Partial<Record<SpellcastingClassId, string[]>>
+  spellAcquisitionByClass?: Partial<Record<SpellcastingClassId, Record<string, SpellAcquisition>>>
   wizardSpellLearning?: Record<string, WizardSpellLearning>
   preparedSpells: string[]
-  preparedSpellsByClass?: Partial<Record<ClassId, string[]>>
-  preparedSpellSlotLevelsByClass?: Partial<Record<ClassId, Record<string, number[]>>>
-  empowerByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  maximizeByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  extendByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  enlargeByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  quickenByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  silentByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  stillByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  widenByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  sculptByClass?: Partial<Record<ClassId, Record<string, boolean[]>>>
-  spellPreparationCompletedByClass?: Partial<Record<ClassId, boolean>>
+  preparedSpellsByClass?: Partial<Record<SpellcastingClassId, string[]>>
+  preparedSpellSlotLevelsByClass?: Partial<Record<SpellcastingClassId, Record<string, number[]>>>
+  empowerByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  maximizeByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  extendByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  enlargeByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  quickenByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  silentByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  stillByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  widenByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  sculptByClass?: Partial<Record<SpellcastingClassId, Record<string, boolean[]>>>
+  spellPreparationCompletedByClass?: Partial<Record<SpellcastingClassId, boolean>>
   clericDomains?: import('./data/clericDomains').ClericDomainId[]
   clericDomainPreparation?: Record<string, import('./data/clericDomains').ClericDomainSpell>
   clericDomainExpended?: number[]
   mysticDomain?: ClericDomainId
-  expendedSpellSlotsByClass?: Partial<Record<ClassId, Record<string, number[]>>>
+  expendedSpellSlotsByClass?: Partial<Record<SpellcastingClassId, Record<string, number[]>>>
   racialSpellLikeUses?: string[]
   equipment: Record<string, string>
   mainWeaponGrip?: 'one-handed' | 'two-handed'
@@ -356,6 +541,34 @@ export interface Character {
   speakLanguages?: string[]
   regionalLanguage?: string
   hasMedallionOfFaith?: boolean
+  hasPowerPointReserve?: boolean
+  hasKiPower?: boolean
+  hasKiStrikeMagic?: boolean
+  hasAllMartialWeaponProficiencies?: boolean
+  hasStealSpell?: boolean
+  hasSwashbucklerGrace?: boolean
+  hasConjurationHealingSpell?: boolean
+  hasSpontaneousCureOrInflict?: boolean
+  hasCureWoundsSpell?: boolean
+  hasSummonNaturesAllySpell?: boolean
+  hasInflictWoundsSpell?: boolean
+  canTurnElementalSubtype?: boolean
+  canRebukeElementalSubtype?: boolean
+  hasFastWildShape?: boolean
+  hasWarmageLevelFour?: boolean
+  hasGraduatedFromApprenticeship?: boolean
+  hasMentorSkillPrerequisites?: boolean
+  isGuildMember?: boolean
+  hasGuildmasterPrerequisites?: boolean
+  hasCompletedBondingRitual?: boolean
+  hasRechargeableBreathWeapon?: boolean
+  hasDetectMagicAccess?: boolean
+  isThoonAffiliate?: boolean
+  divineCasterLevel?: number
+  clericUndeadTurningMode?: "turn" | "rebuke"
+  manifesterLevel?: number
+  skirmishDamageDice?: number
+  skirmishACBonus?: number
   prestigeClass?: PrestigeClassId
   honorBoundSuspended?: boolean
   knightOfTheCrownState?: {
@@ -365,11 +578,21 @@ export interface Character {
   classFeatures?: string[]
   customItems?: StoreItem[]
   deity?: string
+  coreWizardSpecializationSchool?: MagicSchool
   highSorceryOrder?: 'white' | 'red' | 'black'
   wizardSpecializationSchool?: MagicSchool
   wizardBarredSchools?: MagicSchool[]
   dragonlanceMoonState?: DragonlanceMoonState
   rangerFavoredEnemies?: RangerFavoredEnemyChoice[]
+  horizonWalkerTerrainMasteries?: HorizonWalkerTerrain[]
+  loremasterSecrets?: LoremasterSecret[]
+  loremasterLanguages?: string[]
+  hierophantAbilities?: HierophantAbility[]
+  dragonDiscipleVariety?: DragonDiscipleVariety
+  dragonDiscipleBonusSlots?: DragonDiscipleSlot[]
+  highArcanaChoices?: (HighArcanaChoice | null)[]
+  redWizardSpecializationSchool?: MagicSchool
+  redWizardProhibitedSchools?: MagicSchool[]
 }
 
 export interface LevelUpDraft {
@@ -388,7 +611,7 @@ export const classDefinitions: Record<ClassId, ClassDefinition> = {
   fighter: { id: 'fighter', name: 'Fighter', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'poor', spellcasting: false },
   druid: { id: 'druid', name: 'Druid', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
   monk: { id: 'monk', name: 'Monk', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'good', will: 'good', spellcasting: false },
-  paladin: { id: 'paladin', name: 'Paladin', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
+  paladin: { id: 'paladin', name: 'Paladin', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'poor', spellcasting: true },
   ranger: { id: 'ranger', name: 'Ranger', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 6, baseAttackBonus: 'good', fortitude: 'good', reflex: 'good', will: 'poor', spellcasting: true },
   rogue: { id: 'rogue', name: 'Rogue', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 6, skillPoints: 8, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'poor', spellcasting: false },
   sorcerer: { id: 'sorcerer', name: 'Sorcerer', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
@@ -399,18 +622,18 @@ export const classDefinitions: Record<ClassId, ClassDefinition> = {
 }
 
 export const raceDefinitions: Record<string, RaceDefinition> = {
-  human: { id: 'human', name: 'Human', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, specialAbilities: ['Bonus feat', 'Extra skill points'] },
-  dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability (+4 to resist bull rush or trip while firmly grounded)', 'Waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. orcs/goblinoids; +4 dodge AC vs. giants', 'Stone/metal Appraise/Craft +2'] },
-  elf: { id: 'elf', name: 'Elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision (see twice as far as humans in starlight, moonlight, torchlight, and similar poor illumination; retain color and detail)', 'Immune to magical sleep effects', 'Enchantment saves +2', 'Search check for secret/concealed doors when passing within 5 ft.', 'Elf weapon proficiencies'] },
-  halfling: { id: 'halfling', name: 'Halfling', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { dex: 2, str: -2 }, racialSkillBonuses: { Climb: 2, Jump: 2, Listen: 2, 'Move Silently': 2 }, racialSavingThrowBonus: 1, racialSituationalSaveBonuses: { fear: 2 }, specialAbilities: ['All saves +1; fear +2', 'Thrown/slings attacks +1'] },
-  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSkillBonuses: { Craft: { alchemy: 2 } }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, racialSpellLikeAbilities: [
+  human: { id: 'human', name: 'Human', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 30, abilityModifiers: {}, specialAbilities: ['Bonus feat', 'Extra skill points'] },
+  dwarf: { id: 'dwarf', name: 'Dwarf', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability (+4 to resist bull rush or trip while firmly grounded)', 'Waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. orcs/goblinoids; +4 dodge AC vs. giants', 'Stone/metal Appraise/Craft +2'] },
+  elf: { id: 'elf', name: 'Elf', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 30, abilityModifiers: { dex: 2, con: -2 }, racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision (see twice as far as humans in starlight, moonlight, torchlight, and similar poor illumination; retain color and detail)', 'Immune to magical sleep effects', 'Enchantment saves +2', 'Search check for secret/concealed doors when passing within 5 ft.', 'Elf weapon proficiencies'] },
+  halfling: { id: 'halfling', name: 'Halfling', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Small', speed: 20, abilityModifiers: { dex: 2, str: -2 }, racialSkillBonuses: { Climb: 2, Jump: 2, Listen: 2, 'Move Silently': 2 }, racialSavingThrowBonus: 1, racialSituationalSaveBonuses: { fear: 2 }, specialAbilities: ['All saves +1; fear +2', 'Thrown/slings attacks +1'] },
+  gnome: { id: 'gnome', name: 'Gnome', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Small', speed: 20, abilityModifiers: { con: 2, str: -2 }, racialSkillBonuses: { Listen: 2 }, racialSituationalSkillBonuses: { Craft: { alchemy: 2 } }, racialSituationalSaveBonuses: { illusion: 2 }, racialAttackBonuses: { kobold: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, racialSpellLikeAbilities: [
     { name: 'Speak with Animals', usesPerDay: 1, casterLevel: 1, notes: 'Burrowing mammals only; duration 1 minute.' },
     { name: 'Dancing Lights', usesPerDay: 1, casterLevel: 1, spellLevel: 0, school: 'evocation', minimumCharisma: 10 },
     { name: 'Ghost Sound', usesPerDay: 1, casterLevel: 1, spellLevel: 0, school: 'illusion', savingThrow: 'Will disbelief', minimumCharisma: 10 },
     { name: 'Prestidigitation', usesPerDay: 1, casterLevel: 1, spellLevel: 0, school: 'universal', minimumCharisma: 10 },
   ], racialSpellSchoolDcBonuses: { illusion: 1 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2'] },
-  'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Orc blood'] },
-  'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', size: 'Medium', speed: 30, abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision (see twice as far as humans in starlight, moonlight, torchlight, and similar poor illumination; retain color and detail)', 'Immune to sleep spells and similar magical effects', 'Enchantment saves +2', 'Elven blood'] },
+  'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 30, abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Orc blood'] },
+  'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 30, abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision (see twice as far as humans in starlight, moonlight, torchlight, and similar poor illumination; retain color and detail)', 'Immune to sleep spells and similar magical effects', 'Enchantment saves +2', 'Elven blood'] },
   kender: {
     id: 'kender',
     name: 'Kender',
@@ -682,20 +905,170 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
   },
 }
 
+const dmg35Source = { source: "core-35-srd", sourceBook: "Dungeon Master's Guide (3.5)" } as const;
+
 export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDefinition> = {
-  'arcane-archer': { id: 'arcane-archer', name: 'Arcane Archer', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Point Blank Shot', 'Precise Shot'], classes: ['fighter', 'ranger'] }, features: ['Enhance arrows', 'Imbue arrow', 'Seeker arrow', 'Phase arrow', 'Hail of arrows'] },
-  'arcane-trickster': { id: 'arcane-trickster', name: 'Arcane Trickster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, spellcasting: { type: 'arcane', level: 3 }, spells: ['Mage Hand'], classes: ['rogue', 'sorcerer', 'wizard'] }, features: ['Ranged legerdemain', 'Sneak attack', 'Impromptu sneak attack'] },
-  assassin: { id: 'assassin', name: 'Assassin', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { dex: 13 }, classes: ['rogue'] }, features: ['Poison use', 'Sneak attack', 'Death attack', 'Hide in plain sight'] },
-  'dragon-disciple': { id: 'dragon-disciple', name: 'Dragon Disciple', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { cha: 13 }, classes: ['sorcerer'] }, features: ['Draconic abilities', 'Natural armor', 'Breath weapon', 'Wings'] },
-  duelist: { id: 'duelist', name: 'Duelist', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, ability: { dex: 13 }, feats: ['Combat Expertise', 'Weapon Finesse'], classes: ['fighter', 'rogue'] }, features: ['Canny defense', 'Improved reaction', 'Grace', 'Precise strike'] },
-  'dwarven-defender': { id: 'dwarven-defender', name: 'Dwarven Defender', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 7, ability: { con: 13 }, feats: ['Dodge'], races: ['dwarf'] }, features: ['Defensive stance', 'Uncanny dodge', 'Damage reduction'] },
-  'eldritch-knight': { id: 'eldritch-knight', name: 'Eldritch Knight', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 3, feats: ['Martial Weapon Proficiency'], classes: ['fighter', 'sorcerer', 'wizard'] }, features: ['Bonus feat', 'Spellcasting advancement'] },
-  hierophant: { id: 'hierophant', name: 'Hierophant', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { wis: 15 }, classes: ['cleric', 'druid'] }, features: ['Special ability', 'Spell-like ability'] },
-  'horizon-walker': { id: 'horizon-walker', name: 'Horizon Walker', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { bab: 6, feats: ['Endurance'], classes: ['barbarian', 'fighter', 'ranger'] }, features: ['Terrain mastery', 'Planar terrain mastery'] },
-  loremaster: { id: 'loremaster', name: 'Loremaster', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { int: 13 }, featCategoryChoices: [{ anyOf: ['metamagic', 'item-creation'], count: 3 }], classes: ['bard', 'cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Secret', 'Lore', 'Greater lore'] },
-  'mystic-theurge': { id: 'mystic-theurge', name: 'Mystic Theurge', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Dual spellcasting advancement'] },
-  shadowdancer: { id: 'shadowdancer', name: 'Shadowdancer', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { dex: 13 }, feats: ['Combat Reflexes', 'Dodge', 'Mobility'], classes: ['bard', 'monk', 'rogue'] }, features: ['Hide in plain sight', 'Darkvision', 'Shadow companion'] },
-  thaumaturgist: { id: 'thaumaturgist', name: 'Thaumaturgist', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)", prerequisites: { ability: { wis: 13 }, feats: ['Spell Focus'], classes: ['cleric', 'druid', 'sorcerer', 'wizard'] }, features: ['Improved ally', 'Planar cohort', 'Planar durance'] },
+  'arcane-archer': {
+    id: 'arcane-archer', name: 'Arcane Archer', ...dmg35Source,
+    prerequisites: { bab: 6, races: ['elf', 'half-elf', 'qualinesti', 'silvanesti', 'kagonesti'], feats: ['Point Blank Shot', 'Precise Shot'], weaponFocusChoices: ['Longbow', 'Shortbow'], spellcasting: { type: 'arcane', level: 1 } },
+    features: ['Enhance arrow', 'Imbue arrow', 'Seeker arrow', 'Phase arrow', 'Hail of arrows', 'Arrow of death'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 8, skillPoints: 4, baseAttackBonus: 'good',
+    fortitude: 'good', reflex: 'good', will: 'poor',
+    classSkills: ['Craft', 'Hide', 'Listen', 'Move Silently', 'Ride', 'Spot', 'Survival', 'Use Rope'],
+    weaponProficiency: 'martial', armorProficiencies: ['light', 'medium'], shieldProficiency: true,
+  },
+  archmage: {
+    id: 'archmage', name: 'Archmage', ...dmg35Source,
+    prerequisites: { skills: { 'Knowledge (arcana)': 15, Spellcraft: 15 }, skillFocus: 'Spellcraft', minimumSpellFocusSchools: 2, arcaneSpellRepertoire: { castableLevel: 7, schoolCount: 5, minimumSchoolSpellLevel: 5 } },
+    features: ['Arcane spellcasting advancement', 'High Arcana'],
+    levelUpEnabled: true, maximumLevel: 5, hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor',
+    fortitude: 'poor', reflex: 'poor', will: 'good',
+    classSkills: ['Concentration', 'Craft (alchemy)', 'Knowledge (*)', 'Profession', 'Search', 'Spellcraft'],
+    spellcastingProgression: { type: 'arcane', chooseEachLevel: true },
+  },
+  'arcane-trickster': {
+    id: 'arcane-trickster', name: 'Arcane Trickster', ...dmg35Source,
+    prerequisites: { alignment: 'Any nonlawful', skills: { 'Decipher Script': 7, 'Disable Device': 7, 'Escape Artist': 7, 'Knowledge (arcana)': 4 }, sneakAttackDice: 2, spellcasting: { type: 'arcane', level: 3 }, spells: ['Mage Hand'] },
+    features: ['Ranged legerdemain', 'Sneak attack', 'Impromptu sneak attack'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 4, skillPoints: 4, baseAttackBonus: 'poor',
+    fortitude: 'poor', reflex: 'good', will: 'good',
+    classSkills: ['Appraise', 'Balance', 'Bluff', 'Climb', 'Concentration', 'Craft', 'Decipher Script', 'Diplomacy', 'Disable Device', 'Disguise', 'Escape Artist', 'Gather Information', 'Hide', 'Jump', 'Knowledge (*)', 'Listen', 'Move Silently', 'Open Lock', 'Profession', 'Sense Motive', 'Search', 'Sleight of Hand', 'Speak Language', 'Spellcraft', 'Spot', 'Swim', 'Tumble', 'Use Rope'],
+    spellcastingProgression: { type: 'either', chooseEachLevel: true },
+  },
+  assassin: {
+    id: 'assassin', name: 'Assassin', ...dmg35Source,
+    prerequisites: { alignment: 'Any evil', skills: { Disguise: 4, Hide: 8, 'Move Silently': 8 } },
+    roleplayPrerequisite: 'The source requires a killing solely to join the assassins; adjudicate this fictional entry condition with the DM.',
+    features: ['Arcane spellcasting', 'Poison use', 'Sneak attack', 'Death attack', 'Save bonus against poison', 'Uncanny dodge', 'Improved uncanny dodge', 'Hide in plain sight'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 6, skillPoints: 4, baseAttackBonus: 'medium',
+    fortitude: 'poor', reflex: 'good', will: 'poor', armorProficiencies: ['light'],
+    classSkills: ['Balance', 'Bluff', 'Climb', 'Craft', 'Decipher Script', 'Diplomacy', 'Disable Device', 'Disguise', 'Escape Artist', 'Forgery', 'Gather Information', 'Hide', 'Intimidate', 'Jump', 'Listen', 'Move Silently', 'Open Lock', 'Search', 'Sense Motive', 'Sleight of Hand', 'Spot', 'Swim', 'Tumble', 'Use Magic Device', 'Use Rope'],
+    referenceSpellList: { levels: {
+      1: ['Disguise Self', 'Detect Poison', 'Feather Fall', 'Ghost Sound', 'Jump', 'Obscuring Mist', 'Sleep', 'True Strike'],
+      2: ['Alter Self', "Cat's Grace", 'Darkness', "Fox's Cunning", 'Illusory Script', 'Invisibility', 'Pass without Trace', 'Spider Climb', 'Undetectable Alignment'],
+      3: ['Deep Slumber', 'Deeper Darkness', 'False Life', 'Magic Circle against Good', 'Misdirection', 'Nondetection'],
+      4: ['Clairaudience/Clairvoyance', 'Dimension Door', 'Freedom of Movement', 'Glibness', 'Invisibility, Greater', 'Locate Creature', 'Modify Memory', 'Poison'],
+    } },
+  },
+  blackguard: {
+    id: 'blackguard', name: 'Blackguard', ...dmg35Source,
+    prerequisites: { alignment: 'Any evil', bab: 6, skills: { Hide: 5, 'Knowledge (religion)': 2 }, feats: ['Cleave', 'Improved Sunder', 'Power Attack'] },
+    roleplayPrerequisite: 'Confirm peaceful contact with a summoned evil outsider. Either the character or someone else may have summoned it.',
+    features: ['Divine spellcasting', 'Aura of evil', 'Detect good', 'Poison use', 'Dark blessing', 'Smite good', 'Aura of despair', 'Command undead', 'Sneak attack', 'Fiendish servant', 'Fallen paladin benefits'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 10, skillPoints: 2, baseAttackBonus: 'good',
+    fortitude: 'good', reflex: 'poor', will: 'poor',
+    classSkills: ['Concentration', 'Craft', 'Diplomacy', 'Handle Animal', 'Heal', 'Hide', 'Intimidate', 'Knowledge (religion)', 'Profession', 'Ride'],
+    weaponProficiency: 'martial', armorProficiencies: ['light', 'medium', 'heavy'], shieldProficiency: true,
+    referenceSpellList: {
+      levels: {
+        1: ['Cause Fear', 'Corrupt Weapon', 'Cure Light Wounds', 'Doom', 'Inflict Light Wounds', 'Magic Weapon', 'Summon Monster I'],
+        2: ["Bull's Strength", 'Cure Moderate Wounds', 'Darkness', 'Death Knell', "Eagle's Splendor", 'Inflict Moderate Wounds', 'Shatter', 'Summon Monster II'],
+        3: ['Contagion', 'Cure Serious Wounds', 'Deeper Darkness', 'Inflict Serious Wounds', 'Protection from Elements', 'Summon Monster III'],
+        4: ['Cure Critical Wounds', 'Freedom of Movement', 'Inflict Critical Wounds', 'Poison', 'Summon Monster IV'],
+      },
+      note: 'Summon Monster can summon only evil creatures. Protection from Elements is the printed name; confirm the intended spell with the DM.',
+    },
+  },
+  'dragon-disciple': {
+    id: 'dragon-disciple', name: 'Dragon Disciple', ...dmg35Source,
+    prerequisites: { skills: { 'Knowledge (arcana)': 8 }, languages: ['Draconic'], spontaneousArcaneSpellcasting: true },
+    roleplayPrerequisite: 'Confirm that the character is neither a dragon nor a half-dragon and that the ancestry has DM approval.',
+    features: ['Natural Armor Increase', 'Dragon Disciple Bonus Spells', 'Claws and Bite', 'Dragon Disciple Breath Weapon', 'Blindsense', 'Dragon Disciple Wings', 'Dragon Apotheosis'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 12, skillPoints: 2, baseAttackBonus: 'medium',
+    fortitude: 'good', reflex: 'poor', will: 'good',
+    classSkills: ['Concentration', 'Craft', 'Diplomacy', 'Escape Artist', 'Gather Information', 'Knowledge (*)', 'Listen', 'Profession', 'Search', 'Speak Language', 'Spellcraft', 'Spot'],
+  },
+  duelist: {
+    id: 'duelist', name: 'Duelist', ...dmg35Source,
+    prerequisites: { bab: 6, skills: { Tumble: 5 }, anySkillRanks: 3, anySkillPrefix: 'Perform', feats: ['Dodge', 'Mobility', 'Weapon Finesse'] },
+    features: ['Canny defense', 'Improved reaction', 'Grace', 'Precise strike', 'Deflect Arrows'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 10, skillPoints: 4, baseAttackBonus: 'good',
+    fortitude: 'poor', reflex: 'good', will: 'poor',
+    classSkills: ['Balance', 'Bluff', 'Escape Artist', 'Jump', 'Listen', 'Perform (*)', 'Sense Motive', 'Spot', 'Tumble'],
+    weaponProficiency: 'martial',
+  },
+  'dwarven-defender': {
+    id: 'dwarven-defender', name: 'Dwarven Defender', ...dmg35Source,
+    prerequisites: { bab: 7, alignment: 'Any lawful', feats: ['Dodge', 'Endurance', 'Toughness'], races: ['dwarf', 'hill-dwarf', 'mountain-dwarf', 'dark-dwarf', 'gully-dwarf'] },
+    features: ['AC bonus', 'Defensive stance', 'Uncanny dodge', 'Trap sense', 'Damage reduction', 'Mobile defense'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 12, skillPoints: 2, baseAttackBonus: 'good',
+    fortitude: 'good', reflex: 'poor', will: 'good', classSkills: ['Craft', 'Listen', 'Sense Motive', 'Spot'],
+    weaponProficiency: 'martial', armorProficiencies: ['light', 'medium', 'heavy'], shieldProficiency: true,
+  },
+  'eldritch-knight': {
+    id: 'eldritch-knight', name: 'Eldritch Knight', ...dmg35Source,
+    prerequisites: { allMartialWeaponProficiencies: true, spellcasting: { type: 'arcane', level: 3 } },
+    features: ['Fighter bonus feat', 'Arcane spellcasting advancement'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 6, skillPoints: 2, baseAttackBonus: 'good',
+    fortitude: 'good', reflex: 'poor', will: 'poor',
+    classSkills: ['Concentration', 'Craft', 'Decipher Script', 'Jump', 'Knowledge (arcana)', 'Knowledge (nobility and royalty)', 'Ride', 'Sense Motive', 'Spellcraft', 'Swim'],
+    spellcastingProgression: { type: 'arcane', startsAtLevel: 2, chooseEachLevel: true },
+  },
+  hierophant: {
+    id: 'hierophant', name: 'Hierophant', ...dmg35Source,
+    prerequisites: { skills: { 'Knowledge (religion)': 15 }, featCategoryChoices: [{ anyOf: ['metamagic'], count: 1 }], spellcasting: { type: 'divine', level: 7 } },
+    features: ['Hierophant special ability', 'Hierophant caster-level advancement'],
+    levelUpEnabled: true, maximumLevel: 5, hitDie: 8, skillPoints: 2, baseAttackBonus: 'poor',
+    fortitude: 'good', reflex: 'poor', will: 'good',
+    classSkills: ['Concentration', 'Craft', 'Diplomacy', 'Heal', 'Knowledge (arcana)', 'Knowledge (religion)', 'Profession', 'Spellcraft'],
+  },
+  'horizon-walker': {
+    id: 'horizon-walker', name: 'Horizon Walker', ...dmg35Source,
+    prerequisites: { skills: { 'Knowledge (geography)': 8 }, feats: ['Endurance'] },
+    features: ['Terrain Mastery', 'Planar Terrain Mastery'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 8, skillPoints: 4, baseAttackBonus: 'good',
+    fortitude: 'good', reflex: 'poor', will: 'poor',
+    classSkills: ['Balance', 'Climb', 'Diplomacy', 'Handle Animal', 'Hide', 'Knowledge (geography)', 'Listen', 'Move Silently', 'Profession', 'Ride', 'Speak Language', 'Spot', 'Survival'],
+  },
+  loremaster: {
+    id: 'loremaster', name: 'Loremaster', ...dmg35Source,
+    prerequisites: { anySkillRanks: 10, anySkillPrefix: 'Knowledge (', minimumMatchingSkills: 2, skillFocusPrefix: 'Knowledge (', featCategoryChoices: [{ anyOf: ['metamagic', 'item-creation'], count: 3 }], spellSchoolSpells: { school: 'Divination', count: 7, minimumLevel: 3 } },
+    features: ['Loremaster secret', 'Loremaster lore', 'Loremaster bonus language', 'Greater Lore', 'True Lore'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 4, skillPoints: 4, baseAttackBonus: 'poor',
+    fortitude: 'poor', reflex: 'poor', will: 'good',
+    classSkills: ['Appraise', 'Concentration', 'Craft (alchemy)', 'Decipher Script', 'Gather Information', 'Handle Animal', 'Heal', 'Knowledge (*)', 'Perform (*)', 'Profession', 'Speak Language', 'Spellcraft', 'Use Magic Device'],
+    spellcastingProgression: { type: 'either', chooseEachLevel: true },
+  },
+  'mystic-theurge': {
+    id: 'mystic-theurge', name: 'Mystic Theurge', ...dmg35Source,
+    prerequisites: { skills: { 'Knowledge (arcana)': 6, 'Knowledge (religion)': 6 }, spellcasting: { type: 'arcane', level: 2 }, additionalSpellcasting: [{ type: 'divine', level: 2 }] },
+    features: ['Dual spellcasting advancement'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor',
+    fortitude: 'poor', reflex: 'poor', will: 'good',
+    classSkills: ['Concentration', 'Craft', 'Decipher Script', 'Knowledge (arcana)', 'Knowledge (religion)', 'Profession', 'Sense Motive', 'Spellcraft'],
+    spellcastingProgression: { type: 'arcane', chooseEachLevel: true },
+  },
+  'red-wizard': {
+    id: 'red-wizard', name: 'Red Wizard', ...dmg35Source,
+    prerequisites: {
+      alignment: 'Any nongood', races: ['Human'], skills: { Spellcraft: 8 },
+      featCategoryChoices: [{ anyOf: ['metamagic', 'item-creation'], count: 3 }],
+      spellcasting: { type: 'arcane', level: 3 },
+    },
+    roleplayPrerequisite: 'Confirm Thayan origin and Tattoo Focus (Forgotten Realms option).',
+    features: ['Arcane spellcasting advancement', 'Enhanced specialization', 'Specialist defense', 'Spell power', 'Circle leader', 'Great circle leader'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor',
+    fortitude: 'poor', reflex: 'poor', will: 'good',
+    classSkills: ['Bluff', 'Concentration', 'Craft', 'Intimidate', 'Knowledge (*)', 'Profession', 'Spellcraft'],
+    spellcastingProgression: { type: 'arcane', chooseEachLevel: true },
+  },
+  shadowdancer: {
+    id: 'shadowdancer', name: 'Shadowdancer', ...dmg35Source,
+    prerequisites: { skills: { Hide: 10, 'Move Silently': 8, 'Perform (dance)': 5 }, feats: ['Combat Reflexes', 'Dodge', 'Mobility'] },
+    features: ['Hide in Plain Sight', 'Evasion', 'Darkvision', 'Uncanny Dodge', 'Shadow Illusion', 'Summon Shadow', 'Shadow Jump', 'Defensive Roll', 'Improved Uncanny Dodge', 'Slippery Mind', 'Improved Evasion'],
+    levelUpEnabled: true, maximumLevel: 10, hitDie: 8, skillPoints: 6, baseAttackBonus: 'medium',
+    fortitude: 'poor', reflex: 'good', will: 'poor', armorProficiencies: ['light'],
+    classSkills: ['Balance', 'Bluff', 'Decipher Script', 'Diplomacy', 'Disguise', 'Escape Artist', 'Hide', 'Jump', 'Listen', 'Move Silently', 'Perform (*)', 'Profession', 'Search', 'Sleight of Hand', 'Spot', 'Tumble', 'Use Rope'],
+  },
+  thaumaturgist: {
+    id: 'thaumaturgist', name: 'Thaumaturgist', ...dmg35Source,
+    prerequisites: { spellFocusSchools: ['Conjuration'], spells: ['Lesser Planar Ally'] },
+    features: ['Improved Ally', 'Augment Summoning', 'Extended Summoning', 'Contingent Conjuration', 'Planar Cohort'],
+    levelUpEnabled: true, maximumLevel: 5, hitDie: 4, skillPoints: 2, baseAttackBonus: 'poor',
+    fortitude: 'poor', reflex: 'poor', will: 'good',
+    classSkills: ['Concentration', 'Craft', 'Diplomacy', 'Knowledge (religion)', 'Knowledge (the planes)', 'Profession', 'Sense Motive', 'Speak Language', 'Spellcraft'],
+    spellcastingProgression: { type: 'either', chooseEachLevel: true },
+  },
   'knight-of-the-crown': {
     id: 'knight-of-the-crown',
     name: 'Knight of the Crown',
@@ -1045,7 +1418,7 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
 export const initialCharacter: Character = {
   name: 'Unnamed Hero', player: 'Player', gender: '', age: '', height: '5 ft. 7 in.', weight: '', hairColor: '', eyeColor: '', skinColor: '', temporaryHitPoints: 0, nonlethalDamage: 0, damageReduction: '', spellResistance: '', notes: '', race: 'Human', ruleset: 'core-35-srd', alignment: 'Neutral Good',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, featSkillSelections: {}, featSpellSchoolSelections: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], preparedSpells: [], equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, animatedShieldMode: false, forceShieldActive: false, shieldBlindingUsesByItem: {}, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
+  classLevels: [{ classId: 'fighter', level: 1 }], hitPoints: 10, feats: [], featSelections: {}, featWeaponSelections: {}, featSkillSelections: {}, featSpellSchoolSelections: {}, featSpellMasterySelections: {}, featSpellMasterySelectionCounts: {}, skills: {}, skillRanksByClass: {}, knownSpells: [], preparedSpells: [], equipment: {}, mainWeaponGrip: 'one-handed', doubleWeaponMode: false, doubleWeaponPrimaryEnd: 'first', towerShieldTotalCover: false, shieldBashMode: false, animatedShieldMode: false, forceShieldActive: false, shieldBlindingUsesByItem: {}, inventory: {}, languages: ['Common'], prestigeClass: undefined, deity: undefined, highSorceryOrder: undefined,
 }
 
 export function abilityModifier(score: number) {
@@ -1206,12 +1579,14 @@ export function beginPrestigeLevelUp(
   character: Character,
   prestigeClassId: PrestigeClassId,
   spellcastingClassId?: ClassId,
+  divineSpellcastingClassId?: ClassId,
 ): LevelUpDraft {
   const definition = dragonlancePrestigeClasses[prestigeClassId]
   const currentPrestigeEntry = character.classLevels.find(
     (entry) => 'prestigeClassId' in entry && entry.prestigeClassId === prestigeClassId,
   )
-  const classId = currentPrestigeEntry?.classId ?? spellcastingClassId ?? character.classLevels.find(
+  const classId = (definition.spellcastingProgression?.chooseEachLevel ? spellcastingClassId : undefined) ??
+    currentPrestigeEntry?.classId ?? spellcastingClassId ?? character.classLevels.find(
     (entry) => !('prestigeClassId' in entry),
   )?.classId
   if (!classId) throw new Error('A prestige class level requires an existing base class.')
@@ -1227,11 +1602,25 @@ export function beginPrestigeLevelUp(
   const existingPrestigeClass = proposed.classLevels.find(
     (entry) => 'prestigeClassId' in entry && entry.prestigeClassId === prestigeClassId,
   )
-  if (existingPrestigeClass) existingPrestigeClass.level = currentLevel + 1
+  if (existingPrestigeClass) {
+    existingPrestigeClass.level = currentLevel + 1
+    existingPrestigeClass.classId = classId
+  }
   else proposed.classLevels = [
     ...proposed.classLevels,
     { classId, prestigeClassId, level: 1 },
   ]
+  if (prestigeClassId === 'mystic-theurge') {
+    const entry = proposed.classLevels.find((level): level is PrestigeClassLevel =>
+      'prestigeClassId' in level && level.prestigeClassId === prestigeClassId,
+    )
+    if (entry) entry.divineSpellcastingClassId = divineSpellcastingClassId
+  }
+  if (prestigeClassId === 'dragon-disciple') {
+    const boost = getDragonDiscipleAbilityBoost(currentLevel + 1)
+    for (const ability of Object.keys(proposed.abilities) as AbilityName[])
+      proposed.abilities[ability] += boost[ability] ?? 0
+  }
   return {
     original: cloneCharacter(character),
     proposed,
@@ -1245,6 +1634,17 @@ export function beginPrestigeLevelUp(
 
 export function validateLevelUp(draft: LevelUpDraft): string[] {
   const errors: string[] = []
+  if (draft.prestigeClassId === 'horizon-walker') {
+    const level = draft.proposed.classLevels.find((entry) =>
+      'prestigeClassId' in entry && entry.prestigeClassId === 'horizon-walker',
+    )?.level ?? 0
+    const terrains = draft.proposed.horizonWalkerTerrainMasteries
+    const originalTerrains = draft.original.horizonWalkerTerrainMasteries ?? []
+    if (!terrains || !isHorizonWalkerTerrainHistory(terrains, level) ||
+        terrains.length !== originalTerrains.length + 1 ||
+        !originalTerrains.every((terrain, index) => terrains[index] === terrain))
+      errors.push('Choose one new terrain mastery. Planar choices unlock at Horizon Walker level 6.')
+  }
   const originalTotalLevel = getTotalHitDice(draft.original)
   const proposedTotalLevel = getTotalHitDice(draft.proposed)
   if (proposedTotalLevel !== originalTotalLevel + 1) errors.push('A level-up must add exactly one class level.')
@@ -1262,7 +1662,8 @@ export function validateLevelUp(draft: LevelUpDraft): string[] {
         'prestigeClassId' in entry && entry.prestigeClassId === draft.prestigeClassId,
       )
     : false
-  if (draft.prestigeClassId && !existingPrestigeLevel && !draft.specialPrerequisiteConfirmed)
+  if (draft.prestigeClassId && dragonlancePrestigeClasses[draft.prestigeClassId].roleplayPrerequisite &&
+      !existingPrestigeLevel && !draft.specialPrerequisiteConfirmed)
     errors.push('Confirm the prestige class special prerequisite before confirming the level-up.')
   if (
     draft.prestigeClassId &&

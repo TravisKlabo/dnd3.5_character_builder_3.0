@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { armorClass, carryingCapacity, cloneCharacter, initialCharacter, raceDefinitions, sizeModifier } from "../src/domain";
-import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getAnimatedShieldState, getBlindingShieldState, getInventoryEntryDetails, getStoreItemDescription, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit, getAttackOfOpportunityCapacity, getUnarmedStrikeDamage } from "../src/rules";
+import { equipInventoryItem, getEquippedWeaponStats, getTwoWeaponAttackPenalty, getArmorClassValues, getEquipmentArmorClass, getSpecialAttackBonuses, getCombatSpace, getWeaponRangeForSize, getWeaponReach, getWeaponSizeHandling, getWeaponCompatibilityWarning, getMainWeaponGripState, getDoubleWeaponModeState, getEffectiveWeaponKey, getShieldBashState, getAnimatedShieldState, getBlindingShieldState, getInventoryEntryDetails, getStoreItemDescription, getRangerCombatStyleStatus, getCombatExpertiseLimit, getPowerAttackLimit, getAttackOfOpportunityCapacity, getUnarmedStrikeDamage, type CombatTargetDefenseContext } from "../src/rules";
 import { addCustomStoreItems, deleteCustomStoreItem, findStoreItem } from "../src/data/equipmentCatalog";
 import { EquipmentStore } from "../src/components/EquipmentStore";
 import { EquipmentSheet } from "../src/components/EquipmentSheet";
@@ -286,6 +286,39 @@ describe("SRD weapon attack and damage", () => {
     });
   });
 
+  it("applies Greater Weapon Focus and Greater Weapon Specialization to their selected weapon", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "fighter", level: 12 }];
+    const longsword = getEquippedWeaponStats(character, "Longsword (Medium)")!;
+    character.featSelections = {
+      "general-1": "weapon-focus",
+      "fighter-4": "weapon-specialization",
+      "fighter-8": "greater-weapon-focus",
+      "fighter-12": "greater-weapon-specialization",
+    };
+    character.featWeaponSelections = {
+      "general-1": "Longsword",
+      "fighter-4": "Longsword",
+      "fighter-8": "Longsword",
+      "fighter-12": "Longsword",
+    };
+
+    expect(getEquippedWeaponStats(character, "Longsword (Medium)")).toMatchObject({
+      attack: longsword.attack + 2,
+      damage: "1d8+7",
+      weaponFocusBonus: 1,
+      greaterWeaponFocusBonus: 1,
+      weaponSpecializationBonus: 2,
+      greaterWeaponSpecializationBonus: 2,
+    });
+    expect(getEquippedWeaponStats(character, "Dagger (Medium)")).toMatchObject({
+      weaponFocusBonus: 0,
+      greaterWeaponFocusBonus: 0,
+      weaponSpecializationBonus: 0,
+      greaterWeaponSpecializationBonus: 0,
+    });
+  });
+
   it("applies Point Blank Shot to ranged attacks and damage at 30 feet or less", () => {
     const character = fighter();
     character.featSelections = { "general-1": "point-blank-shot" };
@@ -307,6 +340,62 @@ describe("SRD weapon attack and damage", () => {
     expect(at31Feet).toMatchObject({ pointBlankShotBonus: 0, damage: "1d8+0" });
     expect(unknownDistance).toMatchObject({ pointBlankShotBonus: 0, damage: "1d8+0" });
     expect(melee?.pointBlankShotBonus).toBe(0);
+  });
+
+  it("applies the shooting-into-melee penalty unless an exception applies", () => {
+    const character = fighter();
+    const engagedTarget = {
+      cover: "none",
+      concealment: "none",
+      targetEngagedWithFriendly: true,
+    } as const;
+    const attack = (
+      weapon: string,
+      slot: "Main Weapon" | "Ranged Weapon" = "Ranged Weapon",
+      targetDefense: CombatTargetDefenseContext = engagedTarget,
+    ) =>
+      getEquippedWeaponStats(
+        character,
+        weapon,
+        0,
+        slot,
+        [],
+        undefined,
+        undefined,
+        undefined,
+        0,
+        0,
+        "single",
+        targetDefense,
+      )!;
+
+    const clearShot = attack("Longbow (Medium)", "Ranged Weapon", {
+      cover: "none",
+      concealment: "none",
+    });
+    const intoMelee = attack("Longbow (Medium)");
+    expect(intoMelee.shootingIntoMeleePenalty).toBe(-4);
+    expect(intoMelee.attack).toBe(clearShot.attack - 4);
+    expect(intoMelee.attackSequence).toEqual([clearShot.attack - 4]);
+
+    const distantAlly = attack("Longbow (Medium)", "Ranged Weapon", {
+      ...engagedTarget,
+      targetAtLeast10FeetFromNearestFriendly: true,
+    });
+    expect(distantAlly.shootingIntoMeleePenalty).toBe(0);
+    expect(distantAlly.attack).toBe(clearShot.attack);
+
+    character.featSelections = {
+      "general-1": "point-blank-shot",
+      "general-3": "precise-shot",
+    };
+    const preciseShot = attack("Longbow (Medium)");
+    expect(preciseShot.shootingIntoMeleePenalty).toBe(0);
+    expect(preciseShot.attack).toBe(clearShot.attack);
+
+    character.featSelections = {};
+    const meleeAttack = attack("Longsword (Medium)", "Main Weapon");
+    expect(meleeAttack.shootingIntoMeleePenalty).toBe(0);
   });
 
   it("applies Combat Expertise to melee attacks only and caps the selector at BAB or +5", () => {
@@ -373,6 +462,10 @@ describe("SRD weapon attack and damage", () => {
     const daggerPowerAttack = getEquippedWeaponStats(
       character, "Dagger (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 1,
     )!;
+    const unarmedStrike = getEquippedWeaponStats(character, "Unarmed Strike (Medium)")!;
+    const unarmedPowerAttack = getEquippedWeaponStats(
+      character, "Unarmed Strike (Medium)", 0, "Main Weapon", [], undefined, undefined, undefined, 0, 1,
+    )!;
     const longbow = getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon")!;
     const rangedPowerAttack = getEquippedWeaponStats(
       character, "Longbow (Medium)", 0, "Ranged Weapon", [], undefined, undefined, undefined, 0, 1,
@@ -399,6 +492,10 @@ describe("SRD weapon attack and damage", () => {
       attack: dagger.attack - 1,
       damage: dagger.damage,
       powerAttackDamageBonus: 0,
+    });
+    expect(unarmedPowerAttack).toMatchObject({
+      attack: unarmedStrike.attack - 1,
+      powerAttackDamageBonus: 1,
     });
     expect(rangedPowerAttack).toMatchObject({
       attack: longbow.attack,
@@ -970,6 +1067,52 @@ describe("SRD two-weapon penalties", () => {
   });
 });
 
+describe("Two-Weapon Defense", () => {
+  it("adds a non-stacking shield bonus only while wielding two weapons", () => {
+    const character = fighter();
+    character.equipment = {
+      "Main Weapon": "Longsword (Medium)",
+      "Off Hand Weapon": "Dagger (Medium)",
+    };
+    character.featSelections = {
+      "general-1": "two-weapon-fighting",
+    };
+    const baseline = getArmorClassValues(character);
+    character.featSelections["fighter-1"] = "two-weapon-defense";
+    const withTwoWeapons = getArmorClassValues(character);
+    expect(withTwoWeapons).toMatchObject({
+      twoWeaponDefenseBonus: 1,
+      components: { shield: 1 },
+    });
+    expect(withTwoWeapons.normal).toBe(baseline.normal + 1);
+    expect(withTwoWeapons.touch).toBe(baseline.touch);
+    expect(withTwoWeapons.flatFooted).toBe(baseline.flatFooted + 1);
+    expect(withTwoWeapons.detail).toContain(
+      "Two-Weapon Defense grants a +1 shield bonus while wielding two weapons; it does not stack with other shield bonuses.",
+    );
+
+    character.equipment["Rings 1"] = "Ring of Force Shield";
+    character.forceShieldActive = true;
+    expect(getArmorClassValues(character)).toMatchObject({
+      twoWeaponDefenseBonus: 1,
+      components: { shield: 2 },
+    });
+
+    character.equipment = {
+      "Main Weapon": "Unarmed Strike (Medium)",
+      "Off Hand Weapon": "Dagger (Medium)",
+    };
+    expect(getArmorClassValues(character).twoWeaponDefenseBonus).toBe(0);
+
+    character.equipment = { "Main Weapon": "Quarterstaff (Medium)" };
+    character.doubleWeaponMode = true;
+    expect(getArmorClassValues(character)).toMatchObject({
+      twoWeaponDefenseBonus: 1,
+      components: { shield: 1 },
+    });
+  });
+});
+
 describe("consistent equipment handling", () => {
   beforeEach(() => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -1272,12 +1415,14 @@ describe("touch, flat-footed, and grapple statistics", () => {
     const character = fighter();
     character.featSelections = { "general-1": "dodge" };
 
+    expect(getArmorClassValues(character).dodgeFeatBonus).toBe(0);
     expect(getArmorClassValues(character, [], 0, true)).toMatchObject({
       normal: 15,
       touch: 15,
       flatFooted: 10,
       dodgeFeatBonus: 1,
     });
+    expect(getArmorClassValues(character).normal).toBe(14);
 
     character.classLevels = [{ classId: "rogue", level: 4 }];
     expect(getArmorClassValues(character, [], 0, true)).toMatchObject({
@@ -1351,6 +1496,42 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(getEquippedWeaponStats(character, "Longsword (Medium)")?.attackSequence).toEqual(attacks);
     });
 
+    it("applies shooting into melee to the single Manyshot roll", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level: 6 }];
+      character.featSelections = {
+        "ranger-style-2": "rapid-shot",
+        "ranger-style-6": "manyshot",
+      };
+      const targetDefense = {
+        cover: "none",
+        concealment: "none",
+        targetEngagedWithFriendly: true,
+      } as const;
+      const attack = (defense?: typeof targetDefense) =>
+        getEquippedWeaponStats(
+          character,
+          "Longbow (Medium)",
+          0,
+          "Ranged Weapon",
+          [],
+          30,
+          undefined,
+          undefined,
+          0,
+          0,
+          "manyshot",
+          defense,
+        )!;
+
+      const withoutPenalty = attack();
+      const withPenalty = attack(targetDefense);
+      expect(withPenalty.manyshotArrowCount).toBe(2);
+      expect(withPenalty.shootingIntoMeleePenalty).toBe(-4);
+      expect(withPenalty.attack).toBe(withoutPenalty.attack - 4);
+      expect(withPenalty.attackSequence).toEqual([withoutPenalty.attack - 4]);
+    });
+
     it("applies Improved Precise Shot only to less-than-total target cover and concealment", () => {
       const character = fighter();
       const targetDefense = { cover: "less-than-total", concealment: "less-than-total" } as const;
@@ -1368,7 +1549,11 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(screen.getByText(/cover AC bonus applies/)).toBeDefined();
       expect(screen.getByText(/its miss chance applies/)).toBeDefined();
 
-      character.featSelections = { "general-1": "improved-precise-shot" };
+      character.featSelections = {
+        "general-1": "point-blank-shot",
+        "general-3": "precise-shot",
+        "general-6": "improved-precise-shot",
+      };
       targetControl.rerender(
         <CombatTargetContextProvider>
           <CombatTargetDefenseControl character={character} />
@@ -1456,6 +1641,47 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(screen.getByText(/50% miss chance applies/)).toBeDefined();
     });
 
+    it("shows shooting-into-melee penalty, 10-foot exception, and Precise Shot status", () => {
+      const character = fighter();
+      const targetControl = render(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      const engagedToggle = screen.getByRole("checkbox", {
+        name: "Target engaged in melee with a friendly character",
+      });
+
+      expect(screen.queryByRole("checkbox", {
+        name: "Target at least 10 feet from nearest friendly character",
+      })).toBeNull();
+      fireEvent.click(engagedToggle);
+      expect(screen.getByText(/Ranged attacks take a -4 penalty/)).toBeDefined();
+      const distanceToggle = screen.getByRole("checkbox", {
+        name: "Target at least 10 feet from nearest friendly character",
+      });
+      fireEvent.click(distanceToggle);
+      expect(screen.getByText(/No shooting-into-melee penalty/)).toBeDefined();
+      fireEvent.click(engagedToggle);
+      expect(screen.queryByRole("checkbox", {
+        name: "Target at least 10 feet from nearest friendly character",
+      })).toBeNull();
+
+      character.featSelections = {
+        "general-1": "point-blank-shot",
+        "general-3": "precise-shot",
+      };
+      targetControl.rerender(
+        <CombatTargetContextProvider>
+          <CombatTargetDefenseControl character={character} />
+        </CombatTargetContextProvider>,
+      );
+      fireEvent.click(screen.getByRole("checkbox", {
+        name: "Target engaged in melee with a friendly character",
+      }));
+      expect(screen.getByText(/Precise Shot removes the -4/)).toBeDefined();
+    });
+
     it("uses multiclass BAB, not character level or total attack bonus, for iteratives", () => {
       const character = fighter();
       character.classLevels = [{ classId: "fighter", level: 4 }, { classId: "wizard", level: 4 }];
@@ -1465,7 +1691,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       expect(getEquippedWeaponStats(character, "+5 Longsword (Medium)")?.attackSequence).toEqual([6]);
     });
 
-    it("applies Rapid Shot only to an active full-attack style", () => {
+    it("applies Rapid Shot only to full attacks, not Manyshot", () => {
       const character = fighter();
       character.classLevels = [{ classId: "ranger", level: 6 }];
       character.featSelections = {
@@ -1494,7 +1720,12 @@ describe("touch, flat-footed, and grapple statistics", () => {
         fullAttack.attack,
         fullAttack.attack - 5,
       ]);
-      expect(rangedStats("single").attackSequence).toHaveLength(1);
+      const singleAttack = rangedStats("single");
+      expect(singleAttack.attackSequence).toHaveLength(1);
+      const manyshotAttack = rangedStats("manyshot");
+      expect(manyshotAttack.rapidShotPenalty).toBe(0);
+      expect(manyshotAttack.attack).toBe(singleAttack.attack - 4);
+      expect(manyshotAttack.attackSequence).toEqual([manyshotAttack.attack]);
 
       character.equipment.Armor = "Chainmail";
       const armoredAttack = rangedStats("full-attack");
@@ -1503,6 +1734,33 @@ describe("touch, flat-footed, and grapple statistics", () => {
         armoredAttack.attack,
         armoredAttack.attack - 5,
       ]);
+    });
+
+    it("grants only one Rapid Shot attack across two thrown weapons", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "ranger", level: 6 }];
+      character.featSelections = { "ranger-style-2": "rapid-shot" };
+      character.equipment["Main Weapon"] = "Javelin (Medium)";
+      character.equipment["Off Hand Weapon"] = "Javelin (Medium)";
+
+      const mainHand = getEquippedWeaponStats(
+        character,
+        "Javelin (Medium)",
+        0,
+        "Main Weapon",
+      )!;
+      const offHand = getEquippedWeaponStats(
+        character,
+        "Javelin (Medium)",
+        0,
+        "Off Hand Weapon",
+      )!;
+
+      expect(mainHand.rapidShotPenalty).toBe(-2);
+      expect(offHand.rapidShotPenalty).toBe(-2);
+      expect(mainHand.attackSequence).toHaveLength(3);
+      expect(offHand.attackSequence).toHaveLength(1);
+      expect(mainHand.attackSequence.length + offHand.attackSequence.length).toBe(4);
     });
 
     it("adds Improved and Greater Two-Weapon Fighting attacks only when active", () => {
@@ -1539,6 +1797,8 @@ describe("touch, flat-footed, and grapple statistics", () => {
       character.featSelections["general-1"] = "two-weapon-fighting";
       character.featSelections["general-3"] = "improved-two-weapon-fighting";
       character.featSelections["general-6"] = "greater-two-weapon-fighting";
+      expect(offHandAttack().attackSequence).toHaveLength(2);
+      character.abilities.dex = 19;
       expect(offHandAttack().attackSequence).toHaveLength(3);
     });
 
@@ -1550,6 +1810,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       const character = fighter();
       character.classLevels = [{ classId: "ranger", level }];
       character.featSelections = {
+        "general-1": "point-blank-shot",
         "ranger-style-2": "rapid-shot",
         "ranger-style-6": "manyshot",
       };
@@ -1571,16 +1832,18 @@ describe("touch, flat-footed, and grapple statistics", () => {
       const normal = attack("single", 30);
       const manyshot = attack("manyshot", 30);
       expect(manyshot.manyshotArrowCount).toBe(arrows);
+      expect(manyshot.pointBlankShotBonus).toBe(1);
       expect(manyshot.attack).toBe(normal.attack + penalty);
       expect(manyshot.attackSequence).toEqual([manyshot.attack]);
       expect(manyshot.attackSequence).toHaveLength(1);
       expect(manyshot.manyshotDamage).toMatchObject({
         arrowCount: arrows,
-        damagePerArrow: manyshot.damage,
+        damagePerArrow: "1d8+1",
         damageReductionPerArrow: undefined,
         precisionDamageApplications: 1,
         criticalDamageOnlyOnFirstArrow: true,
       });
+      expect(attack("single", 31).pointBlankShotBonus).toBe(0);
       expect(attack("manyshot", 31).attackActionWarning)
         .toBe("Target must be within 30 ft.");
     });
@@ -1620,6 +1883,18 @@ describe("touch, flat-footed, and grapple statistics", () => {
       ["Dagger", "10 ft."], ["Spear", "20 ft."], ["Javelin", "30 ft."],
     ])("shows the standard range increment for %s", (weapon, increment) => {
       expect(getEquippedWeaponStats(fighter(), `${weapon} (Medium)`)?.rangeIncrement).toBe(increment);
+    });
+
+    it("applies Far Shot's projectile and thrown range multipliers", () => {
+      const character = fighter();
+      character.featSelections = {
+        "general-1": "point-blank-shot",
+        "fighter-1": "far-shot",
+      };
+      expect(getEquippedWeaponStats(character, "Longbow (Medium)", 0, "Ranged Weapon"))
+        .toMatchObject({ rangeIncrement: "150 ft.", maximumRangeFeet: 1500 });
+      expect(getEquippedWeaponStats(character, "Javelin (Medium)", 0, "Ranged Weapon"))
+        .toMatchObject({ rangeIncrement: "60 ft.", maximumRangeFeet: 300 });
     });
 
     it("applies range penalties at increment boundaries and enforces projectile maximum range", () => {
@@ -1688,6 +1963,47 @@ describe("touch, flat-footed, and grapple statistics", () => {
         });
       expect(getEquippedWeaponStats(character, "Dagger (Medium)", 0, "Ranged Weapon")?.ammunitionStatus)
         .toBeUndefined();
+    });
+
+    it("applies Rapid Reload to its selected crossbow and limits full attacks by reload time", () => {
+      const character = fighter();
+      character.classLevels = [{ classId: "fighter", level: 6 }];
+      const fullAttack = (weapon: string) =>
+        getEquippedWeaponStats(
+          character,
+          weapon,
+          0,
+          "Ranged Weapon",
+          [],
+          undefined,
+          undefined,
+          undefined,
+          0,
+          0,
+          "full-attack",
+        )!;
+
+      expect(fullAttack("Light Crossbow (Medium)").attackSequence).toHaveLength(1);
+      expect(fullAttack("Heavy Crossbow (Medium)").attackSequence).toHaveLength(1);
+
+      character.featSelections = { "fighter-1": "rapid-reload" };
+      character.featWeaponSelections = { "fighter-1": "Light Crossbow" };
+      expect(fullAttack("Light Crossbow (Medium)")).toMatchObject({
+        attackSequence: expect.arrayContaining([expect.any(Number), expect.any(Number)]),
+        reloadNote: "Reload after each shot: free action; provokes an attack of opportunity. Full attacks may be made as with a bow.",
+      });
+      expect(fullAttack("Heavy Crossbow (Medium)")).toMatchObject({
+        attackSequence: [expect.any(Number)],
+        reloadNote: "Reload after each shot: full-round action; provokes an attack of opportunity.",
+      });
+
+      character.featWeaponSelections["fighter-1"] = "Heavy Crossbow";
+      expect(fullAttack("Heavy Crossbow (Medium)")).toMatchObject({
+        attackSequence: [expect.any(Number)],
+        reloadNote: "Reload after each shot: move action; provokes an attack of opportunity.",
+      });
+      expect(fullAttack("Repeating Heavy Crossbow (Medium)")?.reloadNote)
+        .toBe("Magazine holds 5 bolts; loading a new case is a full-round action. Shots are not tracked.");
     });
 
     it("evaluates single-material DR against weapons and available ammunition", () => {
@@ -1887,7 +2203,7 @@ describe("touch, flat-footed, and grapple statistics", () => {
       window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
       render(<App />);
 
-      const distance = screen.getByRole("spinbutton", { name: "Target distance (ft.)" });
+      const distance = await screen.findByRole("spinbutton", { name: "Target distance (ft.)" });
       fireEvent.change(distance, { target: { value: "30" } });
       expect(screen.getByText("+1 Point Blank Shot attack and damage")).toBeDefined();
       expect(screen.getByText("Damage 1d8+1")).toBeDefined();
@@ -1954,18 +2270,21 @@ describe("touch, flat-footed, and grapple statistics", () => {
   it("uses Strength for grapple and applies Improved Grapple without weapon bonuses", () => {
     const character = fighter();
     character.equipment = { "Main Weapon": "+5 Longsword (Medium)", "Off Hand Weapon": "Dagger (Medium)" };
-    character.featSelections = { "general-1": "improved-grapple" };
+    character.featSelections = {
+      "general-1": "improved-unarmed-strike",
+      "fighter-1": "improved-grapple",
+    };
     expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: 4, rangedTouch: 5, grapple: 8 });
   });
 
   it("uses Weapon Finesse only for melee touch, including shield and nonproficiency penalties", () => {
     const character = fighter(10, 18);
-    character.classLevels = [{ classId: "wizard", level: 1 }];
+    character.classLevels = [{ classId: "rogue", level: 2 }];
     character.equipment = { Shield: "Heavy Steel Shield (Medium)" };
     character.featSelections = { "general-1": "weapon-finesse" };
-    expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: 0, rangedTouch: 2, grapple: -2 });
+    expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: 1, rangedTouch: 3, grapple: -1 });
     character.equipment.Shield = "Tower Shield (Medium)";
-    expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: -12, rangedTouch: -8, grapple: -10 });
+    expect(getSpecialAttackBonuses(character)).toMatchObject({ meleeTouch: -11, rangedTouch: -7, grapple: -9 });
   });
 
   it("applies the tower-shield attack penalty without treating a grapple as an attack roll", () => {
@@ -2043,6 +2362,23 @@ describe("touch, flat-footed, and grapple statistics", () => {
     });
     expect(getArmorClassValues(heavyShieldCharacter))
       .toMatchObject({ normal: 14, shieldBashACBonusLost: true });
+  });
+
+  it("retains the shield AC bonus while bashing with Improved Shield Bash", () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "fighter", level: 1 }];
+    character.equipment = { Shield: "Light Steel Shield (Medium)" };
+    const normalAC = getArmorClassValues(character).normal;
+
+    character.shieldBashMode = true;
+    expect(getArmorClassValues(character).shieldBashACBonusLost).toBe(true);
+    character.featSelections = { "general-1": "improved-shield-bash" };
+    expect(getArmorClassValues(character)).toMatchObject({
+      normal: normalAC,
+      shieldBashACBonusLost: false,
+    });
+    expect(getArmorClassValues(character).detail)
+      .toContain("Improved Shield Bash retains the shield AC bonus while bashing.");
   });
 
   it("applies the Bashing shield property's size increase and +1 weapon bonus", () => {
@@ -2213,6 +2549,23 @@ describe("touch, flat-footed, and grapple statistics", () => {
     if (!(shieldSlot instanceof HTMLElement)) throw new Error("Missing shield equipment slot.");
     await user.click(within(shieldSlot).getByRole("button", { name: "Unequip" }));
     expect(screen.queryByRole("checkbox", { name: "Use shield bash" })).toBeNull();
+  });
+
+  it("explains that Improved Shield Bash retains the shield AC bonus", async () => {
+    const character = fighter();
+    character.classLevels = [{ classId: "fighter", level: 1 }];
+    character.featSelections = { "general-1": "improved-shield-bash" };
+    character.equipment = { Shield: "Light Steel Shield (Medium)" };
+    character.shieldBashMode = true;
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
+    expect(await screen.findByText(
+      "Improved Shield Bash lets you retain the shield's AC bonus while bashing.",
+    )).toBeDefined();
+    expect(screen.queryByText("Shield AC bonus lost until your next action after a shield bash."))
+      .toBeNull();
   });
 
   it("lets a character activate an Animated shield and persists the state", async () => {

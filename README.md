@@ -5,6 +5,851 @@ Dragonlance options, spells, equipment, the store, the forge, custom items, and
 JSON import/export retain their familiar appearance. Targeted, tested corrections
 to inherited rules calculations are documented below.
 
+## Sourcebook review progress
+
+**PHB definition-pass certification (2026-11-18).** All seven PHB player
+races, 11 base classes, 109 feats, 605 represented spell titles / 715 PHB
+spell records, and Chapter 7 selectable equipment are represented and
+source-checked. Generated Forge/wand/scroll/potion variants count when they can
+be configured, persisted, and printed. Selection, class/race summaries, feats,
+inventory, attacks/protection, and spell records are printable. Focused PHB
+validation passed **1,450 tests**, plus the printable-sheet workflow and
+equipment/barding follow-up tests, lint, types, production build, and
+whitespace checks. The final run also stopped invalid Wizard bonus selections
+from surviving normalization and separated the DMG-only *Corrupt Weapon*
+record from PHB spell-count assertions. Situational rule execution and combat
+adjudication remain manual; this certifies representation, not automation.
+
+**Latest checkpoint: Complete Champion final feat group (2026-11-18).** Checked
+Touch of Healing, Travel Devotion, Trickery Devotion, Umbral Shroud, Venom's
+Gift, War Devotion, and Water Devotion against printed pp. 62–64. Fixed Venom's
+Gift so plant-form access alone cannot qualify a character without ordinary
+wild shape. The other detailed benefits and prerequisites matched.
+
+**Previous checkpoint: Complete Champion action-economy feats
+(2026-11-18).** Checked Spontaneous Domains, Strength Devotion, Sun Devotion,
+Swift Call, and Swift Wild Shape against printed pp. 62–63. Corrected Swift
+Call: it replaces a full-round action, not a standard action. Clarified that
+Strength Devotion's slam does not provoke. The other action, spell-slot, aura,
+damage, and prerequisite limits matched.
+
+**Previous checkpoint: Complete Champion protection and counter feats
+(2026-11-18).** Checked Plant Devotion, Protection Devotion, Protective Ward,
+Retrieve Spell, and Spiritual Counter against printed pp. 61–62. Prerequisites
+and benefits matched. Added checks for fortification/AC thresholds, Ward's
+single-target duration, Retrieve Spell's class restriction, and Spiritual
+Counter's ready-action/use cost. No rules change was needed.
+
+**Previous checkpoint: Complete Champion knowledge and reserve feats
+(2026-11-18).** Checked Knowledge Devotion, Law Devotion, Luck Devotion,
+Magic Devotion, and Mitigate Suffering against printed pp. 60–61. Prerequisites
+and benefits matched. Added regression checks for Knowledge Devotion's
+per-type limit, Law's bonus reallocation, Luck's damage scope, Magic's ranged
+scaling, and Mitigate Suffering's repeatable 10-minute temporary points. No
+rules change was needed; active spells and effects remain manual.
+
+**Previous checkpoint: Complete Champion wild, tactical, and healing feats
+(2026-11-18).** Checked Great and Small, Healing Devotion, Holy Potency, Holy
+Warrior, and Imbued Healing against printed pp. 59–60. Clarified Great and
+Small's normal-form and nonstacking limits, plus Imbued Healing's coexistence
+of different carrier effects even for opposed domains. The other prerequisites
+and benefits matched; their effects remain manual.
+
+**Previous checkpoint: Complete Champion elemental and alignment feats
+(2026-11-18).** Checked Elemental Essence, Evil Devotion, Fire Devotion,
+Fragile Construct, and Good Devotion against printed pp. 58–59. Prerequisites
+and benefits matched, including Elemental Essence's one-active-energy limit,
+aligned DR, Fire Devotion's ongoing save/dousing rules and use conversion, and
+Fragile Construct's sunder bonus. No rules change was needed; effects remain
+manual.
+
+**Previous checkpoint: Complete Champion devotion and reserve effects
+(2026-11-18).** Checked Chaos Devotion, Charnel Miasma, Death Devotion,
+Destruction Devotion, and Earth Devotion against printed pp. 56–58. Fixed
+Chaos Devotion's missing repeatability and level-10/15 die scaling; clarified
+Charnel Miasma's passive scent and Earth Devotion's immediate spike attack.
+The other prerequisites and benefits matched.
+
+**Previous checkpoint: Complete Champion feat benefits (2026-11-18).** Checked
+Air Devotion, Animal Devotion, Awesome Smite, Battle Blessing, and Bestial
+Charge against printed pp. 54–56. Prerequisites and benefits matched, including
+devotion-use conversions, tactical maneuver limits, paladin casting-time
+changes, and wild-shape charge conditions. No rules change was needed; uses and
+tactical effects remain manual.
+
+**Previous checkpoint: Complete Adventurer final feat-table group
+(2026-11-18).** Checked Staggering Strike, Subsonics, Tactile Trapsmith, and
+Versatile Performer against printed p. 109. The first three matched. Clarified
+that Versatile Performer's selected categories are permanent, continue
+tracking the highest Perform ranks, and expand when Intelligence bonus rises;
+combined performances add +2 to the higher modifier. Effects remain manual.
+
+**Previous checkpoint: Complete Adventurer tactical and skill-point feats
+(2026-11-18).** Checked Open Minded, Oversized Two-Weapon Fighting, Power
+Throw, Quick Reconnoiter, and Razing Strike against printed pp. 108–109.
+Prerequisites and benefits matched. No rules change was needed; repeatable
+skill-point grants, attack adjustments, free-action scouting, and
+spell-sacrifice combat effects remain manual.
+
+**Previous checkpoint: Complete Adventurer skill and movement feats
+(2026-11-18).** Checked Jack of All Trades, Leap Attack, Mobile Spellcasting,
+Natural Bond, and Obscure Lore against printed pp. 107–108. Prerequisites and
+benefits already matched. Added focused assertions for Jack's no-check-skill
+limit, Leap Attack's 10-foot and two-handed conditions, Mobile Spellcasting's
+spell-loss and defensive-casting DCs, Natural Bond's character-level cap, and
+Obscure Lore's bonus. No rules change was needed; effects remain manual.
+
+**Previous checkpoint: Complete Adventurer combat and concentration feats
+(2026-11-18).** Checked Dual Strike, Expert Tactician, Extraordinary
+Concentration, Extraordinary Spell Aim, and Force of Personality against
+printed pp. 105–106. Prerequisites matched. Corrected Dual Strike's summary to
+include its shared roll, weapon modifiers, two penalty cases, separate damage
+resistance, and precision/critical limits. The other four benefits match and
+remain manually resolved.
+
+**Previous checkpoint: Complete Adventurer performance and devotion feats
+(2026-11-18).** Checked Devoted Performer, Devoted Tracker, Disguise Spell,
+Green Ear, and Lingering Song against printed pp. 104–108. Prerequisites
+matched. Clarified Devoted Performer's no-extra-uses limit, Devoted Tracker's
+combined mount/companion benefits and normal multiclass boundaries, Disguise
+Spell's visible-source limitation, Green Ear's plant immunity baseline, and
+Lingering Song's normal five-round comparison. Effects remain manually
+resolved.
+
+**Previous checkpoint: Complete Adventurer bardic music and Scent feats
+(2026-11-18).** Checked Extra Music, Chant of Fortitude, Ironskin Chant, Lyric
+Spell, and Scent against printed pp. 109–111. The first two bardic
+feats and Extra Music matched; Lyric Spell now correctly requires the ability
+to spontaneously cast 2nd-level arcane spells instead of a hard-coded class
+level. Clarified repeated Chant use and Scent's standard supernatural-action
+activation. The focused 301-test rules suite and lint passed. The production
+build passed at **516,079 / 516,096 bytes** after a rounded 64-byte budget
+adjustment for the new prerequisite rule.
+
+**Previous checkpoint: Complete Adventurer wild feats (2026-11-18).** Checked
+Blindsense, Climb Like an Ape, Cougar's Vision, Hawk's Vision, and Savage
+Grapple against printed p. 111. Clarified Hawk's ranged-attack range penalties
+versus Spot distance penalties and Savage Grapple's limitation for creatures
+not subject to sneak attacks. The other checked benefit summaries match; wild
+feat activation rules, uses, and effects remain manual. The focused rules test,
+lint, build, and `git diff --check` passed.
+
+**Previous checkpoint: PHB Improved Counterspell, Leadership, Natural Spell,
+Track, and Toughness (2026-11-18).** Checked the five feats against the
+supplied PHB (pp. 95, 97-98, 101). Clarified that Natural Spell uses material
+components and focuses the character possesses, even when melded, and that
+Toughness can be selected multiple times for stacking +3 HP gains. The other
+prerequisites and benefits match. Counterspells, Leadership decisions and
+tables, tracking checks/movement, and casting while transformed remain manual.
+Eight focused rules, eligibility, and HP tests passed; lint, build, and
+`git diff --check` passed at **516,032 / 516,032 bytes**.
+
+**Previous checkpoint: PHB Craft Wondrous Item, Forge Ring, Scribe Scroll,
+Eschew Materials, and Extra Turning (2026-11-18).** Checked the five feats
+against the supplied PHB (pp. 92, 94, 99). Corrected Scribe Scroll's
+description to allow any spell the creator knows, rather than implying it
+must be currently castable. The other caster-level thresholds, item/spell
+limits, Eschew Materials' 1 gp limit, and Extra Turning's repeatable +4 uses
+per turning/rebuking ability match. Detailed item creation and use tracking
+remain manual. Focused rules and eligibility tests passed.
+
+**Previous checkpoint: PHB item-creation feats—Brew Potion, Craft Magic Arms
+and Armor, Craft Rod, Craft Staff, and Craft Wand (2026-11-18).** Checked the
+five entries against the supplied PHB (pp. 89, 92). The catalog's
+caster-level thresholds and summarized spell/item categories match; potions
+require a qualifying creature-targeting spell, and new staffs and wands have
+50 charges. Item-specific prerequisites, masterwork bases, creation time,
+costs, and charge management remain manual. No code change was needed; the
+existing item-creation prerequisite test passed.
+
+**Previous checkpoint: PHB Power Attack, Cleave, Great Cleave, Quick Draw,
+and Run (2026-11-18).** Checked the five feats against the supplied PHB
+(pp. 92, 94, 98-99). Corrected Power Attack to grant its normal damage bonus
+to unarmed strikes even though they are light; the existing calculation
+already handles double weapons and two-handed multipliers. Cleave's
+once-per-round limit, Great Cleave's unlimited qualifying follow-ups, Quick
+Draw's BAB +1 prerequisite and benefits, and Run's armor/load speed conditions
+match the source. Natural-weapon attacks and combat-trigger execution remain
+manual. Seven focused combat, prerequisite, and feat-description tests passed;
+lint, build, and `git diff --check` passed at **516,032 / 516,032 bytes**.
+
+**Previous checkpoint: PHB unarmed and arrow-defense feats (2026-11-18).**
+Checked Deflect Arrows (p. 93), Improved Grapple (p. 95), Improved Unarmed
+Strike (p. 96), Snatch Arrows (p. 100), and Stunning Fist (p. 101) against the
+supplied PHB. Prerequisites, benefits, fighter/monk bonus-feat exceptions,
+grapple bonus, and Stunning Fist's use/DC rules match. Corrected the Improved
+Grapple test fixture so the selected feat has its prerequisites. Arrow
+deflection/catching and Stunning Fist use tracking remain manual. Twelve
+focused tests passed; lint, build, and `git diff --check` passed. The initial
+JavaScript is **516,031 / 516,032 bytes**.
+
+**Previous checkpoint: PHB defensive and survival feats (2026-11-18).**
+Checked Blind-Fight (p. 89), Combat Casting and Combat Reflexes (p. 92), and
+Diehard and Endurance (p. 93) against the supplied PHB. Corrected the Combat
+Reflexes description to state the one-attack-per-opportunity limit and that it
+does not grant a rogue additional uses of Opportunist. The catalog's other
+benefits, prerequisites, and class-grant timing match. Concealment, visibility,
+environmental Endurance checks, and Diehard decisions/damage remain manual.
+Focused Combat Reflexes, Combat Casting, Ranger Endurance, and feat-description
+tests passed; lint, build, and `git diff --check` passed.
+
+**Previous checkpoint: PHB weapon proficiency and attack feats (2026-11-18).**
+Checked Simple, Martial, and Exotic Weapon Proficiency, Point Blank Shot, and
+Weapon Finesse against the supplied PHB (pp. 94, 97-98, 100, 102). The main
+discrepancy was Martial Weapon Proficiency missing its BAB +1 prerequisite;
+added it with a regression test. Weapon choices, class-granted proficiencies,
+the exotic-weapon Strength 13 exceptions, Point Blank Shot's 30-foot limit,
+and Weapon Finesse's eligible attacks and shield penalty otherwise match.
+Natural attacks are not modeled as weapon-sheet selections and remain manual.
+Thirty-four focused tests passed; the full proficiency suite has 115 passes and
+one unrelated weapon-choice-normalization failure. Lint, build, and
+`git diff --check` passed; the initial JavaScript is **516,031 / 516,032 bytes**.
+
+**Previous checkpoint: PHB spell DC and spell-resistance feats (2026-11-18).**
+Checked Spell Focus, Greater Spell Focus, Spell Penetration, Greater Spell
+Penetration, and Augment Summoning against the supplied PHB (pp. 89, 94, 100).
+The DC bonuses, distinct-school repeat choices, prerequisites, and +2 caster
+level check bonuses match. Fixed duplicate-school warnings to follow
+chronological feat selection. Augment Summoning's +4 enhancement bonuses to
+summoned creatures' Strength and Constitution, and actual spell-resistance
+comparisons, remain manual. Seven focused tests and lint passed; the build
+passed at **516,031 / 516,032 bytes** after a 32-byte budget increase for the
+warning correction.
+
+**Previous checkpoint: PHB armor and shield proficiency (2026-11-18).**
+Checked Armor Proficiency (Light, Medium, and Heavy), Shield Proficiency, and
+Tower Shield Proficiency against the PHB (pp. 47, 89) and mithral category
+rules against DMG 284. Corrected Ranger's automatic armor proficiency and
+applied mithral's lighter category to proficiency. Fifteen focused tests,
+lint, and the production build passed.
+
+**Previous checkpoint: PHB skill-bonus feats.** Checked Investigator and
+Magical Aptitude (p. 97), Negotiator (p. 98), Self-Sufficient (p. 100), and
+Stealthy (p. 101) against the supplied PHB. Each grants +2 on checks with its
+two listed skills, matching the catalog and skill calculations. Seventeen
+focused skill, catalog, and availability tests passed; no code change was
+needed.
+
+**Previous checkpoint: PHB skill-bonus feats.** Checked Animal Affinity
+(p. 89), Deft Hands and Diligent (p. 93), and Nimble Fingers and Persuasive
+(p. 98) against the supplied PHB. Each grants +2 on checks with its two listed
+skills, matching the catalog and skill calculations. Seventeen focused skill,
+catalog, and availability tests passed; no code change was needed.
+
+**Previous checkpoint: PHB skill-bonus feats.** Checked Acrobatic, Agile,
+Alertness, and Athletic (p. 89), plus Deceitful (p. 93), against the supplied
+PHB. Each grants +2 on checks with its two listed skills, matching the catalog
+and skill calculations. Seventeen focused skill, catalog, and availability
+tests passed; no code change was needed. Alertness from a familiar within
+arm's reach is described, but familiar presence and proximity remain manual.
+
+**Previous checkpoint: PHB save, initiative, and skill feats.** Checked Great
+Fortitude (p. 94), Iron Will and Lightning Reflexes (p. 97), Improved
+Initiative (p. 96), and Skill Focus (p. 100) against the supplied PHB. The
+three save feats grant +2 to their respective saves; Improved Initiative
+grants +4; Skill Focus grants +3 for one skill and can be selected again for a
+different skill without stacking on the same skill. Catalog, calculations,
+and selection behavior match. Thirteen focused rules, skill, and selection
+tests passed; no code change was needed.
+
+**Previous checkpoint: PHB remaining spell feats.** Checked Quicken, Silent,
+Still, and Widen Spell plus Spell Mastery against the supplied PHB (pp. 98-102).
+Their component rules, area-shape limits, slot adjustments, and Spell Mastery
+eligibility and choice count match. *Complete Arcane* (p. 86) updates Quicken
+from the PHB's free action to a swift action. Six focused metamagic and Spell
+Mastery tests and the rules test file passed. The Widen prepared-copy test
+passed its slot checks but then failed on a separate Persistent Spell note
+expectation; four other failures in the broader run concerned proficiency and
+Spell Focus behavior. Component removal, Widen's area changes, and actual
+swift-action/casting-time resolution remain manual.
+
+**Previous checkpoint: PHB metamagic feats.** Checked Empower, Enlarge, Extend,
+Heighten, and Maximize Spell against the supplied PHB (pp. 93-97). Slot
+adjustments, eligible ranges and durations, variable-effect limits, and
+Heighten's effective spell level and save DC match the source. Thirteen
+focused spell and PHB catalog tests passed. Numeric effects, Enlarge/Extend
+application, and spontaneous-caster metamagic remain manual.
+
+**Previous checkpoint: PHB weapon-focus feats.** Checked Weapon Focus, Weapon
+Specialization, Greater Weapon Focus, Greater Weapon Specialization, and
+Improved Critical against the supplied PHB (pp. 95, 102). Prerequisites,
+weapon-choice matching, stacking bonuses, and Improved Critical's interaction
+with Keen match the source. Thirteen focused combat, prerequisite, and
+proficiency tests passed; critical confirmation and damage remain manual.
+
+**Previous checkpoint: PHB melee movement and defense feats.** Checked Combat
+Expertise (p. 92), Dodge (p. 93), Mobility (p. 98), Spring Attack (p. 100),
+and Whirlwind Attack (p. 102) against the supplied PHB. Their prerequisites
+and benefits match the source, including Spring Attack's 5-foot movement on
+both sides of the attack. Ten focused combat and rules tests passed; movement
+and multi-target resolution remain manual.
+
+**Previous checkpoint: PHB two-weapon feats.** Checked Two-Weapon Fighting,
+Two-Weapon Defense, Improved and Greater Two-Weapon Fighting, and Improved
+Shield Bash against the supplied PHB (pp. 95-96, 102). The prerequisites,
+off-hand attack penalties, shield-bonus behavior, and Ranger style exceptions
+match the source. Corrected a combat regression fixture: Greater Two-Weapon
+Fighting requires Dex 19 outside the Ranger style exception. Focused
+two-weapon combat tests passed.
+
+**Previous checkpoint: PHB mounted-combat feats.** Checked Mounted Archery and
+Mounted Combat (p. 98), Ride-By Attack (p. 99), Spirited Charge (p. 100), and
+Trample (p. 101) against the supplied PHB. Their prerequisites, fighter bonus
+eligibility, and described benefits agree with the source. No code change was
+needed; mounted checks, movement, attacks of opportunity, charge damage, and
+overrun resolution remain manual.
+
+**Previous checkpoint: PHB ranged-combat feats.** Audited Far Shot, Precise
+Shot, Rapid Shot, Manyshot, Improved Precise Shot, and Shot on the Run against
+the supplied PHB. Corrected Rapid Shot to grant only one extra attack when a
+character makes a two-weapon full attack with ranged/thrown weapons. The focused
+regression test and lint passed; the build passed at **515,984 / 516,000 bytes**
+of initial JavaScript.
+
+**Previous checkpoint: PHB combat-maneuver feat review.**
+Checked Improved Bull Rush, Improved Disarm, Improved Feint, Improved Overrun,
+Improved Sunder, and Improved Trip against the supplied PHB feat entries
+(pp. 95-96) and combat procedures. Five entries agree with their detailed
+benefits. Improved Overrun has a source conflict: Table 5-1 lists no attack of
+opportunity, while its detailed entry omits that benefit and the overrun rules
+say the defender gets an attack of opportunity. The feat description now flags
+the conflict for DM adjudication rather than choosing a ruling. Maneuver
+resolution remains manual. The rules suite passed **295 tests**, lint passed,
+and the production build passed at **515,829 / 515,835 bytes** of initial
+JavaScript.
+
+**Previous checkpoint: PHB feat prerequisite loss.**
+A selected feat no longer provides its benefits when its prerequisites are
+lost. Unusable feats and feats depending on them are excluded from active
+mechanics, while saved selections remain intact and receive a non-blocking
+warning. Monk and Ranger bonus-feat exceptions remain in force. The rules
+suite passed **295 tests**, the focused UI tests passed **3 tests**, lint
+passed, and the production build passed at **515,829 / 515,835 bytes** of
+initial JavaScript. This is a focused correction, not a completed PHB review.
+
+**Previous checkpoint: PHB class-granted feat timing.**
+The PHB (p. 87) allows a prerequisite gained at the same level as a feat, but
+not before it is gained. Historical feat-prerequisite context now reconstructs
+class levels at the feat's character level. Ranger Endurance gained at Ranger 3
+can qualify Diehard at character level 3, but not an earlier feat slot. The
+focused regression passed; the rules and class suites passed **350 tests**, lint
+passed, and the production build passed at **515,283 / 515,835 bytes** of
+initial JavaScript. This is a focused correction, not a completed PHB review.
+
+**Previous checkpoint: PHB class feat grants (2026-11-18).**
+Checked the Human, Fighter, Wizard, Monk, and Ranger feat-grant paths against
+the PHB (pp. 14, 38, 41, 48–49, and 57). Their modeled levels, choices, and
+prerequisite exceptions match the source; no code change was needed. This is a
+focused audit, not a completed PHB review. Its prerequisite-loss follow-up is
+recorded in the latest checkpoint above.
+
+**Earlier checkpoint: PHB same-level feat prerequisites (2026-11-18).**
+The PHB (p. 88) permits gaining a feat at the same character level as its
+prerequisite. Feat selection now recognizes prerequisites in other feat slots
+at that level, while retaining chronological checks across levels. The rules
+suite passed **291 tests**, lint passed, and the production build passed at
+**515,273 / 515,835 bytes** of initial JavaScript. This is a focused correction,
+not a completed PHB review.
+
+**Previous checkpoint: PHB catalog minimum-level-9 spell batch complete (2026-11-17).**
+Reviewed **31 titles / 31 records**, Astral Projection through Wish, against
+the supplied PHB. Corrected or clarified six summaries without changing
+headers or access. The catalog review is complete for the represented PHB
+spells; effect resolution is still manual. All **291 spell-suite tests**,
+lint, types and build pass. Its historical next target, same-level feat
+eligibility, is now completed in the checkpoint above.
+
+**Previous checkpoint: PHB catalog minimum-level-8 spell batch complete (2026-11-17).**
+Reviewed **46 titles / 49 class-level records**, Animal Shapes through
+Whirlwind, against the supplied PHB pp. 198-301 and inherited parents. All
+class levels and spell headers matched; expanded/corrected **8 summaries**,
+including Binding, Clenched Fist, Cloak of Chaos, Clone, Earthquake, Greater
+Shadow Evocation, Greater Spell Immunity, and Symbol of Death. Added
+source/header/projection fixtures for all 46 titles; **338 tests pass across
+two focused suites**. Lint, types and build pass. Spell effects remain manual.
+The historical next target, minimum-level-9 spells, is now complete above.
+This does not certify the full PHB.
+
+**Previous checkpoint: PHB catalog minimum-level-7 spell batch complete (2026-11-17).**
+Reviewed **49 titles / 55 class-level records**, Animate Plants through Word of
+Chaos, against the supplied PHB and inherited parents. Corrected headers in
+**5 records** and expanded/corrected all 55 summaries. Clarified HD-tiered word
+effects, mass spell limits, teleportation, summoning, spell turning, costly
+components and Resurrection's **10,000 gp** diamond cost. Added **100 focused
+source/header/effect/projection/setting regressions**; **1,424 tests pass
+across nine focused suites**, and 151 source-attribution cases pass separately.
+Lint, types and build pass. Symbol of Stunning's inherited hp-limit ambiguity
+is flagged for DM review; effects remain manual. This does not certify the full
+PHB.
+
+**Previous checkpoint: PHB catalog minimum-level-6 spell batch complete (2026-11-17).**
+Reviewed **64 titles / 76 class-level records**, Acid Fog through Word of Recall,
+against the supplied PHB and inherited parents. Corrected headers in **21
+records** and expanded/corrected all 76 summaries. Restored missing hand,
+summon, symbol and Undeath to Death fields; removed scraped web code from Veil.
+Clarified damage/HD caps, Heal's actual condition list, transformation/travel
+limits and component costs. **1,632 tests pass across ten focused suites**,
+plus lint, types and build. Its historical next group, minimum-level-7 spells,
+is now completed above. Symbol of Fear's unremoved inherited hp limit is
+explicitly flagged for the DM; effects remain manual. This does not certify the
+full PHB.
+
+**Previous checkpoint: PHB catalog minimum-level-5 spell batch complete (2026-11-17).**
+Reviewed **64 titles / 74 class-level records** against the supplied PHB and
+inherited parents. Corrected headers in **39 records** and expanded/corrected
+all 74 summaries. Key fixes include this edition's Baleful Polymorph timing,
+Lesser Planar Binding's one-creature limit, Mind Fog's check/save penalties,
+Shadow Evocation's disbelief limits and missing summon/symbol casting fields.
+**1,502 tests pass across nine focused suites**, plus lint, types and build.
+Its historical next group, minimum-level-6 spells, is now completed above.
+Cloudkill's source ambiguity at 6 HD is explicitly flagged for the DM.
+Spell effects remain manual; this does not certify the full PHB.
+
+**Previous checkpoint: PHB catalog minimum-level-4 spell batch complete (2026-11-17).**
+Reviewed **68 titles / 87 records** against the supplied PHB, including
+inherited headers and effect descriptions: 64 ordinary-class titles and four
+domain-only titles. Corrected headers in **42 records** and expanded/corrected
+all 87 summaries, including Giant Vermin, Wall of Ice and scraped Tree Stride
+text. Dismissal now labels its displayed DC as a base with its target-dependent
+adjustment shown explicitly. **1,372 focused tests pass**, plus lint and build.
+Its historical next group, minimum-level-5 spells, is now completed above.
+This is a definition/summary pass, not automated combat or full PHB certification.
+
+**Previous checkpoint: PHB minimum-level-3 spell batch complete (2026-11-17).**
+Reviewed **79 spell titles / 101 class-level records** against the supplied
+PHB, including inherited headers and effect descriptions. Corrected headers
+in 45 records and expanded/corrected all 101 summaries. Poison's special
+caster-level/Wisdom save DC now appears correctly on the spell sheet.
+Its historical next group, minimum-level-4 spells, is now completed above.
+This is a definition/summary pass, not automated spell combat or full PHB
+certification. Validation and manual boundaries are recorded below.
+
+**Previous checkpoint: PHB minimum-level-2 spell batch complete.**
+Reviewed the remaining **88 spell titles / 110 class-level records** whose
+lowest core-class spell level is 2 against PHB printed pp. 196-303.
+Corrected headers and effect summaries across every variant, including missing
+inherited casting details, Touch of Idiocy's penalties, Scare's frightened
+condition, and Protection from Arrows' limited damage reduction.
+Leomund's Trap was already checked; the entire minimum-level-2 group is now
+reviewed at this definition/summary level, not automated for combat.
+The exact next target and validation are recorded below.
+
+**Previous checkpoint: 2026-11-17. PHB feat-definition/low-level spell batch complete.**
+Reviewed all 109 represented PHB feat definitions (pp. 87-102) and the printed
+headers for all 115 spells available at level 0 or 1 to any core class,
+including all 131 class-level variants. Corrected shared feat mechanics,
+missing spell details, and the Phantom Trap/Leomund's Trap duplicate.
+This is not full PHB spell-effect or class-feature certification.
+Validation limitations and the exact next target are recorded below.
+
+**Previous checkpoint: 2026-11-16. PHB/DMG class batch complete.**
+Reviewed all 11 PHB class chassis, represented feature milestones and bonus-feat
+rules, plus all 13 represented DMG prestige-class prerequisite sets. Varag is
+explicitly deferred: its non-HD racial advancement needs a separate model.
+This batch does not enable incomplete DMG prestige progressions.
+
+**Previous completed batch: MMII-MMV definition review.**
+The crash recovery point was MMII; its saved findings were reconciled with
+the supplied PDFs and current code. This batch checked feat/spell definitions
+and class/progression definitions, corrected confirmed catalog discrepancies,
+and recorded unsupported behavior. A checked definition pass below is **not**
+a claim that all effects, races, templates, or class progressions are automated.
+Earlier books still have inventories/partial fixes, not certified full reviews.
+
+Review and fix one book at a time: feats, spells, base classes, and prestige
+classes, including prerequisites, progression, selectable features, source
+variants, and player eligibility. Preserve the audit's additional race,
+alternate-class-feature, invocation, and skill-trick findings. Use the supplied
+books as the rules authority and keep Dragonlance rules setting-specific.
+
+For PHB/DMG certification, "complete" requires every sourcebook option of the
+following kinds to be selectable where applicable, print on the character or
+spell sheet, and be source-checked: feats, spells, base classes, prestige
+classes, player races, and equipment/magic items. Situational effects may
+remain manual only when the option is still represented and the manual
+boundary is explicit. This is the definition-pass gate; it does not claim a
+turn-by-turn combat engine or exhaustive automation of every effect.
+Generated PHB/DMG items do not need duplicate fixed store entries when Forge or
+wand/scroll/potion tooling can configure, save, and print the resulting item.
+
+| Book | Review checkpoint and remaining gaps | Definition pass complete |
+|---|---|---|
+| Player's Handbook | Seven selectable races, 11 base classes, 109 feats, 605 spell titles / 715 PHB records, and Chapter 7 equipment/trade goods/barding variants are represented, source-checked, persistent, and printable. Generated Forge/wand/scroll/potion items are included when configurable and printable. Manual effect boundaries are explicit. | [x] |
+| Dungeon Master's Guide v3.5 | All 16 represented prestige-class entry sets support level-up through full class lengths. Red Wizard circle magic and specialist defense remain partly manual. Remaining certification work: complete DMG epic-feat/rule option inventory and every selectable equipment/magic-item entry with printable inventory representation. | [ ] |
+| Player's Handbook II | First-pass inventory; selected checks include five feats visually verified against printed pp. 71–75; full pass not certified. See [rules coverage](docs/rules-coverage.md#player-s-handbook-ii-feat-inventory-and-selected-checks). | [ ] |
+| Complete Adventurer | First-pass inventory and selected checks; bardic-music and wild-feat benefit/prerequisite batches checked against pp. 109–111; full pass not certified. See [rules coverage](docs/rules-coverage.md). | [ ] |
+| Complete Arcane | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
+| Complete Champion | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
+| Complete Divine | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
+| Complete Mage | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
+| Complete Scoundrel | First-pass inventory, feat checks, and skill-trick work recorded; full pass not certified | [ ] |
+| Complete Warrior | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
+| Dragonlance Campaign Setting | Partial rules fixes and remaining TODOs documented below; full pass not certified | [ ] |
+| Dungeon Master's Guide II | First-pass inventory recorded; full pass not certified | [ ] |
+| Monster Manual I (Premium Edition) | Monster-feat chapter checked; creature coverage remains incomplete | [ ] |
+| Monster Manual II | Nine sidebar feats checked: eight retained using 3.5 revisions, Multidexterity excluded; Beget Bogun added via verified 3.5 reprint. No new base/prestige class found. Race/template conversion open. | [x] |
+| Monster Manual III | Eight missed racial feats added; 11 monster-feat definitions checked; Powerful Charge attribution and Quicken SLA timing fixed. No new spell/base/prestige class found. Race, shifting, and plating support open. | [x] |
+| **Monster Manual IV** | 13 feats reviewed; summon spell and feat corrections implemented. Githyanki Battlecaster's Wizard bonus option is now implemented. **Varag racial progression remains deferred.** No new ordinary base/prestige class found. | [x] |
+| Monster Manual V | 12 monster feats and seven sidebars checked; Earthbind added; Brutal Throw Fighter eligibility fixed. No new base/prestige/racial class found. Creature/template support open. | [x] |
+
+**Definition-pass certified under the PHB/DMG criteria:** Player's Handbook
+([x], 2026-11-18).
+
+The Monster Manual II–V `[x]` entries above predate this stricter
+selectable-option criteria and mean their scoped definition checks are
+complete, not that every player-option surface in those books is represented
+and printable. Do not add a book to the certification line until its feats,
+spells, classes, prestige classes, player races, and items have been
+represented and print-tested, with explicit manual boundaries.
+
+### Resume here: open implementation work
+
+- **Next rules-correctness target:** verify character creation and level-up
+  against source-checked builds, starting with feat prerequisites at the level
+  taken, then multiclass progression and spell slots/access. Check both legal
+  selections and choices the builder should reject.
+- **Explicitly deferred:** MMIV's Varag racial class (pp. 170-171).
+  Its first five racial levels distribute only three racial Hit Dice and +2 LA;
+  ordinary class advancement starts at racial level 6. It is not selectable,
+  and must not be approximated as five ordinary class levels. Resolve this
+  progression model before claiming complete MMIV class support.
+- **Other explicitly open items:** complete DMG prestige progressions
+  (including manual Red Wizard circle magic), and familiar options;
+  Shifter/Warforged race creation, shifting, plating, and racial-feat
+  effects; monster-PC/template conversions and summon/familiar/mount lists.
+  New spell effects and creature management are manual. Githyanki Battlecaster's
+  light-armor spell-failure exception is automated; conditional Dragonrider
+  bonuses and breath-weapon effects remain manual. Wizard bonus eligibility
+  for Githyanki Battlecaster is now implemented with normal prerequisites.
+- **PHB source ambiguity:** Cloudkill (p. 210) assigns death saves to 4-6 HD
+  creatures but also assigns recurring Constitution damage/half saves to
+  6+ HD creatures. Its summary preserves and flags that overlap; the DM must
+  resolve exactly 6 HD. No automated ruling was introduced.
+- **PHB inheritance caveat:** Symbol of Fear (p. 290) functions as Symbol of
+  Death but does not explicitly remove its 150-hp activation budget, unlike
+  Symbol of Persuasion. Its summary preserves and flags that inheritance for
+  DM adjudication rather than silently granting unlimited targets.
+- **Remaining PHB work:** review manual feat/class mechanics;
+  do not assume earlier first-pass inventories are finished reviews.
+- **Source evidence:** per-book checkpoints in the
+  [player-option audit](docs/player-option-audit.md#phb-catalog-minimum-level-9-spell-checkpoint-2026-11-17)
+  and implementation boundaries in the
+  [coverage matrix](docs/rules-coverage.md#provided-book-feat-inventory).
+- **Validation:** recorded below; no print/PDF generation was run in this
+  rules-only batch.
+
+**PHB catalog minimum-level-7 spell checkpoint and validation (2026-11-17):**
+
+- **49 titles / 55 records:** Animate Plants through Word of Chaos, no
+  domain-only titles. Checked against supplied PHB printed pp. 201-298 and
+  inherited parent entries/tables. Every represented class level/access,
+  school/subschool/descriptor, component, casting time, range, duration, save
+  and effect summary was reviewed; names, class access and levels are
+  unchanged. Catalog remains **715 records / 605 titles**.
+- Corrected headers in **5 records**, including Insanity, Invisibility, Mass,
+  Phase Door and both seventh-level summon spells. Corrected all 55 summaries,
+  with source-derived limits for HD-tiered word effects, mass spells,
+  teleportation, summoning, Spell Turning, costly components and creature/
+  object restrictions.
+- **Resurrection (p. 272)** requires diamonds worth at least **10,000 gp**;
+  the catalog's former 5,000-gp cost was incorrect. Symbol of Stunning
+  inherits Symbol of Death's 150-hp activation budget without explicitly
+  restating it; this ambiguity is flagged for DM adjudication rather than
+  silently removing the cap.
+- **Validation:** **100 new source/header/effect/projection/setting regressions**
+  pass; **1,424 tests pass across nine focused suites**, plus **151 source-
+  attribution cases** run separately. Lint, app/test types, production build
+  and `git diff --check` pass. No full-suite or print/PDF run.
+- **Manual boundaries:** no spell-effect automation or DC calculations were
+  added. Saves, damage, conditions, buffs, concentration, transformations,
+  symbols, wards, travel, divination, payment/cost spending and creatures
+  remain manual. Summaries do not replace full source descriptions or certify
+  the PHB. Changes saved, not committed.
+- **Historical next target:** **46 catalog-minimum-level-8 titles / 49
+  records**, Animal Shapes through Whirlwind, no domain-only titles; that batch
+  is now completed above.
+
+**PHB catalog minimum-level-6 spell checkpoint and validation (2026-11-17):**
+
+- **64 titles / 76 records:** Acid Fog through Word of Recall, no domain-only
+  titles. Read supplied PHB printed pp. 196-303 and inherited parent entries,
+  including creature/HD, divination and planar-service tables. Every
+  represented core class level/access matched; identities remain unchanged.
+- Corrected headers in **21 records**. Restored Forceful Hand, both summon VI
+  spells, both sixth-level symbols and Undeath to Death casting fields;
+  Geas/Quest inherits Lesser Geas's duration. Restored subschools/descriptors
+  and Eyebite's printed duration wording.
+- Removed scraped advertising/tracking code from **Veil** and truncated
+  Freezing Sphere/Wall of Iron text. Added Disintegrate's ranged touch/save
+  damage and object limits, Chain Lightning's same-DC secondary saves,
+  Heal/Harm caps and exceptions, Eyebite's HD/action/condition limits,
+  Transformation's loss of spellcasting, and Undeath to Death's **9+ HD
+  immunity** inherited from Circle of Death.
+- Added planar ally/binding creature, payment and escape restrictions,
+  Contingency's level/focus limits, image/ward behavior, costly components,
+  and travel/load restrictions. Stone to Flesh's separate **fixed DC 15**
+  survival save and Banishment's item-dependent bonuses are stated explicitly.
+  Symbol of Fear's inherited hp-limit caveat is flagged above.
+- **Validation:** **130 new source/header/effect/projection/setting
+  regressions**, **1,632 passing tests across ten focused suites**. Updated
+  only directly affected legacy assertions. Lint, app/test types, production
+  build, size budget and `git diff --check` pass; initial JavaScript remains
+  **492,299 / 515,835 bytes**. No full-suite or print/PDF run; the earlier
+  full-suite timing limitation remains open.
+- **Manual boundaries:** no new spell-effect automation or DC calculations.
+  Damage, saves/modifiers, hp floors, conditions, buffs, concentration,
+  transformations, traps/symbols, wards, travel, divination, payment/cost
+  spending and creatures remain manual. Summaries do not replace full source
+  descriptions or certify the PHB. Changes saved, not committed.
+
+**PHB catalog minimum-level-5 spell checkpoint and validation (2026-11-17):**
+
+- **64 titles / 74 records:** Atonement through Waves of Fatigue; no domain-only
+  titles. Read printed pp. 201-301, inherited parent entries, the contact/
+  permanency tables and premium polymorph rules (p. 320). Checked every class
+  level, header and effect summary; no names, class access or levels changed.
+- Corrected headers in **39 records**, including inherited casting fields on
+  Overland Flight, Summon Monster V, Summon Nature's Ally V, Symbol of Pain
+  and Symbol of Sleep. Restored subschools/descriptors and Raise Dead's Healing
+  subschool, and corrected Waves of Fatigue's save field to **None**.
+- **Baleful Polymorph (pp. 202-203, 320):** the supplied edition uses a
+  **24-consecutive-hour delay** before its additional Will save; equipment
+  drops and polymorph-subschool immunities/statistics apply. Not the older
+  immediately resolved second-save wording.
+- **Lesser Planar Binding (pp. 261-262):** exactly **one elemental or outsider
+  of up to 6 HD**, not three creatures. Added trapping, bargaining, escape and
+  service limits. Mind Fog affects Wisdom checks/Will saves, not ability scores.
+  Shadow Evocation's purely nondamaging effects fail against disbelievers,
+  rather than retaining a flat 20% chance.
+- Restored truncated Private Sanctum, Telepathic Bond, Wall of Force and Waves
+  of Fatigue summaries; corrected damage caps, bonuses, condition limits,
+  costs, resurrection losses, creature counts and travel restrictions.
+- **Validation:** **1,502 passing tests across nine focused suites**, including
+  **130 new source/header/effect/projection/setting regressions**. Lint,
+  app/test types, production build, size budget and `git diff --check` pass;
+  **492,299 / 515,835 bytes** initial JavaScript. No full-suite or print/PDF run;
+  the earlier full-suite timing limitation remains open.
+- **Manual boundaries:** effects, attacks, buffs, concentration, possession,
+  transformations, traps/symbols, resurrection, crafting, site wards,
+  divination, travel tables, XP/material spending and creature management
+  remain manual. Cloudkill's 6-HD overlap is flagged, not silently resolved.
+  Summaries do not replace full source descriptions. Changes saved, not committed.
+
+**PHB catalog minimum-level-4 spell checkpoint and validation (2026-11-17):**
+
+- **68 titles / 87 records:** Air Walk through Zone of Silence; 83 ordinary
+  class-level variant records and four domain-only records. Checked source
+  headers, class levels and effect descriptions against printed pp. 196-303,
+  resolving inherited fields. Corrected headers in **42 records** and
+  expanded/corrected all 87 summaries; no names or class levels changed.
+- Restored missing inherited fields for Cure/Inflict Critical Wounds, Mass
+  Enlarge/Reduce Person, Locate Creature, Solid Fog and Summon Monster IV.
+  Corrected subschools/descriptors, all Cure Critical Wounds healing variants,
+  Ice Storm's duration and Holy Smite/Order's Wrath's V/S-only components.
+- Repaired truncated Giant Vermin, Wall of Ice's durability (**3 hp per inch
+  of thickness per 10-ft. section**), Tree Stride's embedded advertising code,
+  and Shadow Conjuration's permitted schools, disbelief and resistance limits.
+  Added missing caps, bonus types, costs, save/target limits and effect details.
+- **Dismissal (p. 222):** ordinary and prepared-metamagic rows label the
+  number **Base DC** and show **final DC = base DC + caster level - target HD**.
+  Target-dependent adjustment remains manual, not a falsely final number.
+  Poison's separate formula and ordinary spells' DCs are preserved.
+- Chaos Hammer, Holy Smite, Order's Wrath and Unholy Blight remain
+  **domain-only**, not ordinary Cleric spells; domain lookup and all ordinary
+  class exclusions are tested. This corrects the former checkpoint's
+  imprecise description of all 68 titles as "lowest core-class level 4."
+- **Validation:** **1,372 tests pass across eight focused suites**, including
+  **145 new source/header/effect/domain/DC-display regressions**. Lint,
+  app/test types, production build, size budget and `git diff --check` pass;
+  **492,299 / 515,835 bytes** initial JavaScript. No full-suite or print/PDF
+  run; the earlier full-suite timing limitation remains open.
+- **Manual boundaries:** spell effects, attacks, buffs, concentration,
+  conditions, forms, terrain, creature management, transfers, resurrection,
+  paid services and Dismissal's final DC remain manually resolved. Summaries
+  do not replace the full source. Changes are saved, not committed.
+
+**PHB minimum-level-3 spell checkpoint and validation (2026-11-17):**
+
+- **79 titles / 101 records:** checked core class access/levels, schools,
+  subschools/descriptors, components, casting times, ranges, durations, saves
+  and effect descriptions against the supplied PHB, printed pp. 198-300.
+  Corrected headers in **45 records**; all 101 variants now have consistent,
+  expanded effect summaries instead of terse/truncated text.
+- Restored missing inherited casting details for Cure Serious Wounds,
+  Deep Slumber, Deeper Darkness, Inflict Serious Wounds, Invisibility Sphere,
+  Greater Magic Fang and both summon III spells. Deep Slumber and summoning
+  take **1 round**, not a standard action.
+- Corrected Haste's extra full-attack weapon attack (not an extra action),
+  Invisibility Purge's temporary negation (not dispelling), Vampiric Touch's
+  capped temporary hp (not healing), magic-circle alignment barriers,
+  Fireball/Lightning Bolt caps, and other bonus/target/save/component limits.
+- **Poison (p. 262):** both class-level variants specify
+  `10 + floor(caster level / 2) + Wisdom modifier` for their Fortitude saves.
+  The shared DC calculation and ordinary/prepared-metamagic spell rows now
+  use that formula, retaining applicable Spell Focus and setting modifiers.
+  Heighten's slot level does not replace the explicit caster-level formula.
+  Other spells and generic spell-level DC summaries keep their existing rules.
+- **Validation:** **1,342 tests pass across eight focused suites**, including
+  **168 new source/header/effect/DC/UI regressions**. Lint, app/test types,
+  production build, size budget and `git diff --check` pass;
+  **492,299 / 515,835 bytes** initial JavaScript.
+  No full-suite or print/PDF run; the earlier full-suite timing limitation
+  remains open. Changes are saved, not committed.
+- **Manual boundaries:** spell attacks, buffs, concentration, damage,
+  conditions, forms, terrain, traps, bindings, summoned creatures and mounts
+  remain manually resolved. Summaries do not replace complete source
+  descriptions; no spell titles or class-list levels were added or removed.
+
+**PHB minimum-level-2 spell checkpoint and validation:**
+
+- **88 titles / 110 records:** checked class levels, schools/subschools/
+  descriptors, components, casting times, ranges, durations, saves and effect
+  bodies against the supplied PHB. Corrected headers in **48 records** and
+  replaced terse, truncated or misleading summaries in all 110 variants.
+- Restored inherited fields for Cure Moderate Wounds, Daze Monster, Hold
+  Animal, Inflict Moderate Wounds, Make Whole and both second-level summon
+  spells. Preserved the one-round summon casting time and appropriate
+  arcane/divine focus requirements. Fog Cloud's range uses the standard
+  medium-range notation rather than the printed missing-slash typo.
+- Corrected penalties versus ability damage, frightened versus panicked,
+  Death Knell's caster-level-only benefit, ranged DR 10/magic with its damage
+  cap, Scorching Ray's caster-level 7/11 thresholds, recurring damage,
+  bonus types, target restrictions, material costs, saves and spell resistance.
+  Class-level variants now share the same summary; Mystic inheritance and
+  Dragonlance-only Bard healing restrictions remain intact.
+- **Not automated:** spell attacks, buffs, concentration, damage, conditions,
+  forms, terrain, traps and summoned creatures still require manual resolution.
+  Summaries are player-facing guidance, not a replacement for the complete
+  source descriptions. No spell titles were added or removed.
+- **Validation:** 768 focused tests pass across five suites, including
+  **162 new source/summary/class-list tests**. Lint, app/test types, production
+  build, size budget and whitespace checks pass. No full-suite or print/PDF
+  run in this batch; the prior full-suite timing limitation below remains
+  outstanding. Changes are saved, not committed.
+
+**PHB feat/low-level spell checkpoint and validation (2026-11-17):**
+
+- **109 feats:** compared prerequisite sets, Fighter eligibility, categories,
+  repeatability and benefit summaries with PHB pp. 87-102. Quicken uses a
+  **swift action**, following Complete Arcane p. 86's explicit update;
+  spontaneously cast spells cannot use ordinary Quicken. The spell-sheet
+  guidance now states both restrictions, including cleric/druid conversions.
+- **Shared mechanics:** Spell Focus/Greater Spell Focus and Gnome illusion
+  DCs recognize schools with subschools and/or bracketed descriptors.
+  Legal Toughness picks still stack; illegal saved Wizard-slot picks no longer
+  grant HP and retain their existing repair warning.
+- **115 spell titles / 131 class-level records:** checked class lists/levels,
+  school/subschool/descriptors, components, casting time, range, duration and
+  saves against printed PHB headers, resolving inherited fields. Filled
+  Cure Minor Wounds, Inflict Minor Wounds, Charm Animal, Lesser Confusion
+  and Hold Portal gaps; corrected Lesser Confusion's components and
+  Undetectable Alignment's harmless-save qualifier. Preserved Feather Fall's
+  immediate action, explicitly verified in Complete Arcane p. 86.
+- Repaired 14 low-level effect summaries, including Magic Missile's missing
+  damage/scaling, Ray of Enfeeblement's **penalty, not ability damage**, and
+  Lullaby, Faerie Fire, Shield, Divine Favor and Produce Flame restrictions.
+  Effect resolution remains manual; this does not certify every effect.
+- **Duplicate resolved:** PHB pp. 247-248's Leomund's Trap is the spell called
+  Phantom Trap in the SRD. Retained one selectable entry and both lookup names.
+  Imports migrate spellbook, mastery, preparation and metamagic-copy records,
+  preserving copy counts/alignment; conflicting acquisition/ownership records
+  produce an explicit error instead of being discarded.
+  The base catalog now has **715 class-level records / 605 distinct titles**.
+
+**Validation:** the final four-suite source/class/HP/domain run passed
+**361 tests**, including **169 PHB source/migration tests**. An earlier focused
+five-suite spell-UI/proficiency run passed **637 tests**. Lint, app/test type checks,
+production build, size budget and `git diff --check` pass:
+**492,191 / 515,835 bytes** initial JavaScript. Full-suite attempts reached
+**1,771 / 1,773 passing**, but suffered intermittent, very long timing stalls
+in existing UI workflows (height entry, wizard spellbook acquisition and
+deferred sheet loading). A focused retry passed the height/loading checks but
+stalled in a different wizard import/export workflow. **A clean full-suite
+run is still outstanding**; no timeout limits were relaxed or unrelated UI
+behavior changed. No print/PDF generation ran. Changes are saved, not committed.
+
+**PHB/DMG class checkpoint and validation (2026-11-16):**
+
+- **PHB pp. 23-58:** checked HD, skill-point rates, BAB and all three base-save
+  progressions for all 11 classes. Paladin now has poor Will; Divine Grace
+  remains a separate Charisma bonus. Monk Fast Movement is displayed at
+  level 3, following the feature text and numeric speed column rather than
+  the table's premature level-2 label.
+- **Bonus feats:** Wizard 5/10/15/20 now allow metamagic, item creation, Spell
+  Mastery and explicitly sourced exceptions, retaining prerequisites.
+  Verified Complete Mage's reserve rule (p. 37), tagged its 24 reserve feats,
+  and restricted three specialist-only bonus exceptions to the correct
+  specialist. Githyanki Battlecaster's MMIV exception is supported.
+  Invalid saved Wizard choices are retained visibly with warnings, not counted
+  as chosen feats, do not grant mechanical bonuses or prerequisites, and can
+  be replaced during setup or level-up.
+- **DMG pp. 176-196:** corrected all 13 represented entry-requirement sets,
+  removed invented ability/class restrictions, and added shared checks and
+  requirement tooltips. Legacy references grant no levels, feature listings
+  or weapon proficiencies. Assassin's fictional entry condition and Dragon
+  Disciple's creature/template/DM-approved variety checks remain manual.
+  Incomplete progressions remain disabled; the three absent classes remain open.
+
+```bash
+npm test -- --maxWorkers=2
+npm run lint
+npm run build
+```
+
+**28 suites / 1,602 tests passed**, including 35 focused core-class/prestige
+regressions. The initial unbounded full run exposed timing-sensitive lazy-screen
+tests; cold-load/import assertions now wait for the expected state, and the
+complete bounded run passed. Lint passed with no warnings. App/test type checks,
+production build and size budget passed: **488,143 / 515,835 bytes** initial JavaScript.
+Browser checks confirmed first-level prestige filtering, saved-Wizard warnings,
+replacement clearing the warning, and restricted Wizard choices. No print/PDF
+generation ran. Changes are saved in the worktree, not committed.
+
+**MMII definition-pass checkpoint (2026-11-16):** Feats, Beget Bogun, and
+absence of new base/prestige-class definitions checked; race/template conversion
+remains open. `npm test -- tests/monsterManual.test.ts tests/spell-loading.test.ts`
+passed (2 tests). Proceeding to MMIII's missed feat definitions; this targeted
+run does not certify the other interrupted code changes.
+
+**MMIII/MMIV checkpoint (2026-11-16):** MMIII's eight racial feats and
+11 monster-feat definitions reviewed; MMIV's 13 feats and summon spell reviewed.
+`npm test -- tests/monsterManual.test.ts tests/castingSummary.test.tsx tests/rules.test.ts -t 'Monster Manual|monster feat|shifter|warforged|Mithral|Fortification|racial-feat|Beget Bogun|Clockwork Mender|Githyanki|MMIV|spell failure|Battle Caster|light-armor'`
+passed (31 tests). MMIII race/plating/shifting effects remain manual. MMIV's
+Varag racial progression (pp. 170-171) is explicitly unsupported; Wizard
+bonus-feat selection was still open at this checkpoint (resolved above).
+Proceeding to MMV's Earthbind and
+remaining feat comparisons.
+
+**Final MMII-MMV batch validation (2026-11-16):**
+
+```bash
+npm test -- tests/monsterManual.test.ts tests/rules.test.ts tests/castingSummary.test.tsx tests/spell-loading.test.ts tests/spells.test.tsx
+npm run lint
+npm run build
+```
+
+All five selected suites passed: **614 tests**, including 16 focused
+monster-book regressions. Lint passed with no warnings. Application and test
+type checks and the production build passed; initial JavaScript was 484,458
+bytes against the 515,835-byte limit. Spell loading remains deferred and
+concurrent loads are deduplicated. This was not a full-suite or print/PDF run.
+Changes remain saved in the worktree, not committed. Varag was subsequently
+deferred by user decision; resume the PHB feat/spell audit above rather than
+repeating the completed definition scans.
+
+### Checkpoint rule
+
+Update this section after each completed book **and before pausing or switching
+books**. Record the book and checked sections/pages, fixes and tests, exact
+validation commands/results, remaining manual or unsupported behavior, and the
+next book or exact unfinished section. Mark a book complete only after every
+in-scope category has been checked (explicitly recording categories with no
+options), confirmed defects are fixed and validated, and remaining limitations
+are documented. If work is blocked or deferred, leave it visibly incomplete.
+Keep detailed source evidence in the
+[player-option audit](docs/player-option-audit.md) and implementation boundaries
+in the [coverage matrix](docs/rules-coverage.md); this README is the resume point.
+
 ## Printable sheet
 
 - Rebuilds the authorized examples as a data-bound layout, not as background images.
@@ -41,8 +886,10 @@ npm run benchmark
 ```
 
 `check` runs warning-free lint, regression tests, application and test type checks,
-and a production build. The build fails if initial JavaScript exceeds 515,000
-uncompressed bytes. Tests cover draft isolation, progression, combat calculations,
+and a production build. The build fails if initial JavaScript exceeds 515,835
+uncompressed bytes. Supplemental feat data loads on demand before the character
+or print sheet mounts, while all currently supported books remain available.
+Tests cover draft isolation, progression, combat calculations,
 catalog matching and invalidation, persistence, malformed imports, lazy loading,
 screen navigation, custom items, and printable-sheet integration and data binding.
 Run `npm run test:print` for real-browser PDF regressions and mobile sheet
@@ -194,14 +1041,30 @@ bonuses, remain manual.
 
 Feat, spell, class, and prestige-class entries display their broad catalog
 source (Core SRD or Dragonlance user content pack). Feats and verified classes
-also show book-level cross-checks: core classes and feats to the *Player's
-Handbook* (3.5), core prestige classes to the *Dungeon Master's Guide* (3.5),
-and Dragonlance classes to their respective sourcebooks. The *Master of the
-Way* entry remains broad-source-only because its book source is unverified.
-The SRD spell catalog is cross-checked to the *Player's Handbook* (3.5);
-*Phantom Trap* remains labeled only as Core SRD because its specific 3.5 book
-source is unverified. These are book-level attributions; page-level citations
-and primary-source verification remain outstanding.
+also show book-level cross-checks: core classes and PHB feats to the *Player's
+Handbook* (3.5), epic feats to the *Dungeon Master's Guide* (3.5), monster
+feats to the *Monster Manual* (3.5), core prestige classes to the DMG, and
+Dragonlance classes and feats to their respective sourcebooks. Supplemental
+feats have separate book-level attribution: all 64 *Complete Arcane* table
+feats are represented, with *Extra Edge*'s Warmage level 4 prerequisite
+manually confirmed, and *Brutal Throw* is attributed to *Complete Adventurer*
+(reprinted in *Monster Manual V*). Supplied
+books are reviewed source-by-source, with checked scope and remaining gaps
+tracked in the [rules coverage
+matrix](docs/rules-coverage.md#provided-book-feat-inventory) for the inventory
+and manual boundaries. Catalog inclusion does not mean every prerequisite or
+feat effect is automated. When a feat appears in multiple books, its label uses
+the earliest verified printing. *Practiced Spellcaster* and *Transdimensional
+Spell* are therefore attributed to *Complete Divine*, not their reprint in
+*Complete Arcane*. The *Master of the Way* entry remains broad-source-only
+because its book source is unverified.
+The earlier 716-record SRD spell inventory had a name-only PHB cross-check.
+The 2026-11-17 review resolved its outstanding *Phantom Trap* title as
+*Leomund's Trap* (PHB pp. 247-248) and merged that duplicate, retaining an alias
+and saved-character migration. The base catalog now contains 715 class-level
+records representing 605 distinct titles. Printed headers for all 115 spells
+available at level 0 or 1 to any core class have separate, source-backed
+regressions; the rest of the spell catalog is not thereby mechanics-certified.
 
 On wide screens, Ability Scores, Attacks & Weapons, and Languages stack
 independently beside Combat Summary and Saving Throws, avoiding gaps caused by
@@ -285,9 +1148,11 @@ must be cleared manually because turn timing is not tracked.
 The session-only Power Attack selector trades a chosen penalty, up to BAB, from
 melee attacks for damage until the next turn. It requires the feat and effective
 Strength 13; two-handed weapons double the damage bonus, while light weapons
-receive no bonus. Unarmed and natural-weapon attacks aren't represented in the
-weapon rows and remain manual. Clear it manually because turn timing is not
-tracked.
+receive no bonus except unarmed strikes and natural weapons. Unarmed strikes are
+represented and receive the bonus; natural-weapon attacks aren't modeled in the
+weapon rows and remain manual. Double-weapon use is handled according to its
+one-handed/light or two-handed grip. Clear it manually because turn timing is
+not tracked.
 The session-only Dodge toggle adds +1 dodge AC against the current opponent
 when the feat and effective Dexterity 13 prerequisite are met. The bonus is
 lost whenever Dexterity to AC is denied; the flat-footed AC omits it unless
@@ -295,8 +1160,10 @@ Uncanny Dodge applies. The app does not track opponent identity or other
 Dexterity-denial conditions.
 The combat summary reports one attack of opportunity per round normally, or
 one plus the nonnegative Dexterity modifier with Combat Reflexes. It also notes
-that Combat Reflexes permits these attacks while flat-footed. Spent attacks,
-triggers, and threatened movement are not tracked.
+that Combat Reflexes permits these attacks while flat-footed. Only one attack
+is allowed per opportunity, and the feat does not increase a rogue's
+Opportunist uses. Spent attacks, triggers, and threatened movement are not
+tracked.
 The shared target DR context evaluates cold iron, silver, adamantine, and magic
 qualifiers, including `and`/`or` combinations of those types. It uses weapon
 material for melee/thrown weapons and selected ammunition for bows, crossbows,
@@ -387,15 +1254,18 @@ equipment penalties follow [Armor](https://www.d20srd.org/srd/equipment/armor.ht
 Proficiency is shared between store/equip warnings and the rules calculations.
 Core class proficiencies combine across multiclass levels. Barbarians receive
 light/medium armor, not heavy; paladins receive ordinary shields, not tower
-shields. Fighters receive tower proficiency. Mithral uses the original armor
-category for proficiency, separate from its lighter movement category.
+shields. Fighters receive tower proficiency. Mithral armor is treated as one
+category lighter for movement and other limitations, including proficiency.
 Dragonlance class proficiency support remains limited to the existing catalog
 assumptions (Noble light armor); those source-specific classes are not certified.
 
 Armor Proficiency (Light/Medium/Heavy), Shield Proficiency, and Tower Shield
 Proficiency are selectable general feats with their prerequisite chains.
 Class-granted proficiencies satisfy prerequisites without spending feat slots
-and are not offered as redundant choices.
+and are not offered as redundant choices. The PHB audit confirmed these feat
+prerequisites and corrected Ranger's automatic armor proficiency to light armor;
+the PHB grants Rangers shields except tower shields (PHB 47, 89). Mithral's
+category reduction for other limitations is from DMG 284.
 
 Equipped nonproficient armor/shields apply their adjusted armor check penalties
 to every weapon attack and all Strength/Dexterity skill checks, including Ride,
@@ -469,6 +1339,10 @@ References: SRD [weapon proficiency](https://www.d20srd.org/srd/combat/combatMod
 [Elf](https://www.d20srd.org/srd/races.htm#elves),
 [Dwarf](https://www.d20srd.org/srd/races.htm#dwarves), and
 [Gnome](https://www.d20srd.org/srd/races.htm#gnomes).
+
+Simple Weapon Proficiency grants all simple weapons. Martial Weapon Proficiency
+grants one martial weapon type, can be selected again for another type, and
+requires BAB +1.
 
 ### Tower shields
 
@@ -664,8 +1538,102 @@ save DC at each spell level:
   Verify that the spell has a burst, emanation, line, or spread area and double
   its numeric measurements manually; spontaneous casts remain manual.
 - Sculpt Spell requires another metamagic feat and lets you mark prepared
-  copies for a slot one level higher. Verify area eligibility and choose a new
-  area shape manually.
+  copies for a slot one level higher. Verify area eligibility and choose
+  manually among its cylinder, cone, four cubes, spread, or line shapes. Its
+  prerequisite and feat mechanics are verified against *Complete Arcane*,
+  p. 83; area eligibility and shape selection remain manual.
+- Split Ray requires another metamagic feat; its +2 slot adjustment, extra ray
+  attack, target spacing, and spontaneous casting timing remain manual
+  (*Complete Arcane*, p. 83).
+- Delay Spell, Fortify Spell, and Transdimensional Spell are available from
+  *Complete Arcane* (pp. 77, 80, 84); their slot adjustments and effects remain
+  manual, including target/area eligibility and spell-resistance checks.
+- Explosive Spell is available from *Complete Arcane*, p. 79. Its area/Reflex
+  eligibility, forced movement, prone condition, and extra damage remain
+  manual.
+- Chain Spell and Cooperative Spell (p. 76), and Sanctum Spell (p. 82), require
+  another metamagic feat. Their target choices, cooperation, DC/penetration
+  bonuses, and sanctum conditions remain manual (*Complete Arcane*).
+- Black Lore of Moil requires caster level 7 and Spell Focus (Necromancy).
+  Runebone cost and bonus negative-energy damage remain manual
+  (*Complete Arcane*, p. 76).
+- Born of the Three Thunders requires Knowledge (nature) 4 and Energy
+  Substitution (electricity). Damage splitting, saves, and the caster's daze
+  remain manual (*Complete Arcane*, p. 76).
+- Energy Substitution and Energy Admixture are separate acid, cold, electricity,
+  and fire choices; Energy Admixture requires the matching Energy Substitution.
+  Their damage and descriptor changes remain manual (*Complete Arcane*, pp. 78–79).
+- Nonlethal Substitution requires Knowledge (arcana) 5 and another metamagic
+  feat. Record its single chosen energy type manually; damage conversion and
+  slot use remain manual (*Complete Arcane*, p. 81).
+- Lord of the Uttercold requires Knowledge (the planes) 9 and Energy Substitution
+  (cold); the cold-descriptor spellcasting requirement must be verified manually.
+  Damage splitting remains manual (*Complete Arcane*, p. 80).
+- Arcane Mastery checks for modeled arcane spellcasting or a racial spell-like
+  ability; invocation and class-based SLA paths are not modeled, and taking 10
+  on caster-level checks remains manual (*Complete Arcane*, p. 73). Remaining
+  candidates include Extra Edge (Warmage), Extra Invocation (lesser invocations),
+  and Extra Spell Secret (spell-secret class feature). Arcane Defense requires
+  Spell Focus in its chosen school and supports separate school selections;
+  its +3 save bonus remains manual (*Complete Arcane*, p. 73). Ranged Spell
+  Specialization requires Weapon Focus (Ray), and Touch Spell Specialization
+  requires Weapon Focus (Touch spell); both require caster level 4, and their
+  +2 damage effects remain manual (*Complete Arcane*, p. 83). Craft Contingent
+  Spell requires caster level 11; its base price is spell level × caster level
+  × 100 gp, with 1/25 XP, half-price materials, and one day per 1,000 gp;
+  contingent spell costs and effects remain manual (*Complete Arcane*, p. 78).
+  The Draconic feat family and Guardian Spirit are not modeled; heritage
+  choices and the Watchful Spirit class ability need support. Other feats and
+  supplied sourcebooks still need review.
+- Mage Slayer, Pierce Magical Concealment, and Pierce Magical Protection enforce
+  their modeled prerequisites. Their Will/attack effects and caster-level
+  penalties remain manual (*Complete Arcane*, pp. 81–82).
+- Obtain Familiar checks Knowledge (arcana) 4 and arcane caster level 3;
+  familiar acquisition, costs, and ongoing management remain manual
+  (*Complete Arcane*, p. 81).
+- Practiced Spellcaster is offered separately for each modeled spellcasting
+  class. Its +4 caster-level bonus is capped by total Hit Dice; it does not
+  grant spells per day or spells known (*Complete Arcane*, p. 82).
+- Battle Caster extends the Bard's light-armor exception to medium armor for
+  Bard spells only. Shields remain subject to spell failure; other class
+  abilities that ignore armor spell failure are not modeled
+  (*Complete Arcane*, p. 75).
+- Reckless Wand Wielder checks Use Magic Device 1 rank and Craft Wand; its
+  additional-charge and caster-level effects are applied manually
+  (*Complete Arcane*, p. 82).
+- Double Wand Wielder requires Craft Wand and Two-Weapon Fighting; activation
+  timing and the secondary wand's effects are handled manually
+  (*Complete Arcane*, p. 77).
+- Wandstrike checks Use Magic Device 4 ranks; its melee touch attack and wand
+  spell effects remain manual (*Complete Arcane*, p. 84).
+- Innate Spell requires Quicken Spell, Silent Spell, and Still Spell; its
+  chosen spell, permanently expended slot, and component/focus costs remain
+  manual (*Complete Arcane*, p. 80).
+- Extra Slot checks caster level 4 and Extra Spell checks caster level 3.
+  Their repeated slot/spell selections and spell-level limits remain manual
+  (*Complete Arcane*, pp. 79–80).
+- Arcane Preparation checks for Bard or Sorcerer levels; prepared spells and
+  metamagic choices remain manual. Other spontaneous arcane classes are not
+  modeled (*Complete Arcane*, p. 73).
+- Heighten Spell-Like Ability checks modeled racial SLAs for caster level 6;
+  class-based SLAs are not modeled. Each selection applies to a different
+  ability; its limits, uses, and save DCs remain manual (*Complete Arcane*, p. 80).
+- Maximize Spell-Like Ability (*Complete Arcane*, p. 82) checks modeled racial
+  SLAs for caster level 6; class-based SLAs are not modeled. Duplicated
+  spell-level limits, uses, and distinct ability choices remain manual. Only
+  variable numeric effects are maximized; saves and opposed checks are unaffected.
+- Communicator, Insightful, Soul of the North, Spell Hand, Necropolis Born,
+  and Night Haunt grant their listed 1/day spell-like abilities at caster
+  level 1; tracking and use remain manual. For abilities with saves, use DC 10
+  + spell level + Charisma modifier (*Complete Arcane*, pp. 76, 80–81, 83).
+- Persistent, Repeat, and Twin Spell are available from *Complete Arcane*
+  (pp. 81–82, 84); their eligibility, timing, slot adjustments, and separate
+  effects remain manual.
+- Sudden Empower, Extend, Maximize, Quicken, Silent, Still, and Widen each
+  allow one daily use without increasing the spell slot. Sudden Quicken requires
+  Quicken Spell and the other listed Sudden feats; use tracking, effect and
+  eligibility checks, and spontaneous casting timing remain manual
+  (*Complete Arcane*, p. 83).
 - Mystic sheets remain available with an explicit unverified-content notice.
 
 Preparation counts allow multiple copies of a spell and enforce capacity
@@ -815,8 +1783,10 @@ correctness pass intentionally corrects inherited calculations:
 - Improved Critical doubles the selected proficient weapon's threat range at
   BAB +8; it does not stack with Keen, which only affects piercing and slashing
   weapons.
-- Weapon Finesse applies to eligible, appropriately sized melee weapon attacks,
-  not damage. Shield check penalties are included when choosing Finesse.
+- Weapon Finesse requires BAB +1 and applies to eligible, appropriately sized
+  melee weapon attacks, not damage. Shield check penalties are included when
+  choosing Finesse; natural attacks are not represented as weapon-sheet
+  selections and remain manual.
 - Two-handed melee weapons add 1.5 times a positive Strength modifier; off-hand
   attacks add half. Negative modifiers apply in full.
 - Two-weapon penalties distinguish light/non-light off-hand weapons and the feat.
@@ -947,6 +1917,14 @@ Constitution adjustments, and ECL display. Hit points remain manually entered;
 include racial Hit Dice in the total. Baaz and Kapak Draconians use this model;
 their racial Hit Dice must be included in the entered HP total.
 
+### Core rules task in progress: sourcebook correctness
+
+- [ ] Continue the one-book-at-a-time review of feats, spells, base classes,
+  and prestige classes across the supplied collection, starting from the
+  [recovery checkpoint](#sourcebook-review-progress). Correct discrepancies
+  and add focused regression tests; catalog completeness alone does not
+  verify the rules. Update the checkpoint after each book and before pausing.
+
 ### Dragonlance source-audit TODO
 
 - [x] Check prestige-class progressions and prerequisites; review selected
@@ -1027,6 +2005,15 @@ their racial Hit Dice must be included in the entered HP total.
 - [x] Model each full Speak Language rank as a separate language choice, without
   conflating those choices with automatic, regional, or Intelligence bonus
   languages; keep Magius unavailable because it has no spoken form.
+- [ ] Review remaining Chapter 1 race coverage before adding Dragonlance
+  choices: Centaur, Ogre, and Half-Ogre have no source-backed selectable race
+  records; verify the setting-specific human, gnome, and half-elf variations
+  against their existing core race definitions and surface unsupported options
+  clearly to players.
+- [ ] Audit Chapter 3 moon-dependent High Sorcery, primal sorcery, and Holy
+  Order rules against the source. Storing moon phases and conjunctions does not
+  implement the tests or conditional casting effects; document any remaining
+  manual outcomes in the player-facing UI.
 - [ ] As the audit finds manual rules, restrictions, or unsupported behavior,
   add clear player-facing guidance in the relevant UI or documentation, and
   include regression tests for source-backed mechanical corrections.

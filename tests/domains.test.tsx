@@ -68,7 +68,7 @@ describe("SRD cleric domain catalog", () => {
     ["evil", "Protection from Good", "Summon Monster IX"], ["fire", "Burning Hands", "Elemental Swarm"],
     ["good", "Protection from Evil", "Summon Monster IX"], ["healing", "Cure Light Wounds", "Heal, Mass"],
     ["knowledge", "Detect Secret Doors", "Foresight"], ["law", "Protection from Chaos", "Summon Monster IX"],
-    ["luck", "Entropic Shield", "Miracle"], ["magic", "Magic Aura", "Mage's Disjunction"],
+    ["luck", "Entropic Shield", "Miracle"], ["magic", "Magic Aura", "Mordenkainen's Disjunction"],
     ["plant", "Entangle", "Shambler"], ["protection", "Sanctuary", "Prismatic Sphere"],
     ["strength", "Enlarge Person", "Crushing Hand"], ["sun", "Endure Elements", "Prismatic Sphere"],
     ["travel", "Longstrider", "Astral Projection"], ["trickery", "Disguise Self", "Time Stop"],
@@ -76,6 +76,39 @@ describe("SRD cleric domain catalog", () => {
   ] as const)("%s has the SRD first- and ninth-level entries", (id, first, ninth) => {
     expect(getClericDomain(id).spells[0]).toBe(first);
     expect(getClericDomain(id).spells[8]).toBe(ninth);
+  });
+
+  it("keeps PHB domain spell access at the correct spell levels", () => {
+    expect(getClericDomain("air").spells[6]).toBe("Control Weather");
+    expect(getClericDomain("evil").spells[6]).toBe("Blasphemy");
+    expect(getClericDomain("good").spells[6]).toBe("Holy Word");
+    expect(getClericDomain("law").spells[6]).toBe("Dictum");
+    expect(getClericDomain("plant").spells[6]).toBe("Animate Plants");
+    expect(getClericDomain("storm").spells[6]).toBe("Control Weather");
+    expect(getClericDomain("air").spells[7]).toBe("Whirlwind");
+    expect(getClericDomain("animal").spells[7]).toBe("Summon Nature's Ally VIII");
+    expect(getClericDomain("chaos").spells[7]).toBe("Cloak of Chaos");
+    expect(getClericDomain("death").spells[7]).toBe("Create Greater Undead");
+    expect(getClericDomain("destruction").spells[7]).toBe("Earthquake");
+    expect(getClericDomain("earth").spells[7]).toBe("Iron Body");
+    expect(getClericDomain("evil").spells[7]).toBe("Unholy Aura");
+    expect(getClericDomain("fire").spells[7]).toBe("Incendiary Cloud");
+    expect(getClericDomain("good").spells[7]).toBe("Holy Aura");
+    expect(getClericDomain("healing").spells[7]).toBe("Cure Critical Wounds, Mass");
+    expect(getClericDomain("knowledge").spells[7]).toBe("Discern Location");
+    expect(getClericDomain("law").spells[7]).toBe("Shield of Law");
+    expect(getClericDomain("luck").spells[7]).toBe("Moment of Prescience");
+    expect(getClericDomain("magic").spells[7]).toBe("Protection from Spells");
+    expect(getClericDomain("plant").spells[7]).toBe("Control Plants");
+    expect(getClericDomain("protection").spells[7]).toBe("Mind Blank");
+    expect(getClericDomain("war").spells[7]).toBe("Power Word Stun");
+    expect(getClericDomain("strength").spells[6]).toBe("Grasping Hand");
+    expect(getClericDomain("travel").spells[7]).toBe("Phase Door");
+    expect(getClericDomain("trickery").spells[6]).toBe("Screen");
+    expect(getClericDomain("trickery").spells[7]).toBe("Polymorph Any Object");
+    expect(getClericDomain("sun").spells[7]).toBe("Sunburst");
+    expect(getClericDomain("strength").spells[7]).toBe("Clenched Fist");
+    expect(getClericDomain("water").spells[7]).toBe("Horrid Wilting");
   });
 
   describe("Mystic domain rules", () => {
@@ -134,7 +167,7 @@ describe("SRD cleric domain catalog", () => {
         "Summon Nature's Ally IV", "Summon Nature's Ally VIII", "Protection from Law",
         "Magic Circle against Law", "Chaos Hammer", "Dispel Law", "Protection from Good",
         "Magic Circle against Good", "Unholy Blight", "Dispel Good", "Protection from Evil",
-        "Holy Smite", "Order's Wrath", "Mage's Disjunction", "Bull's Strength", "Random Action",
+        "Holy Smite", "Order's Wrath", "Mordenkainen's Disjunction", "Bull's Strength", "Random Action",
         "Hardening", "Otyugh Swarm", "Plague of Rats", "Scourge", "Unbinding",
       ];
       const missing = domainSpellNames.filter((name) => !findSpellByName(name));

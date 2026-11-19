@@ -3,9 +3,11 @@ import { type Character, cloneCharacter, type LevelUpDraft, type ClassId, type P
 import { loadSavedCharacter, saveCharacter as persistCharacter } from "./characterStorage";
 import { customItemsLoadFailed, loadCustomStoreItems } from "./customItemsStorage";
 import { isCustomStoreItem, isRecord, parseCharacter } from "./validation";
-import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getLevelUpSkillSourceId, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getPrestigeClassEligibilityErrors, getPrestigeClassLevelUpSelectionErrors, getPrestigeSpellcastingClassOptions, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, getBaseAttackBonus, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getAvailableSkillCountForSource, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, getSpentSkillPointsForSource, getSpeakLanguageRankCount, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getAnimatedShieldState, getForceShieldState, getBlindingShieldState, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, type CombatAttackMode, type CombatCastingContext } from "./rules";
+import { getLevelUpAlignmentWarnings, getLevelUpSkillWarnings, getLevelUpSkillSourceId, getNewLevelUpFeatSlots, getLevelUpSpellWarnings, getPrestigeClassEligibilityErrors, getPrestigeClassLevelUpSelectionErrors, getPrestigeSpellcastingClassOptions, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellSchoolSelectionWarnings, getFeatSpellMasterySelectionWarnings, getFeatSpellMasteryChoiceCount, getBaseAttackBonus, getBaseClassLevel, getRangerFavoredEnemyChoiceLevels, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, isClassSkill, getSkillMaximum, getAvailableSkillCount, getAvailableSkillCountForSource, getSkillPointsPerLevel, getLevelUpSpentSkillPoints, getSpentSkillPoints, getSpentSkillPointsForSource, getAvailableSkillTricks, getAvailableSkillTrickGrants, getSkillTrickGrantFeatSlots, getSkillTrickSelectionsAtLevel, getSpeakLanguageRankCount, normalizeFeatSelections, normalizeFeatWeaponSelections, normalizeFeatSkillSelections, normalizeFeatSpellSchoolSelections, normalizeFeatSpellMasterySelections, getClassSpellSelections, getMainWeaponGripState, getDoubleWeaponModeState, getTowerShieldState, getShieldBashState, getAnimatedShieldState, getForceShieldState, getBlindingShieldState, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getWizardBonusFeatWarnings, type CombatAttackMode, type CombatCastingContext } from "./rules";
 import { abilityNames, startingClassFeatures } from "./data/characterCatalog";
 import { spells as srdSpells, useSpellCatalog } from "./data/spellCatalog";
+import { isIndependentSpellcastingClass, type SpellcastingClassId } from "./domain";
+import { getSpellcastingClassLevels } from "./rules";
 import type { StoreItem } from "./data/itemTypes";
 import { ScreenBoundary } from "./components/ScreenBoundary";
 import { ClassFeatureProgressionBoundary } from "./components/ClassFeatureProgressionBoundary";
@@ -20,17 +22,20 @@ const EquipmentStore = lazy(() => import("./components/EquipmentStore").then((mo
 const ForgePanel = lazy(() => import("./components/ForgePanel").then((module) => ({ default: module.ForgePanel })));
 const WandsScrollPanel = lazy(() => import("./components/WandsScrollPanel").then((module) => ({ default: module.WandsScrollPanel })));
 const SpellSheets = lazy(() => import("./components/SpellSheet").then((module) => ({ default: module.SpellSheets })));
+const PrestigeFeatureChoices = lazy(() => import("./components/PrestigeFeatureChoices"));
 const CreationPanel = lazy(() => import("./components/CreationPanel").then((module) => ({ default: module.CreationPanel })));
-const CharacterSheet = lazy(() =>
-  import("./components/CharacterSheet").then((module) => ({
-    default: module.CharacterSheet,
-  })),
-);
-const PrintableCharacterSheet = lazy(() =>
-  import("./components/PrintableCharacterSheet").then((module) => ({
-    default: module.PrintableCharacterSheet,
-  })),
-);
+const CharacterSheet = lazy(async () => {
+  const { loadFeatCatalog } = await import("./data/featCatalogLoader");
+  await loadFeatCatalog();
+  const module = await import("./components/CharacterSheet");
+  return { default: module.CharacterSheet };
+});
+const PrintableCharacterSheet = lazy(async () => {
+  const { loadFeatCatalog } = await import("./data/featCatalogLoader");
+  await loadFeatCatalog();
+  const module = await import("./components/PrintableCharacterSheet");
+  return { default: module.PrintableCharacterSheet };
+});
 const PdfLibrary = lazy(() => import("./components/PdfLibrary").then((module) => ({ default: module.PdfLibrary })));
 const CustomStoreItemsWarning = lazy(() => import("./components/CustomStoreItemsWarning"));
 const HighSorceryChoices = lazy(() => import("./components/HighSorceryChoices").then((module) => ({ default: module.HighSorceryChoices })));
@@ -47,8 +52,8 @@ const storeItemEntries = (item: StoreItem) =>
 const storeItemsMatch = (left: StoreItem, right: StoreItem) =>
   JSON.stringify(storeItemEntries(left)) === JSON.stringify(storeItemEntries(right));
 const prunePreparedSpellMetadata = <T,>(
-  metadata: Partial<Record<ClassId, Record<string, T>>> | undefined,
-  classId: ClassId,
+  metadata: Partial<Record<SpellcastingClassId, Record<string, T>>> | undefined,
+  classId: SpellcastingClassId,
   preparedNames: Set<string>,
 ) => !metadata?.[classId] ? metadata : {
   ...metadata,
@@ -91,6 +96,7 @@ export function App() {
     return { ...creationState, abilities };
   }, [creationState, abilityMethod, rolledScores, rolledAssignments]);
   const [levelUpDraft, setLevelUpDraft] = useState<LevelUpDraft | null>(null);
+  const [prestigeChoiceWarnings, setPrestigeChoiceWarnings] = useState<string[]>([]);
   const [hitPointRollMode, setHitPointRollMode] = useState<"app" | "manual">("app");
   const [manualHitPointRoll, setManualHitPointRoll] = useState("");
   const [lastLevelUpClassId, setLastLevelUpClassId] = useState<ClassId>(
@@ -141,6 +147,7 @@ export function App() {
           cloneCharacter(character),
           choice.prestigeClassId,
           spellcastingClassId,
+          getPrestigeSpellcastingClassOptions(character, choice.prestigeClassId, true)[0],
         );
     if (freshDraft.prestigeClassId) {
       const eligibilityErrors = getPrestigeClassLevelUpSelectionErrors(
@@ -164,9 +171,11 @@ export function App() {
             getBaseClassLevel(freshDraft.proposed, "ranger"),
           ).length > 0);
     setOperationError(undefined);
+    setPrestigeChoiceWarnings([]);
     setHitPointRollMode("app");
     setManualHitPointRoll("");
-    if (!freshDraft.prestigeClassId && classDefinitions[freshDraft.classId].spellcasting)
+    if (isIndependentSpellcastingClass(freshDraft.prestigeClassId) ||
+        (!freshDraft.prestigeClassId && classDefinitions[freshDraft.classId].spellcasting))
       setActiveSheet(needsNaturePatronChoice ? "character" : "spells");
     setLevelUpDraft({
       ...freshDraft,
@@ -176,7 +185,8 @@ export function App() {
   };
   const updateLevelUpAbilityIncrease = (ability: AbilityName | null) => {
     if (!levelUpDraft) return;
-    const abilities = { ...levelUpDraft.original.abilities };
+    const abilities = { ...levelUpDraft.proposed.abilities };
+    if (levelUpDraft.abilityIncrease) abilities[levelUpDraft.abilityIncrease] -= 1;
     if (ability) abilities[ability] += 1;
     const characterLevel = getTotalHitDice(levelUpDraft.proposed);
     const abilityScoreIncreasesByLevel = {
@@ -197,7 +207,20 @@ export function App() {
   };
   const confirmLevelUp = () => {
     if (!levelUpDraft) return;
+    const theurgeEntry = levelUpDraft.proposed.classLevels.find((entry) =>
+      "prestigeClassId" in entry && entry.prestigeClassId === "mystic-theurge",
+    );
+    const divineTarget = theurgeEntry && "prestigeClassId" in theurgeEntry
+      ? theurgeEntry.divineSpellcastingClassId
+      : undefined;
     const validationErrors = [
+      ...(levelUpDraft.prestigeClassId === "mystic-theurge" &&
+        (!divineTarget || !getPrestigeSpellcastingClassOptions(
+          levelUpDraft.original, "mystic-theurge", true,
+        ).includes(divineTarget) || !getPrestigeSpellcastingClassOptions(
+          levelUpDraft.original, "mystic-theurge",
+        ).includes(levelUpDraft.classId))
+        ? ["Choose an eligible arcane and divine class to advance."] : []),
       ...(levelUpDraft.prestigeClassId
         ? getPrestigeClassEligibilityErrors(
             {
@@ -216,6 +239,8 @@ export function App() {
             levelUpDraft.classId,
           )),
       ...validateLevelUp(levelUpDraft),
+      ...prestigeChoiceWarnings,
+      ...getWizardBonusFeatWarnings(levelUpDraft.proposed),
       ...getLevelUpSkillWarnings(
         levelUpDraft.original,
         levelUpDraft.proposed,
@@ -236,6 +261,10 @@ export function App() {
         getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
       ),
       ...getFeatSpellSchoolSelectionWarnings(
+        levelUpDraft.proposed,
+        getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+      ),
+      ...getFeatSpellMasterySelectionWarnings(
         levelUpDraft.proposed,
         getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
       ),
@@ -309,6 +338,8 @@ export function App() {
           ...(levelUpDraft.prestigeClassId
             ? { prestigeClassId: levelUpDraft.prestigeClassId }
             : {}),
+          ...(levelUpDraft.prestigeClassId === "mystic-theurge" && divineTarget
+            ? { divineSpellcastingClassId: divineTarget } : {}),
           classLevel,
           hitDie,
           roll: hitPointRoll,
@@ -433,22 +464,170 @@ export function App() {
       });
     else setCharacter(update);
   };
+  const learnSkillTrick = (
+    trickId: string,
+    requestedSourceId?: SkillRankSourceId,
+    featSlotId?: string,
+  ) => {
+    const update = (current: Character) => {
+      if (featSlotId) {
+        const grantSlot = getSkillTrickGrantFeatSlots(current).find(
+          (slot) => slot.slotId === featSlotId,
+        );
+        if (
+          !grantSlot ||
+          !getAvailableSkillTrickGrants(current, featSlotId).some(
+            (trick) => trick.id === trickId,
+          )
+        )
+          return current;
+        const grantLevel =
+          grantSlot.characterLevel ?? getTotalHitDice(current);
+        return {
+          ...current,
+          skillTricksByLevel: {
+            ...(current.skillTricksByLevel ?? {}),
+            [grantLevel]: [
+              ...getSkillTrickSelectionsAtLevel(
+                current,
+                grantLevel,
+              ),
+              { trickId, featSlotId },
+            ],
+          },
+        };
+      }
+      const lastLevel = current.classLevels.at(-1);
+      const sourceId: SkillRankSourceId | undefined = levelUpDraft
+        ? levelUpDraft.prestigeClassId ?? levelUpDraft.classId
+        : requestedSourceId ?? (lastLevel && "prestigeClassId" in lastLevel
+          ? lastLevel.prestigeClassId
+          : lastLevel?.classId);
+      if (!sourceId || !getAvailableSkillTricks(current).some(
+        (trick) => trick.id === trickId,
+      ))
+        return current;
+
+      const availableSkillPoints = levelUpDraft
+        ? getAvailableSkillCount(levelUpDraft.original) +
+          getSkillPointsPerLevel(
+            levelUpDraft.original,
+            levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
+          )
+        : getAvailableSkillCount(current);
+      const spentSkillPoints = levelUpDraft
+        ? getLevelUpSpentSkillPoints(
+            levelUpDraft.original,
+            current,
+            levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
+          )
+        : getSpentSkillPoints(current);
+      if (spentSkillPoints + 2 > availableSkillPoints) return current;
+
+      const characterLevel = getTotalHitDice(current);
+      return {
+        ...current,
+        skillTricksByLevel: {
+          ...(current.skillTricksByLevel ?? {}),
+          [characterLevel]: [
+            ...getSkillTrickSelectionsAtLevel(current, characterLevel),
+            { trickId, sourceId },
+          ],
+        },
+      };
+    };
+
+    if (creationOpen && !creationLocked)
+      setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+        validationErrors: [],
+      });
+  };
+  const removeSkillTrick = (trickId: string) => {
+    const update = (current: Character) => {
+      const characterLevel = getTotalHitDice(current);
+      const currentLevelSelections = getSkillTrickSelectionsAtLevel(
+        current,
+        characterLevel,
+      );
+      if (!currentLevelSelections.some((selection) =>
+        selection.trickId === trickId,
+      ))
+        return current;
+
+      const skillTricksByLevel = { ...(current.skillTricksByLevel ?? {}) };
+      const remainingSelections = currentLevelSelections.filter(
+        (selection) => selection.trickId !== trickId,
+      );
+      if (remainingSelections.length)
+        skillTricksByLevel[characterLevel] = remainingSelections;
+      else
+        delete skillTricksByLevel[characterLevel];
+      return { ...current, skillTricksByLevel };
+    };
+
+    if (creationOpen && !creationLocked)
+      setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+        validationErrors: [],
+      });
+  };
   const updateFeatSelection = (slotId: string, featId: string) => {
     const update = (current: Character) => {
       const featSelections = normalizeFeatSelections(current, {
         ...(current.featSelections ?? {}),
         [slotId]: featId,
       });
+      const changedFeatSlots = new Set([
+        ...Object.keys(current.featSelections ?? {}),
+        ...Object.keys(featSelections),
+      ]);
+      for (const changedSlotId of changedFeatSlots) {
+        if (
+          current.featSelections?.[changedSlotId] ===
+          featSelections[changedSlotId]
+        )
+          changedFeatSlots.delete(changedSlotId);
+      }
+      const skillTricksByLevel = {
+        ...(current.skillTricksByLevel ?? {}),
+      };
+      Object.entries(skillTricksByLevel).forEach(([level, selections]) => {
+        if (!selections) return;
+        const remaining = selections.filter(
+          (selection) =>
+            !selection.featSlotId ||
+            !changedFeatSlots.has(selection.featSlotId),
+        );
+        if (remaining.length)
+          skillTricksByLevel[Number(level)] = remaining;
+        else delete skillTricksByLevel[Number(level)];
+      });
       const weaponSelections = { ...(current.featWeaponSelections ?? {}) };
       const skillSelections = { ...(current.featSkillSelections ?? {}) };
       const spellSchoolSelections = { ...(current.featSpellSchoolSelections ?? {}) };
-      if (current.featSelections?.[slotId] !== featId)
+      const spellMasterySelections = { ...(current.featSpellMasterySelections ?? {}) };
+      const spellMasterySelectionCounts = { ...(current.featSpellMasterySelectionCounts ?? {}) };
+      if (current.featSelections?.[slotId] !== featId) {
         delete weaponSelections[slotId];
-      if (current.featSelections?.[slotId] !== featId)
         delete skillSelections[slotId];
-      if (current.featSelections?.[slotId] !== featId)
         delete spellSchoolSelections[slotId];
-      const featSelectionContext = { ...current, featSelections };
+        delete spellMasterySelections[slotId];
+        delete spellMasterySelectionCounts[slotId];
+        if (featId === "spell-mastery")
+          spellMasterySelectionCounts[slotId] = getFeatSpellMasteryChoiceCount(current);
+      }
+      const featSelectionContext = {
+        ...current,
+        featSelections,
+        featSpellMasterySelectionCounts: spellMasterySelectionCounts,
+      };
       const featWeaponSelections = normalizeFeatWeaponSelections(
         featSelectionContext,
         weaponSelections,
@@ -461,12 +640,19 @@ export function App() {
         { ...featSelectionContext, featSpellSchoolSelections: spellSchoolSelections },
         spellSchoolSelections,
       );
+      const featSpellMasterySelections = normalizeFeatSpellMasterySelections(
+        { ...featSelectionContext, featSpellMasterySelections: spellMasterySelections },
+        spellMasterySelections,
+      );
       return {
         ...current,
         featSelections,
         featWeaponSelections,
         featSkillSelections,
         featSpellSchoolSelections,
+        featSpellMasterySelections,
+        featSpellMasterySelectionCounts: spellMasterySelectionCounts,
+        skillTricksByLevel,
         feats: Object.values(featSelections).filter(Boolean),
       };
     };
@@ -535,6 +721,29 @@ export function App() {
       });
     else setCharacter(update);
   };
+  const updateFeatSpellMasterySelection = (
+    slotId: string,
+    selections: string[],
+  ) => {
+    const update = (current: Character) => {
+      const updatedSelections = {
+        ...current.featSpellMasterySelections,
+        [slotId]: selections,
+      };
+      const normalizedSelections = normalizeFeatSpellMasterySelections(
+        { ...current, featSpellMasterySelections: updatedSelections },
+        updatedSelections,
+      );
+      return { ...current, featSpellMasterySelections: normalizedSelections };
+    };
+    if (creationOpen && !creationLocked) setCreationDraft(update);
+    else if (levelUpDraft)
+      setLevelUpDraft({
+        ...levelUpDraft,
+        proposed: update(levelUpDraft.proposed),
+      });
+    else setCharacter(update);
+  };
   const resetCreationChoices = (draft: Character): Character => ({
     ...draft,
     feats: [],
@@ -542,6 +751,8 @@ export function App() {
     featWeaponSelections: {},
     featSkillSelections: {},
     featSpellSchoolSelections: {},
+    featSpellMasterySelections: {},
+    featSpellMasterySelectionCounts: {},
     speakLanguages: [],
     skills: {},
     skillRanksByClass: {},
@@ -607,7 +818,7 @@ export function App() {
   };
   const updateKnownSpells = (
     knownSpells: string[],
-    classId?: ClassId,
+    classId?: SpellcastingClassId,
     acquisition: SpellAcquisition = levelUpDraft ? "level-up" : "starting",
   ) => {
     const update = (current: Character) => {
@@ -719,7 +930,7 @@ export function App() {
     else setCharacter(update);
   };
   const updateSpellAcquisition = (
-    classId: ClassId,
+    classId: SpellcastingClassId,
     spell: string,
     acquisition: SpellAcquisition | null,
     record?: WizardSpellLearning,
@@ -764,7 +975,7 @@ export function App() {
   };
   const updatePreparedSpells = (
     preparedSpells: string[],
-    classId?: ClassId,
+    classId?: SpellcastingClassId,
     spellSlotLevels?: Record<string, number[]>,
     spellEmpoweredCopies?: Record<string, boolean[]>,
     spellMaximizedCopies?: Record<string, boolean[]>,
@@ -830,7 +1041,7 @@ export function App() {
     };
     updateSpellcastingCharacter(update);
   };
-  const updateExpendedSpellSlots = (classId: ClassId, slots: Record<string, number[]>) => {
+  const updateExpendedSpellSlots = (classId: SpellcastingClassId, slots: Record<string, number[]>) => {
     const update = (current: Character): Character => ({
       ...current,
       expendedSpellSlotsByClass: { ...current.expendedSpellSlotsByClass, [classId]: slots },
@@ -1096,6 +1307,10 @@ export function App() {
         alignment: "",
         deity: undefined,
         highSorceryOrder: undefined,
+        coreWizardSpecializationSchool:
+          creationDraft.classLevels[0].classId === classId
+            ? creationDraft.coreWizardSpecializationSchool
+            : undefined,
         dragonlanceMoonState: undefined,
         mysticDomain: undefined,
         rangerFavoredEnemies:
@@ -1197,9 +1412,7 @@ export function App() {
       }
     : character;
   const displayedCharacter = levelUpDraft?.proposed ?? calculatedCharacter;
-  const hasSpellcasting = getBaseClassLevels(displayedCharacter).some(
-    (level) => classDefinitions[level.classId as ClassId]?.spellcasting,
-  );
+  const hasSpellcasting = getSpellcastingClassLevels(displayedCharacter).length > 0;
   const spellCatalog = useSpellCatalog(
     hasSpellcasting || activeSheet === "crafting" ||
     Object.keys(displayedCharacter.inventory ?? {}).some((name) => /^(?:Wand|Scroll) of /.test(name)),
@@ -1217,6 +1430,7 @@ export function App() {
               levelUpDraft.classId,
             )),
         ...(levelUpDraft.prestigeClassId &&
+            dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].roleplayPrerequisite &&
             !levelUpDraft.specialPrerequisiteConfirmed &&
             !levelUpDraft.original.classLevels.some((entry) =>
               "prestigeClassId" in entry &&
@@ -1229,11 +1443,13 @@ export function App() {
               "Choose an ability score to increase by +1 before confirming the level-up.",
             ]
           : []),
+        ...prestigeChoiceWarnings,
         ...getLevelUpSkillWarnings(
           levelUpDraft.original,
           levelUpDraft.proposed,
           levelUpDraft.prestigeClassId ?? levelUpDraft.classId,
         ),
+        ...getWizardBonusFeatWarnings(levelUpDraft.proposed),
         ...getNewLevelUpFeatSlots(
           levelUpDraft.original,
           levelUpDraft.proposed,
@@ -1249,6 +1465,10 @@ export function App() {
           getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
         ),
         ...getFeatSpellSchoolSelectionWarnings(
+          levelUpDraft.proposed,
+          getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
+        ),
+        ...getFeatSpellMasterySelectionWarnings(
           levelUpDraft.proposed,
           getNewLevelUpFeatSlots(levelUpDraft.original, levelUpDraft.proposed),
         ),
@@ -1543,6 +1763,14 @@ export function App() {
                 }
               />
             )}
+            {(levelUpDraft.prestigeClassId || (levelUpDraft.classId === "wizard" &&
+              getBaseClassLevel(levelUpDraft.original, "wizard") === 0) ||
+              levelUpDraft.original.classLevels.some((entry) =>
+                "prestigeClassId" in entry && entry.prestigeClassId === "red-wizard")) && (
+              <Suspense fallback={null}><PrestigeFeatureChoices draft={levelUpDraft} onChange={setLevelUpDraft}
+                onWarningsChange={setPrestigeChoiceWarnings}
+                spellCatalogReady={spellCatalog.ready} /></Suspense>
+            )}
             {levelUpDraft.classId === "ranger" && !levelUpDraft.prestigeClassId && (
               <RangerFavoredEnemies
                 character={levelUpDraft.proposed}
@@ -1617,63 +1845,6 @@ export function App() {
                 <p className="level-class-rule-note" role="note">
                   Advancement beyond Wizard level 4 requires the Test of High Sorcery and an order, or a renegade path (Dragonlance Campaign Setting, p. 53).
                 </p>
-              )}
-            {levelUpDraft.prestigeClassId &&
-              getPrestigeSpellcastingClassOptions(
-                levelUpDraft.original,
-                levelUpDraft.prestigeClassId,
-              ).length > 1 && (
-                <label className="draft-class">
-                  Advance spellcasting in
-                  <select
-                    value={levelUpDraft.classId}
-                    onChange={(event) => {
-                      const classId = event.currentTarget.value as ClassId;
-                      setLevelUpDraft({
-                        ...levelUpDraft,
-                        classId,
-                        proposed: {
-                          ...levelUpDraft.proposed,
-                          classLevels: levelUpDraft.proposed.classLevels.map((entry) =>
-                            "prestigeClassId" in entry &&
-                            entry.prestigeClassId === levelUpDraft.prestigeClassId
-                              ? { ...entry, classId }
-                              : entry,
-                          ),
-                        },
-                      });
-                    }}
-                  >
-                    {getPrestigeSpellcastingClassOptions(
-                      levelUpDraft.original,
-                      levelUpDraft.prestigeClassId,
-                    ).map((classId) => (
-                      <option key={classId} value={classId}>
-                        {classDefinitions[classId].name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            {levelUpDraft.prestigeClassId &&
-              dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].roleplayPrerequisite &&
-              !levelUpDraft.original.classLevels.some((entry) =>
-                "prestigeClassId" in entry &&
-                entry.prestigeClassId === levelUpDraft.prestigeClassId,
-              ) && (
-                <label className="draft-class level-prestige-prerequisite">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(levelUpDraft.specialPrerequisiteConfirmed)}
-                    onChange={(event) =>
-                      setLevelUpDraft({
-                        ...levelUpDraft,
-                        specialPrerequisiteConfirmed: event.currentTarget.checked,
-                      })
-                    }
-                  />
-                  Confirm: {dragonlancePrestigeClasses[levelUpDraft.prestigeClassId].roleplayPrerequisite}
-                </label>
               )}
             {gainsAbilityIncrease && (
               <label className="draft-class level-ability-choice">
@@ -1846,9 +2017,21 @@ export function App() {
             onOpenSpells={() => setActiveSheet("spells")}
             onHitPointAction={updateHitPoints}
             onCombatEffectsChange={updateCombatEffects}
-            onCharacterFeatureChange={(update) =>
-              setCharacter((current) => ({ ...current, ...update }))
-            }
+            onCharacterFeatureChange={(update) => {
+              const applyUpdate = (current: Character) => ({
+                ...current,
+                ...update,
+              });
+              if (creationOpen && !creationLocked)
+                setCreationDraft(applyUpdate);
+              else if (levelUpDraft)
+                setLevelUpDraft({
+                  ...levelUpDraft,
+                  proposed: applyUpdate(levelUpDraft.proposed),
+                  validationErrors: [],
+                });
+              else setCharacter(applyUpdate);
+            }}
             rangedTargetDistanceFeet={rangedTargetDistanceFeet}
             onRangedTargetDistanceFeetChange={setRangedTargetDistanceFeet}
             combatAttackMode={combatAttackMode}
@@ -1877,10 +2060,13 @@ export function App() {
               : undefined}
             creationMode={creationOpen && !creationLocked}
             onSkillRankChange={updateSkillRanks}
+            onSkillTrickLearn={learnSkillTrick}
+            onSkillTrickRemove={removeSkillTrick}
             onFeatChange={updateFeatSelection}
             onFeatWeaponChange={updateFeatWeaponSelection}
             onFeatSkillChange={updateFeatSkillSelection}
             onFeatSpellSchoolChange={updateFeatSpellSchoolSelection}
+            onFeatSpellMasteryChange={updateFeatSpellMasterySelection}
             onLanguagesChange={updateLanguages}
             onSpeakLanguagesChange={updateSpeakLanguages}
             onRegionalLanguageChange={updateRegionalLanguage}
@@ -1959,11 +2145,13 @@ export function App() {
       )}
       {visibleSheet === "spells" && (
             <SpellSheets
-              key={levelUpDraft?.classId ?? "finalized"}
+              key={levelUpDraft?.prestigeClassId ?? levelUpDraft?.classId ?? "finalized"}
               character={displayedCharacter}
               levelUpOriginal={levelUpDraft?.original}
               levelUpClassId={
-                levelUpDraft?.prestigeClassId ? undefined : levelUpDraft?.classId
+                isIndependentSpellcastingClass(levelUpDraft?.prestigeClassId)
+                  ? levelUpDraft.prestigeClassId
+                  : levelUpDraft?.prestigeClassId ? undefined : levelUpDraft?.classId
               }
               onKnownSpellsChange={updateKnownSpells}
               onSpellAcquisitionChange={updateSpellAcquisition}

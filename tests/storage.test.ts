@@ -34,6 +34,34 @@ describe("character persistence", () => {
       subtype: "Elf",
       bonusTargetLevel: 1,
     }];
+    character.hasPowerPointReserve = true;
+    character.hasKiPower = true;
+    character.hasKiStrikeMagic = true;
+    character.hasAllMartialWeaponProficiencies = true;
+    character.hasStealSpell = true;
+    character.hasSwashbucklerGrace = true;
+    character.hasConjurationHealingSpell = true;
+    character.hasSpontaneousCureOrInflict = true;
+    character.hasCureWoundsSpell = true;
+    character.hasSummonNaturesAllySpell = true;
+    character.hasInflictWoundsSpell = true;
+    character.canTurnElementalSubtype = true;
+    character.canRebukeElementalSubtype = true;
+    character.hasFastWildShape = true;
+    character.hasWarmageLevelFour = true;
+    character.hasGraduatedFromApprenticeship = true;
+    character.hasMentorSkillPrerequisites = true;
+    character.isGuildMember = true;
+    character.hasGuildmasterPrerequisites = true;
+    character.hasCompletedBondingRitual = true;
+    character.hasRechargeableBreathWeapon = true;
+    character.hasDetectMagicAccess = true;
+    character.isThoonAffiliate = true;
+    character.divineCasterLevel = 5;
+    character.clericUndeadTurningMode = "rebuke";
+    character.manifesterLevel = 3;
+    character.skirmishDamageDice = 2;
+    character.skirmishACBonus = 1;
     character.race = "Gnome";
     character.shieldBlindingUsesByItem = {
       "Blinding +1 Heavy Steel Shield (Medium)": 1,
@@ -96,6 +124,25 @@ describe("character persistence", () => {
     });
   });
 
+  it("round-trips paid and feat-granted skill tricks", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "fighter", level: 6 }];
+    character.featSelections = { "general-6": "cool-head" };
+    character.skillTricksByLevel = {
+      1: [{ trickId: "listen-to-this", sourceId: "fighter" }],
+      2: [{ trickId: "point-it-out", sourceId: "fighter" }],
+      6: [
+        { trickId: "clarity-of-vision", featSlotId: "general-6" },
+        { trickId: "swift-concentration", featSlotId: "general-6" },
+      ],
+    };
+    saveCharacter(character);
+
+    expect(loadSavedCharacter().character.skillTricksByLevel).toEqual(
+      character.skillTricksByLevel,
+    );
+  });
+
   it("round-trips base attack bonus history by character level", () => {
     const character = cloneCharacter(initialCharacter);
     character.classLevels = [{ classId: "fighter", level: 2 }];
@@ -152,6 +199,27 @@ describe("character persistence", () => {
     { ...initialCharacter, skillRanksByLevel: { 0: { Ride: 1 } } },
     { ...initialCharacter, skillRanksByLevel: { 1: { Ride: -0.5 } } },
     { ...initialCharacter, skillRanksByLevel: { 1: "not-a-rank-map" } },
+    { ...initialCharacter, skillTricksByLevel: { 0: [{ trickId: "listen-to-this", sourceId: "fighter" }] } },
+    { ...initialCharacter, skillTricksByLevel: { 1: [{ trickId: "missing-trick", sourceId: "fighter" }] } },
+    { ...initialCharacter, skillTricksByLevel: { 1: [
+      { trickId: "listen-to-this", sourceId: "fighter" },
+      { trickId: "point-it-out", sourceId: "fighter" },
+    ] } },
+    { ...initialCharacter, skillTricksByLevel: { 1: [
+      { trickId: "listen-to-this", sourceId: "fighter" },
+      { trickId: "listen-to-this", featSlotId: "general-1" },
+    ] } },
+    { ...initialCharacter, skillTricksByLevel: { 1: [
+      { trickId: "listen-to-this", featSlotId: "general-1" },
+      { trickId: "point-it-out", featSlotId: "general-1" },
+      { trickId: "clarity-of-vision", featSlotId: "general-1" },
+    ] } },
+    { ...initialCharacter, skillTricksByLevel: { 1: [
+      { trickId: "listen-to-this", featSlotId: "general-1" },
+    ] } },
+    { ...initialCharacter, featSelections: { "general-1": "cool-head" }, skillTricksByLevel: { 1: [
+      { trickId: "hidden-blade", featSlotId: "general-1" },
+    ] } },
     { ...initialCharacter, baseAttackBonusByLevel: { 0: 0 } },
     { ...initialCharacter, baseAttackBonusByLevel: { 1: -1 } },
     { ...initialCharacter, baseAttackBonusByLevel: { 1: 1.5 } },
@@ -164,6 +232,42 @@ describe("character persistence", () => {
     { ...initialCharacter, featWeaponSelections: { "general-1": 3 } },
     { ...initialCharacter, featSkillSelections: { "general-1": 3 } },
     { ...initialCharacter, featSpellSchoolSelections: { "general-1": "Time" } },
+    { ...initialCharacter, featSpellMasterySelections: { "general-1": "Magic Missile" } },
+    { ...initialCharacter, featSpellMasterySelectionCounts: { "general-1": -1 } },
+    { ...initialCharacter, featSpellMasterySelectionCounts: { "general-1": 1.5 } },
+    { ...initialCharacter, hasPowerPointReserve: "yes" },
+    { ...initialCharacter, hasKiPower: "yes" },
+    { ...initialCharacter, hasKiStrikeMagic: "yes" },
+    { ...initialCharacter, hasAllMartialWeaponProficiencies: "yes" },
+    { ...initialCharacter, hasStealSpell: "yes" },
+    { ...initialCharacter, hasSwashbucklerGrace: "yes" },
+    { ...initialCharacter, hasConjurationHealingSpell: "yes" },
+    { ...initialCharacter, hasSpontaneousCureOrInflict: "yes" },
+    { ...initialCharacter, hasCureWoundsSpell: "yes" },
+    { ...initialCharacter, hasSummonNaturesAllySpell: "yes" },
+    { ...initialCharacter, hasInflictWoundsSpell: "yes" },
+    { ...initialCharacter, canTurnElementalSubtype: "yes" },
+    { ...initialCharacter, canRebukeElementalSubtype: "yes" },
+    { ...initialCharacter, hasFastWildShape: "yes" },
+    { ...initialCharacter, hasWarmageLevelFour: "yes" },
+    { ...initialCharacter, hasGraduatedFromApprenticeship: "yes" },
+    { ...initialCharacter, hasMentorSkillPrerequisites: "yes" },
+    { ...initialCharacter, isGuildMember: "yes" },
+    { ...initialCharacter, hasGuildmasterPrerequisites: "yes" },
+    { ...initialCharacter, hasCompletedBondingRitual: "yes" },
+    { ...initialCharacter, hasRechargeableBreathWeapon: "yes" },
+    { ...initialCharacter, hasDetectMagicAccess: "yes" },
+    { ...initialCharacter, isThoonAffiliate: "yes" },
+    { ...initialCharacter, divineCasterLevel: -1 },
+    { ...initialCharacter, divineCasterLevel: 1.5 },
+    { ...initialCharacter, divineCasterLevel: "5" },
+    { ...initialCharacter, clericUndeadTurningMode: "both" },
+    { ...initialCharacter, manifesterLevel: -1 },
+    { ...initialCharacter, manifesterLevel: 1.5 },
+    { ...initialCharacter, manifesterLevel: "3" },
+    { ...initialCharacter, skirmishDamageDice: -1 },
+    { ...initialCharacter, skirmishDamageDice: 1.5 },
+    { ...initialCharacter, skirmishACBonus: "1" },
     { ...initialCharacter, inventory: { Longsword: -2 } },
     { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": -1 } },
     { ...initialCharacter, compositeBowStrengthRatings: { "Composite Longbow (Medium)": 1.5 } },
@@ -200,12 +304,16 @@ describe("character persistence", () => {
     delete legacyCharacter.featWeaponSelections;
     delete legacyCharacter.featSkillSelections;
     delete legacyCharacter.featSpellSchoolSelections;
+    delete legacyCharacter.featSpellMasterySelections;
+    delete legacyCharacter.featSpellMasterySelectionCounts;
     delete legacyCharacter.speakLanguages;
     delete legacyCharacter.hasMedallionOfFaith;
     expect(parseCharacter(legacyCharacter).mainWeaponGrip).toBeUndefined();
     expect(parseCharacter(legacyCharacter).featWeaponSelections).toBeUndefined();
     expect(parseCharacter(legacyCharacter).featSkillSelections).toBeUndefined();
     expect(parseCharacter(legacyCharacter).featSpellSchoolSelections).toBeUndefined();
+    expect(parseCharacter(legacyCharacter).featSpellMasterySelections).toBeUndefined();
+    expect(parseCharacter(legacyCharacter).featSpellMasterySelectionCounts).toBeUndefined();
     expect(parseCharacter(legacyCharacter).speakLanguages).toBeUndefined();
     expect(parseCharacter(legacyCharacter).hasMedallionOfFaith).toBeUndefined();
   });
@@ -213,6 +321,19 @@ describe("character persistence", () => {
   it("round-trips Speak Language choices", () => {
     const character = { ...initialCharacter, speakLanguages: ["Elven"] };
     expect(parseCharacter(character).speakLanguages).toEqual(["Elven"]);
+  });
+
+  it("round-trips Spell Mastery choices and their saved selection count", () => {
+    const character = {
+      ...initialCharacter,
+      featSelections: { "general-1": "spell-mastery" },
+      featSpellMasterySelections: { "general-1": ["Magic Missile", "Shield"] },
+      featSpellMasterySelectionCounts: { "general-1": 2 },
+    };
+    expect(parseCharacter(character).featSpellMasterySelections)
+      .toEqual(character.featSpellMasterySelections);
+    expect(parseCharacter(character).featSpellMasterySelectionCounts)
+      .toEqual(character.featSpellMasterySelectionCounts);
   });
 
   it("migrates legacy characters to the ruleset indicated by their source-tagged content", () => {

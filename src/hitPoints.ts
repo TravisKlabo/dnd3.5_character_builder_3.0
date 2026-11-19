@@ -1,5 +1,6 @@
 import { type Character } from "./domain";
 import { getConstitutionHitPointAdjustment } from "./abilityEquipment";
+import { getChosenFeats, hasLoremasterSecret } from "./rules";
 
 export type HitPointAction = "damage" | "heal" | "nonlethal" | "recoverNonlethal" | "temporary";
 
@@ -16,12 +17,13 @@ export function getMaximumHitPoints(character: Character) {
 }
 
 export function getToughnessHitPointBonus(character: Character) {
-  return Object.values(character.featSelections ?? {})
+  return getChosenFeats(character)
     .filter((featId) => featId === "toughness").length * 3;
 }
 
 export function getPermanentHitPointAdjustment(character: Character) {
-  return getConstitutionHitPointAdjustment(character) + getToughnessHitPointBonus(character);
+  return getConstitutionHitPointAdjustment(character) + getToughnessHitPointBonus(character) +
+    (hasLoremasterSecret(character, "Secret Health") ? 3 : 0);
 }
 
 function storeEffectiveCurrentHitPoints(character: Character, effective: number) {

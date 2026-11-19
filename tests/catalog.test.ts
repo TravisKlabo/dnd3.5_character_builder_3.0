@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { storeItems, findStoreItem, addCustomStoreItems, deleteCustomStoreItem,
   forgeArmorProperties, type StoreItem } from "../src/data/equipmentCatalog";
 import { getInventoryEntryDetails, getSizedStorePrice, getSizedStoreWeight } from "../src/rules";
+import { armorBonuses, armorCheckPenalties, armorClasses, armorMaximumDexterity, armorSpellFailure } from "../src/data/equipmentRuleData";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -50,6 +51,7 @@ describe("indexed equipment catalog", () => {
       weight: "3 lb.",
       material: "alchemical-silver",
     });
+
     expect(findStoreItem("Silver Bolts (10)")).toMatchObject({
       price: 21,
       weight: "1 lb.",
@@ -70,6 +72,192 @@ describe("indexed equipment catalog", () => {
       weight: "1 lb.",
       material: "cold-iron",
     });
+  });
+
+  it("represents every PHB weapon-table option with exact core metadata", () => {
+    const expected = [
+      ["Gauntlet", 2, "1 lb.", "1d3", "bludgeoning"],
+      ["Dagger, Punching", 2, "1 lb.", "1d4", "piercing"],
+      ["Gauntlet, Spiked", 5, "1 lb.", "1d4", "piercing"],
+      ["Dart", 0.5, "0.5 lb.", "1d4", "piercing"],
+      ["Throwing Axe", 8, "2 lb.", "1d6", "slashing"],
+      ["Light Hammer", 1, "2 lb.", "1d4", "bludgeoning"],
+      ["Light Pick", 4, "3 lb.", "1d4", "piercing"],
+      ["Sap", 1, "2 lb.", "1d6", "bludgeoning"],
+      ["Heavy Pick", 8, "6 lb.", "1d6", "piercing"],
+      ["Falchion", 75, "8 lb.", "2d4", "slashing"],
+      ["Greatclub", 5, "8 lb.", "1d10", "bludgeoning"],
+      ["Heavy Flail", 15, "10 lb.", "1d10", "bludgeoning"],
+      ["Ranseur", 10, "12 lb.", "2d4", "piercing"],
+      ["Scythe", 18, "10 lb.", "2d4", "piercing or slashing"],
+      ["Kama", 2, "2 lb.", "1d6", "slashing"],
+      ["Nunchaku", 2, "2 lb.", "1d6", "bludgeoning"],
+      ["Sai", 1, "1 lb.", "1d4", "bludgeoning"],
+      ["Siangham", 3, "1 lb.", "1d6", "piercing"],
+      ["Whip", 1, "2 lb.", "1d3", "slashing"],
+      ["Spiked Chain", 25, "10 lb.", "2d4", "piercing"],
+      ["Bolas", 5, "2 lb.", "1d4", "bludgeoning"],
+      ["Shuriken", 1, "0.5 lb.", "1d2", "piercing"],
+    ] as const;
+    for (const [name, price, weight, damageMedium, damageType] of expected) {
+      expect(findStoreItem(name)).toMatchObject({
+        category: "Weapons",
+        price,
+        weight,
+        damageMedium,
+        damageType,
+      });
+    }
+  });
+
+  it("represents the complete PHB armor table and extras", () => {
+    expect(findStoreItem("Banded Mail")).toMatchObject({
+      category: "Armor",
+      price: 250,
+      weight: "35 lb.",
+    });
+    expect(findStoreItem("Armor Spikes")).toMatchObject({
+      category: "Weapons",
+      price: 50,
+      weight: "10 lb.",
+      damageMedium: "1d6",
+    });
+    expect(findStoreItem("Gauntlet, Locked")).toMatchObject({
+      category: "Adventuring Gear",
+      price: 8,
+      weight: "5 lb.",
+    });
+    for (const name of [
+      "Padded Armor",
+      "Leather Armor",
+      "Studded Leather",
+      "Hide Armor",
+      "Chain Shirt",
+      "Scale Mail",
+      "Chainmail",
+      "Breastplate",
+      "Splint Mail",
+      "Banded Mail",
+      "Half-Plate",
+      "Full Plate",
+      "Buckler",
+      "Light Wooden Shield",
+      "Heavy Wooden Shield",
+      "Light Steel Shield",
+      "Heavy Steel Shield",
+      "Tower Shield",
+    ]) expect(findStoreItem(name)).toBeDefined();
+    expect(armorBonuses["Banded Mail"]).toBe(6);
+    expect(armorMaximumDexterity["Banded Mail"]).toBe(1);
+    expect(armorCheckPenalties["Banded Mail"]).toBe(-6);
+    expect(armorSpellFailure["Banded Mail"]).toBe(35);
+    expect(armorClasses["Banded Mail"]).toBe("Heavy");
+    expect(armorCheckPenalties["Splint Mail"]).toBe(-7);
+  });
+
+  it("generates selectable PHB barding variants for each base armor", () => {
+    expect(findStoreItem("Barding, Leather Armor (Medium Creature)")).toMatchObject({
+      category: "Mounts & Vehicles",
+      price: 20,
+      weight: "15 lb.",
+    });
+    expect(findStoreItem("Barding, Leather Armor (Large Creature)")).toMatchObject({
+      category: "Mounts & Vehicles",
+      price: 40,
+      weight: "30 lb.",
+    });
+    expect(
+      storeItems.filter((item) => item.name.startsWith("Barding, ")),
+    ).toHaveLength(24);
+  });
+
+  it("represents PHB goods, tools, clothing, food, mounts, and transport", () => {
+    const expected = [
+      ["Barrel", 2, "30 lb."],
+      ["Basket", 0.4, "1 lb."],
+      ["Bell", 1, "—"],
+      ["Chest", 2, "25 lb."],
+      ["Everburning Torch", 110, "1 lb."],
+      ["Lock, Amazing", 150, "1 lb."],
+      ["Rations, Trail (per day)", 0.5, "1 lb."],
+      ["Alchemist's Lab", 500, "40 lb."],
+      ["Artisan's Tools, Masterwork", 55, "5 lb."],
+      ["Holy Symbol, Silver", 25, "1 lb."],
+      ["Thieves' Tools, Masterwork", 100, "2 lb."],
+      ["Cold-Weather Outfit", 8, "7 lb."],
+      ["Royal Outfit", 200, "15 lb."],
+      ["Bread (loaf)", 0.02, "0.5 lb."],
+      ["Wine, Fine (bottle)", 10, "1.5 lb."],
+      ["Light Warhorse", 150, "—"],
+      ["Military Saddle, Exotic", 60, "40 lb."],
+      ["Saddlebags", 0.4, "8 lb."],
+      ["Carriage", 100, "600 lb."],
+      ["Longship", 10000, "—"],
+      ["Oar", 2, "10 lb."],
+    ] as const;
+    for (const [name, price, weight] of expected) {
+      expect(findStoreItem(name)).toMatchObject({ price, weight });
+    }
+  });
+
+  it("has a selectable representation for every PHB goods and service item table row", () => {
+    const itemNames = [
+      "Backpack", "Barrel", "Basket", "Bedroll", "Bell", "Blanket, Winter",
+      "Block and Tackle", "Bottle, Wine, Glass", "Bucket", "Caltrops",
+      "Candle", "Canvas (sq. yd.)", "Case, Map or Scroll", "Chain (10 ft.)",
+      "Chalk (1 piece)", "Chest", "Crowbar", "Firewood (per day)", "Fishhook",
+      "Fishing Net, 25 sq. ft.", "Flask", "Flint and Steel", "Grappling Hook",
+      "Hammer", "Ink (1 oz.)", "Inkpen", "Jug, Clay", "Ladder (10 ft.)",
+      "Lamp, Common", "Lantern, Bullseye", "Hooded Lantern", "Lock, Very Simple",
+      "Lock, Average", "Lock, Good", "Lock, Amazing", "Manacles",
+      "Manacles, Masterwork", "Mirror, Small Steel", "Mug/Tankard, Clay",
+      "Oil (1-pint flask)", "Paper (sheet)", "Parchment (sheet)",
+      "Pick, Miner's", "Pitcher, Clay", "Piton", "Pole (10 ft.)", "Iron Pot",
+      "Pouch, Belt", "Portable Ram", "Rations, Trail (per day)",
+      "Rope (50 ft.)", "Rope, Silk (50 ft.)", "Sack", "Sealing Wax",
+      "Sewing Needle", "Signal Whistle", "Signet Ring", "Sledge",
+      "Soap (per lb.)", "Spade or Shovel", "Spyglass", "Tent", "Torch",
+      "Vial, Ink or Potion", "Waterskin", "Whetstone", "Acid (flask)",
+      "Alchemist's Fire", "Antitoxin", "Everburning Torch", "Holy Water",
+      "Smokestick", "Sunrod", "Tanglefoot Bag", "Thunderstone", "Tindertwig",
+      "Alchemist's Lab", "Artisan's Tools", "Artisan's Tools, Masterwork",
+      "Climber's Kit", "Disguise Kit", "Healer's Kit", "Holly and Mistletoe",
+      "Holy Symbol, Wooden", "Holy Symbol, Silver", "Hourglass",
+      "Magnifying Glass", "Musical Instrument, Common",
+      "Musical Instrument, Masterwork", "Merchant's Scale",
+      "Spell Component Pouch", "Spellbook, Blank", "Thieves' Tools",
+      "Thieves' Tools, Masterwork", "Tool, Masterwork", "Water Clock",
+      "Artisan's Outfit", "Cleric's Vestments", "Cold-Weather Outfit",
+      "Courtier's Outfit", "Entertainer's Outfit", "Explorer's Outfit",
+      "Monk's Outfit", "Noble's Outfit", "Peasant's Outfit", "Royal Outfit",
+      "Scholar's Outfit", "Traveler's Outfit", "Ale (gallon)", "Ale (mug)",
+      "Bread (loaf)", "Cheese (hunk)", "Meat (chunk)",
+      "Wine, Common (pitcher)", "Wine, Fine (bottle)", "Bit and Bridle",
+      "Guard Dog", "Riding Dog", "Donkey", "Mule", "Feed (per day)",
+      "Heavy Horse", "Light Horse", "Pony", "Heavy Warhorse",
+      "Light Warhorse", "Warpony", "Military Saddle", "Pack Saddle",
+      "Riding Saddle", "Military Saddle, Exotic", "Pack Saddle, Exotic",
+      "Riding Saddle, Exotic", "Saddlebags", "Carriage", "Cart", "Galley",
+      "Keelboat", "Longship", "Rowboat", "Oar", "Sailing Ship", "Sled",
+      "Wagon", "Warship",
+    ];
+    for (const name of itemNames) {
+      expect(findStoreItem(name), `Missing PHB item: ${name}`).toBeDefined();
+    }
+  });
+
+  it("represents every PHB trade good", () => {
+    const tradeGoods = [
+      "Wheat (1 lb.)", "Flour (1 lb.)", "Chicken", "Iron (1 lb.)",
+      "Tobacco (1 lb.)", "Copper (1 lb.)", "Cinnamon (1 lb.)", "Goat",
+      "Ginger (1 lb.)", "Pepper (1 lb.)", "Sheep", "Pig",
+      "Linen (1 sq. yd.)", "Salt (1 lb.)", "Silver (1 lb.)",
+      "Silk (1 sq. yd.)", "Cow", "Saffron (1 lb.)", "Cloves (1 lb.)",
+      "Ox", "Gold (1 lb.)", "Platinum (1 lb.)",
+    ];
+    for (const name of tradeGoods) {
+      expect(findStoreItem(name)).toMatchObject({ category: "Trade Goods" });
+    }
   });
 
   it("uses the correct Forge armor property costs and describes their effects", () => {

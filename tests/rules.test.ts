@@ -38,6 +38,7 @@ import { baseSpellSlots, featQualifies, getBaseAttackBonus, getBaseSave,
   isClassAlignmentAllowed } from "../src/rules";
 import { getMovement } from "../src/movementRules";
 import { featCatalog, skills } from "../src/data/characterCatalog";
+import { alternativeClassFeatures } from "../src/data/characterCatalog";
 import { skillTrickCatalog } from "../src/data/skillTricks";
 import { classFeatureDescriptions } from "../src/data/classFeatureDescriptions";
 import { prestigeClassFeatureDescriptions } from "../src/data/prestigeClassFeatureDescriptions";
@@ -567,6 +568,103 @@ describe("provided-book feat inventory", () => {
       .toEqual([]);
     expect(dragonlanceDeities.find((deity) => deity.id === "paladine")?.clericAlignments)
       .toEqual([]);
+  });
+
+  it("catalogs the PHB II alternatives, feats, and spell records", () => {
+    expect(Object.values(classDefinitions).filter(
+      (definition) => definition.sourceBook === "Player's Handbook II",
+    ).map((definition) => definition.name)).toEqual([
+      "Beguiler", "Dragon Shaman", "Duskblade", "Knight",
+    ]);
+    expect(alternativeClassFeatures).toHaveLength(21);
+    expect(new Set(alternativeClassFeatures.map((feature) => feature.name)).size).toBe(21);
+    const phb2Spells = spells.filter((spell) =>
+      spell.sourceBook === "Player's Handbook II",
+    );
+    expect(phb2Spells).toHaveLength(124);
+    expect(featCatalog.filter(
+      (feat) => feat.sourceBook === "Player's Handbook II (3.5)",
+    )).toHaveLength(105);
+    expect(Object.values(raceDefinitions).filter(
+      (race) => race.sourceBook === "Player's Handbook II",
+    )).toHaveLength(0);
+    expect(phb2Spells.filter((spell) => spell.classes.includes("beguiler")))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: "Rouse", classLevels: expect.objectContaining({ beguiler: 1 }) }),
+        expect.objectContaining({ name: "Whelming Blast", classLevels: expect.objectContaining({ beguiler: 2 }) }),
+        expect.objectContaining({ name: "Overwhelm", classLevels: expect.objectContaining({ beguiler: 6 }) }),
+      ]));
+    expect(getClassSpells("beguiler")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Charm Person", level: 1 }),
+      expect.objectContaining({ name: "Mirror Image", level: 2 }),
+      expect.objectContaining({ name: "Dispel Magic", level: 3 }),
+      expect.objectContaining({ name: "Mind Blank", level: 8 }),
+      expect.objectContaining({ name: "Time Stop", level: 9 }),
+    ]));
+    expect(spells.filter((spell) =>
+      spell.sourceBook?.startsWith("Player's Handbook II") &&
+      spell.classes.includes("duskblade"),
+    ))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: "Blade of Blood", classLevels: expect.objectContaining({ duskblade: 1 }) }),
+        expect.objectContaining({ name: "Sonic Shield", classLevels: expect.objectContaining({ duskblade: 5 }) }),
+        expect.objectContaining({ name: "Swift Fly", classLevels: expect.objectContaining({ duskblade: 2 }) }),
+      ]));
+    expect(getClassSpells("duskblade")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Acid Splash", level: 0 }),
+      expect.objectContaining({ name: "Magic Weapon", level: 1 }),
+      expect.objectContaining({ name: "Interposing Hand", level: 4 }),
+      expect.objectContaining({ name: "Chain Lightning", level: 5 }),
+    ]));
+    const knight = cloneCharacter(initialCharacter);
+    knight.classLevels = [{ classId: "knight", level: 15 }];
+    expect(getFeatSlots(knight).filter((slot) => slot.id.startsWith("knight-"))
+      .map((slot) => slot.id)).toEqual(["knight-5", "knight-10", "knight-15"]);
+    expect(getAvailableFeatWeaponChoices(knight, "weapon-focus", "knight-5"))
+      .toEqual(["Lance"]);
+    const alternativeFighter = cloneCharacter(initialCharacter);
+    alternativeFighter.classLevels = [{ classId: "fighter", level: 16 }];
+    alternativeFighter.alternativeClassFeatures = {
+      fighter: ["Elusive Attack", "Counterattack", "Overpowering Attack"],
+    };
+    expect(getFeatSlots(alternativeFighter).filter((slot) =>
+      ["fighter-6", "fighter-12", "fighter-16"].includes(slot.id),
+    )).toEqual([]);
+    expect(getChosenFeats({
+      ...knight,
+      classLevels: [{ classId: "duskblade", level: 2 }],
+    })).toContain("combat-casting");
+    const dragonShaman = cloneCharacter(initialCharacter);
+    dragonShaman.classLevels = [{ classId: "dragon-shaman", level: 1 }];
+    dragonShaman.alignment = "Neutral Good";
+    dragonShaman.dragonShamanTotem = "Gold";
+    dragonShaman.dragonShamanAuras = ["Power", "Toughness", "Vigor"];
+    expect(getLevelUpAlignmentWarnings(dragonShaman, "dragon-shaman")).toEqual([]);
+    expect(getClassFeatureDisplay(dragonShaman).map(({ ability }) => ability))
+      .toContain("Totem Dragon: Gold");
+    expect(getClassFeatureDisplay(dragonShaman).map(({ ability }) => ability))
+      .toContain("Draconic Auras: Power, Toughness, Vigor");
+    expect(isClassSkill(dragonShaman, "Disguise", "dragon-shaman")).toBe(true);
+    expect(isClassSkill(dragonShaman, "Appraise", "dragon-shaman")).toBe(false);
+    const beguilerOriginal = cloneCharacter(initialCharacter);
+    beguilerOriginal.abilities.int = 14;
+    beguilerOriginal.classLevels = [{ classId: "beguiler", level: 2 }];
+    const beguilerLevelThree = cloneCharacter(beguilerOriginal);
+    beguilerLevelThree.classLevels = [{ classId: "beguiler", level: 3 }];
+    expect(getLevelUpSpellWarnings(beguilerOriginal, beguilerLevelThree))
+      .toContain("Choose exactly 1 Advanced Learning spell.");
+    beguilerLevelThree.beguilerAdvancedLearning = ["Ventriloquism"];
+    expect(getLevelUpSpellWarnings(beguilerOriginal, beguilerLevelThree)).toEqual([]);
+
+    const barbarian = cloneCharacter(initialCharacter);
+    barbarian.classLevels = [{ classId: "barbarian", level: 1 }];
+    barbarian.alternativeClassFeatures = { barbarian: ["Berserker Strength"] };
+    expect(getClassFeatureDisplay(barbarian)).toContainEqual(expect.objectContaining({
+      ability: "Berserker Strength",
+    }));
+    expect(getClassFeatureDisplay(barbarian)).not.toContainEqual(expect.objectContaining({
+      ability: "Rage",
+    }));
   });
 
   const normalizeFeatName = (name: string) => name.replace(/[’']/g, "'");
@@ -6964,8 +7062,10 @@ describe("provided-book feat inventory", () => {
     );
     expect(practicedSpellcasterFeats.map(({ id }) => id).sort()).toEqual([
       "practiced-spellcaster-bard",
+      "practiced-spellcaster-beguiler",
       "practiced-spellcaster-cleric",
       "practiced-spellcaster-druid",
+      "practiced-spellcaster-duskblade",
       "practiced-spellcaster-mystic",
       "practiced-spellcaster-paladin",
       "practiced-spellcaster-ranger",
@@ -7403,8 +7503,10 @@ describe("provided-book feat inventory", () => {
       "glorious-weapons",
       "improved-smiting",
       "practiced-spellcaster-bard",
+      "practiced-spellcaster-beguiler",
       "practiced-spellcaster-cleric",
       "practiced-spellcaster-druid",
+      "practiced-spellcaster-duskblade",
       "practiced-spellcaster-mystic",
       "practiced-spellcaster-paladin",
       "practiced-spellcaster-ranger",

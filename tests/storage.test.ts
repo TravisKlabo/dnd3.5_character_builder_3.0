@@ -62,6 +62,11 @@ describe("character persistence", () => {
     character.manifesterLevel = 3;
     character.skirmishDamageDice = 2;
     character.skirmishACBonus = 1;
+    character.dragonShamanTotem = "Gold";
+    character.dragonShamanAuras = ["Power", "Toughness", "Vigor"];
+    character.alternativeClassFeatures = {
+      barbarian: ["Berserker Strength"],
+    };
     character.race = "Gnome";
     character.shieldBlindingUsesByItem = {
       "Blinding +1 Heavy Steel Shield (Medium)": 1,

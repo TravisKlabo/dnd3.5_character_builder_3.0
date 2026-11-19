@@ -16,6 +16,60 @@ const spellNameAliases: Record<string, string> = {
   "otto's irresistible dance": "irresistible dance",
   "rary's telepathic bond": "telepathic bond",
   "tasha's hideous laughter": "hideous laughter",
+  "dance of blades": "dancing blade",
+  "whelming burst": "whelming blast",
+};
+
+const beguilerSpellLevels: Record<string, number> = {
+  "Dancing Lights": 0, "Daze": 0, "Detect Magic": 0, "Ghost Sound": 0,
+  "Message": 0, "Open/Close": 0, "Read Magic": 0,
+  "Charm Person": 1, "Color Spray": 1, "Comprehend Languages": 1,
+  "Detect Secret Doors": 1, "Disguise Self": 1, "Expeditious Retreat": 1,
+  "Hypnotism": 1, "Mage Armor": 1, "Obscuring Mist": 1, "Silent Image": 1,
+  "Sleep": 1, "Undetectable Alignment": 1,
+  "Blur": 2, "Daze Monster": 2, "Detect Thoughts": 2, "Fog Cloud": 2,
+  "Glitterdust": 2, "Hypnotic Pattern": 2, "Invisibility": 2, "Knock": 2,
+  "Minor Image": 2, "Mirror Image": 2, "Misdirection": 2,
+  "See Invisibility": 2, "Silence": 2, "Spider Climb": 2, "Touch of Idiocy": 2,
+  "Arcane Sight": 3, "Clairaudience/Clairvoyance": 3, "Deep Slumber": 3,
+  "Dispel Magic": 3, "Displacement": 3, "Glibness": 3, "Haste": 3,
+  "Hold Person": 3, "Invisibility Sphere": 3, "Major Image": 3,
+  "Nondetection": 3, "Slow": 3, "Suggestion": 3, "Zone of Silence": 3,
+  "Charm Monster": 4, "Confusion": 4, "Crushing Despair": 4,
+  "Freedom of Movement": 4, "Invisibility, Greater": 4, "Locate Creature": 4,
+  "Rainbow Pattern": 4, "Solid Fog": 4,
+  "Break Enchantment": 5, "Dominate Person": 5, "Feeblemind": 5,
+  "Hold Monster": 5, "Mind Fog": 5, "Telepathic Bond": 5, "Seeming": 5,
+  "Sending": 5,
+  "Dispel Magic, Greater": 6, "Suggestion, Mass": 6, "Mislead": 6,
+  "Repulsion": 6, "Shadow Walk": 6, "True Seeing": 6, "Veil": 6,
+  "Ethereal Jaunt": 7, "Arcane Sight, Greater": 7, "Hold Person, Mass": 7,
+  "Invisibility, Mass": 7, "Phase Door": 7, "Power Word Blind": 7,
+  "Project Image": 7, "Spell Turning": 7,
+  "Demand": 8, "Discern Location": 8, "Mind Blank": 8,
+  "Moment of Prescience": 8, "Power Word Stun": 8, "Scintillating Pattern": 8,
+  "Screen": 8,
+  "Dominate Monster": 9, "Etherealness": 9, "Foresight": 9,
+  "Hold Monster, Mass": 9, "Power Word Kill": 9, "Time Stop": 9,
+};
+
+const duskbladeSpellLevels: Record<string, number> = {
+  "Acid Splash": 0, "Disrupt Undead": 0, "Ray of Frost": 0, "Touch of Fatigue": 0,
+  "Burning Hands": 1, "Cause Fear": 1, "Chill Touch": 1, "Color Spray": 1,
+  "Jump": 1, "Magic Weapon": 1, "Obscuring Mist": 1, "Ray of Enfeeblement": 1,
+  "Resist Energy": 1, "Shocking Grasp": 1, "Expeditious Retreat": 1,
+  "True Strike": 1,
+  "Bear's Endurance": 2, "Bull's Strength": 2, "Cat's Grace": 2,
+  "Darkvision": 2, "Ghoul Touch": 2, "Melf's Acid Arrow": 2,
+  "Scorching Ray": 2, "See Invisibility": 2, "Spider Climb": 2,
+  "Touch of Idiocy": 2, "Swift Fly": 2, "Swift Invisibility": 2,
+  "Magic Weapon, Greater": 3, "Keen Edge": 3, "Protection from Energy": 3,
+  "Ray of Exhaustion": 3, "Vampiric Touch": 3,
+  "Interposing Hand": 4, "Dimension Door": 4, "Dispel Magic": 4,
+  "Enervation": 4, "Fire Shield": 4, "Phantasmal Killer": 4, "Shout": 4,
+  "Clenched Fist": 5, "Chain Lightning": 5, "Disintegrate": 5,
+  "Hold Monster": 5, "Polar Ray": 5, "Waves of Fatigue": 5,
+  "Swift Expeditious Retreat": 1,
 };
 
 export function getSrdSpellSourceBook(spell: Pick<SrdSpell, "sourceBook">) {
@@ -53,8 +107,9 @@ export function loadSpellCatalog(): Promise<void> {
     import("../srdSpells"),
     import("./dragonlanceSpells"),
     import("./monsterManualSpells"),
-  ]).then(([{ srdSpells }, { dragonlanceSpells }, { monsterManualSpells }]) => {
-    spells.push(...srdSpells, ...dragonlanceSpells, ...monsterManualSpells);
+    import("./phb2Spells"),
+  ]).then(([{ srdSpells }, { dragonlanceSpells }, { monsterManualSpells }, { phb2Spells }]) => {
+    spells.push(...srdSpells, ...dragonlanceSpells, ...monsterManualSpells, ...phb2Spells);
     for (const spell of spells) {
       if (!spellsByName.has(spell.name)) spellsByName.set(spell.name, spell);
       const normalizedName = normalizeSpellName(spell.name);
@@ -98,6 +153,30 @@ export function getClassSpells(
   const whiteWizardAccess = classId === "wizard" && character?.highSorceryOrder === "white";
   const cacheKey = `${classId}:${ruleset}:${whiteWizardAccess ? "white" : "standard"}`;
   let entries = spellsByClass.get(cacheKey);
+  const fixedClassSpellLevels =
+    classId === "beguiler" ? beguilerSpellLevels :
+    classId === "duskblade" ? duskbladeSpellLevels :
+    undefined;
+  if (!entries && fixedClassSpellLevels) {
+    const levelsByNormalizedName = new Map(
+      Object.entries(fixedClassSpellLevels).map(([name, level]) =>
+        [normalizeSpellName(name), level] as const,
+      ),
+    );
+    entries = spells.filter((spell) =>
+      levelsByNormalizedName.has(normalizeSpellName(spell.name)),
+    ).map((spell) => ({
+      ...spell,
+      level: levelsByNormalizedName.get(normalizeSpellName(spell.name)) ?? spell.level,
+    }));
+    entries.push(...spells.filter((spell) =>
+      spell.classes.includes(classId),
+    ).map((spell) => ({ ...spell })));
+    entries = [...new Map(entries.map((spell) =>
+      [normalizeSpellName(spell.name), spell] as const,
+    )).values()];
+    spellsByClass.set(cacheKey, entries);
+  }
   if (!entries && isIndependentSpellcastingClass(classId)) {
     entries = Object.entries(dragonlancePrestigeClasses[classId].referenceSpellList?.levels ?? {})
       .flatMap(([level, names]) => names.flatMap((name) => {

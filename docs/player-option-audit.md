@@ -1245,15 +1245,14 @@ of class features, bonus feats, familiars, and special mounts. Epic feats are
 covered as noted above; the epic class progressions and epic companion
 advancement remain outside the verified implementation.
 
-## Player's Handbook II: initial source inventory
+## Player's Handbook II: certified source inventory
 
 The contents page (PDF p. 4) identifies four new base classes in Chapter 1:
 Beguiler (p. 6), Dragon Shaman (p. 11), Duskblade (p. 19), and Knight (p. 24).
-None appears in the current `ClassId` type or `classDefinitions` in
-[domain.ts](../src/domain.ts), so all four are confirmed class-catalog gaps.
-The source progressions and features for all four classes are inventoried
-below. The Beguiler and Duskblade spell-list/access checks are recorded in the
-Chapter 4 audit; no production class definitions have been added.
+All four are now implemented in [domain.ts](../src/domain.ts) and retain the
+sourcebook-specific 20-level chassis, features, casting, proficiencies,
+alignment restrictions, and skill lists. Beguiler and Duskblade spell access
+is connected to the complete Chapter 4 and legacy PHB spell lists below.
 
 #### Beguiler (printed pp. 6–8)
 
@@ -1274,9 +1273,10 @@ and short sword, plus light armor but no shields.
 | 6 | Improved Surprise Casting | Feint as a move action, or as a swift action with Improved Feint. |
 | 8, 14, 20 | Cloaked Casting improvements | At 8th, gain +2 on caster-level checks to overcome spell resistance; at 14th, the save DC bonus becomes +2; at 20th, automatically overcome spell resistance. |
 
-The class table is the source for its 20-level base attack, saves, and daily
-spell progression. These source rules identify a catalog gap only; no
-production class definition has been added.
+The class table's 20-level base attack, saves, daily spell progression, and
+automatic full-list spell knowledge are implemented. Advanced Learning
+selections are persisted through five milestone choices and restricted to new
+Sorcerer/Wizard enchantment or illusion spells of a castable level.
 
 #### Dragon Shaman (printed pp. 11–14, 18)
 
@@ -1320,8 +1320,9 @@ Adaptation.
 | 19 | Draconic Wings | Gain a 60-foot fly speed with good maneuverability, reduced to 40 feet while carrying a medium load. |
 
 The table on printed p. 12 supplies the complete base attack, save, aura, and
-breath-damage progression; totem and aura choices make this more than a
-single fixed feature track. No production class definition has been added.
+breath-damage progression. Totem alignment, the totem's three extra class
+skills, and the aura progression are selectable, persistent, and printable;
+the supernatural/combat effects remain described manual boundaries.
 
 #### Duskblade (printed pp. 19–21)
 
@@ -1346,8 +1347,10 @@ Sense Motive, Spellcraft, and Swim.
 | 5, 10, 15, 20 | Quick Cast | Cast one spell with a casting time of 1 standard action or less as a swift action, respectively 1, 2, 3, or 4 times per day. |
 | 6, 11, 16, 18 | Spell Power | After injuring an opponent with a melee attack, gain +2 on caster-level checks to overcome spell resistance for the rest of the encounter; the bonus increases to +3, +4, and +5 at the listed levels. |
 
-The class's limited spell list and spell-level access remain part of the Chapter
-4 spell audit. No production class definition has been added.
+The limited Duskblade list is implemented, including the three PHB II fallback
+Swift spell versions when the named external spell source is unavailable.
+Its known-spell limits, replacement schedule, armored-mage failure exceptions,
+and bonus Combat Casting feat are enforced.
 
 #### Knight (printed pp. 24–28, 30)
 
@@ -1381,7 +1384,9 @@ shields. Class skills are Climb, Handle Animal, Intimidate, Jump, Knowledge
 The printed table supplies the complete 20-level attack, save, and feature
 progression. Knight's Challenge and its dependent features, alignment/code
 restrictions, and bonus-feat choices are material implementation requirements;
-no production class definition has been added.
+the production class definition is selectable, persists, and prints. Knight
+bonus-feat slots at levels 5, 10, and 15 are restricted to the ten PHB II
+choices, including Weapon Focus (lance).
 
 Chapter 2, "Expanded Classes" (pp. 31–70), covers Barbarian, Bard, Cleric,
 Druid, Favored Soul, Fighter, Hexblade, Marshal, Monk, Paladin, Ranger, Rogue,
@@ -1394,8 +1399,7 @@ replacement levels, and core benefits are inventoried in the table below and
 were visually checked against all 21 printed feature entries across the 18
 class sections.
 
-An initial spot-check confirms these selectable alternatives are not present in
-the current TypeScript catalog:
+All 21 selectable alternatives are now cataloged:
 
 | Class | Alternative feature | Replaces / notes | PHB II page |
 |---|---|---|---:|
@@ -1441,20 +1445,25 @@ confirms Dark Companion's 4th-level creation cost and its -2 penalty to
 adjacent enemies' AC and saves. Additional visual checks of printed pp. 51, 57,
 59, 61, 63, and 65–68 confirm the Monk, Rogue, Scout, Sorcerer, Swashbuckler,
 Warlock, Warmage, and Wizard entries. This completes the targeted visual pass
-over the PHB II alternative class features.
+over the PHB II alternative class features. Current alternatives for
+implemented base classes persist and replace the relevant default feature or
+feat slot. The seven alternatives for Favored Soul, Hexblade, Marshal, Scout,
+Swashbuckler, Warlock, and Warmage are retained as source-backed catalog rows;
+their selectors activate when those base classes are certified from the later
+Complete sourcebooks.
 
-Chapter 3's 105 feats are already cataloged and inventoried in
+Chapter 3's 105 feats are cataloged and inventoried in
 [rules-coverage.md](./rules-coverage.md); that inventory should not be
 duplicated. A selected visual mechanics pass of printed pp. 71–75 checked
 *Acrobatic Strike*, *Active Shield Defense*, *Adaptable Flanker*, *Agile Shield
 Fighter*, and *Arcane Accompaniment*; the catalog summaries were clarified and
-the effects remain manual. Chapter 4 contains new spells (pp. 95–128), but the
-current spell loader imports the SRD and Dragonlance catalogs only. The initial
-PHB II spell inventory has 122 name candidates; the Chapter 4 class-list checks
-and the cross-check against the full Beguiler and Duskblade lists are complete,
-with three source discrepancies recorded below. A normalized-name comparison
-against the current spell catalog also found no matches; this does not verify
-mechanics or source attribution. The contents list no dedicated race or
+the effects remain manual. Chapter 4 contains 124 distinct description headings after the final page-by-
+page visual/OCR reconciliation. Its complete class-specific level access is
+loaded lazily with source summaries and printed spell metadata. The initial
+122-title class-list extraction omitted/merged several heading variants;
+*Dance of Blades* versus *Dancing Blade* and *Whelming Burst* versus
+*Whelming Blast* are retained as aliases/source discrepancies rather than
+duplicate catalog spells. The contents list no dedicated race or
 subrace chapter. It does include Race Rebuilding
 (p. 198), a rebuild-quest procedure for changing an existing character's
 race, not a new playable race or subrace. It addresses racial traits, feat
@@ -1465,25 +1474,26 @@ Dice; the latter specifically calls for DM approval.
 
 The Chapter 4 class lists (printed pp. 96–101; PDF pp. 97–102) have been
 re-extracted and reconciled against the spell descriptions (printed
-pp. 101–128). The cleaned list extraction identifies 122 distinct spell-title
-candidates across the Assassin, Bard, Beguiler, Blackguard, Cleric, Druid,
-Duskblade, Paladin, Ranger, and Sorcerer/Wizard lists. Of these, 117 match
-description-title OCR exactly. Visual checks corrected four OCR misreads:
+pp. 101–128). The cleaned class-list extraction identifies 122 list candidates
+across the Assassin, Bard, Beguiler, Blackguard, Cleric, Druid, Duskblade,
+Paladin, Ranger, and Sorcerer/Wizard lists. The page-by-page description pass
+identified 124 distinct heading blocks; the two extra headings are included in
+the implemented catalog and were missed or merged by the earlier line-based
+list OCR. Visual checks corrected four OCR misreads:
 *Blade of Bload* to *Blade of Blood* (p. 103), *Wheim, Mass* to *Whelm, Mass*
 (p. 128), *Chain Dispei* to *Chain Dispel* (p. 105), and *Summon Galem* to
 *Summon Golem* (p. 126). The remaining title conflict is *Dance of Blades* in
-the class list versus *Dancing Blade* in its description. Thus all 122 list
-candidates are accounted for in the description section, with the title
-conflict preserved rather than silently normalized. The earlier 119-title
-count came from mixed, noisy OCR and is superseded; it was not a reliable
-unique-spell count. The two dual-school entries (*Doom Scarabs* and *Slashing
+the class list versus *Dancing Blade* in its description. The production
+catalog contains 124 Chapter 4 records and three PHB II Duskblade fallback
+Swift spells, with title conflicts represented as aliases rather than
+duplicate records. The two dual-school entries (*Doom Scarabs* and *Slashing
 Dispel*) are each one spell and do not add distinct titles.
 
-The 122 candidate titles have no normalized-name matches among the 716 SRD
-and 27 Dragonlance spell records currently in the project, using the existing
-`normalizeSpellName` rules. This is a name-only comparison, not a confirmation
-of mechanics or a final implementation gap list; near-duplicates and
-source-specific aliases still need review.
+The Chapter 4 spell catalog has no normalized-name matches among the SRD and
+Dragonlance spell records. Schools and ordinary casting metadata are loaded
+from the reconciled description blocks; truncated OCR fields are retained as an
+explicit "see source text" boundary instead of guessing. Full combat effects
+remain source-adjudicated where the character model cannot encode them.
 
 Source-page cross-checks of the Assassin, Bard, Beguiler, Blackguard, Druid,
 Duskblade, Paladin, and Ranger lists found their class levels in the spell

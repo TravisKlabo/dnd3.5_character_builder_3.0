@@ -562,6 +562,25 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Sense Motive",
     "Speak Language",
   ],
+  beguiler: [
+    "Appraise", "Balance", "Bluff", "Climb", "Concentration", "Decipher Script",
+    "Diplomacy", "Disable Device", "Disguise", "Escape Artist", "Forgery",
+    "Gather Information", "Hide", "Jump", "Knowledge (arcana)", "Knowledge (local)",
+    "Listen", "Move Silently", "Open Lock", "Profession", "Search", "Sense Motive",
+    "Sleight of Hand", "Speak Language", "Spellcraft", "Spot", "Swim", "Tumble",
+    "Use Magic Device",
+  ],
+  "dragon-shaman": [
+    "Climb", "Craft", "Intimidate", "Knowledge (nature)", "Search",
+  ],
+  duskblade: [
+    "Climb", "Concentration", "Craft", "Decipher Script", "Jump", "Knowledge (*)",
+    "Ride", "Sense Motive", "Spellcraft", "Swim",
+  ],
+  knight: [
+    "Climb", "Handle Animal", "Intimidate", "Jump", "Knowledge (nobility and royalty)",
+    "Ride", "Swim",
+  ],
 };
 
 export { featCatalog } from "./featCatalogRegistry";
@@ -576,6 +595,38 @@ export const abilityLabels: Record<AbilityName, string> = {
   wis: "WIS",
   cha: "CHA",
 };
+
+export interface AlternativeClassFeature {
+  name: string;
+  className: string;
+  level: number;
+  replaces: string;
+  description: string;
+}
+
+export const alternativeClassFeatures: AlternativeClassFeature[] = [
+  { name: "Berserker Strength", className: "Barbarian", level: 1, replaces: "Rage", description: "When below 5 × Barbarian level hp, gain +4 Strength, +2 saves, DR 2/—, and -2 AC; improves at levels 11 and 20." },
+  { name: "Bardic Knack", className: "Bard", level: 1, replaces: "Bardic Knowledge", description: "Use half Bard level instead of ranks for untrained skill checks; trained-only skills still require a rank and you cannot take 10." },
+  { name: "Spontaneous Domain Casting", className: "Cleric", level: 1, replaces: "Spontaneous Cure/Inflict Casting", description: "Spontaneously cast a selected domain spell by sacrificing a prepared spell of the same level." },
+  { name: "Spontaneous Rejuvenation", className: "Druid", level: 1, replaces: "Spontaneous Summon Nature's Ally", description: "Sacrifice a prepared spell to grant yourself and allies within 30 feet fast healing equal to its level for 3 rounds." },
+  { name: "Shapeshift", className: "Druid", level: 5, replaces: "Wild Shape", description: "Use level-based supernatural combat forms at will as a swift action while retaining HD, hp, BAB, saves, and skills; resolve form limits manually." },
+  { name: "Deity's Favor", className: "Favored Soul", level: 3, replaces: "Deity-specific weapon specialization", description: "When casting a divine spell, an affected creature gains temporary hp equal to 3 × the spell level for 1 minute per spell level." },
+  { name: "Elusive Attack", className: "Fighter", level: 6, replaces: "Fighter Bonus Feat", description: "Full-round single attack grants scaling +2 dodge AC until your next turn, improving every five Fighter levels." },
+  { name: "Counterattack", className: "Fighter", level: 12, replaces: "Fighter Bonus Feat", description: "Full-round single melee attack allows one immediate melee counterattack before your next turn." },
+  { name: "Overpowering Attack", className: "Fighter", level: 16, replaces: "Fighter Bonus Feat", description: "A full-round attack deals double damage, as do your other attacks before your next turn." },
+  { name: "Dark Companion", className: "Hexblade", level: 4, replaces: "Familiar", description: "A 5-foot illusory companion causes adjacent enemies to take -2 to AC and saves; requires 24 hours and 100 gp to create." },
+  { name: "Adrenaline Boost", className: "Marshal", level: 4, replaces: "Grant Move Action", description: "Once per day as a standard action, grant nearby allies temporary hp equal to class level, doubled for badly injured allies." },
+  { name: "Decisive Strike", className: "Monk", level: 1, replaces: "Flurry of Blows", description: "Full-round single attack at -2 deals double damage; penalty lessens and additional attacks become available at higher Monk levels." },
+  { name: "Charging Smite", className: "Paladin", level: 5, replaces: "Special Mount", description: "When smiting evil on a charge, add 2 damage per Paladin level; a miss does not expend the smite." },
+  { name: "Distracting Attack", className: "Ranger", level: 4, replaces: "Animal Companion", description: "A weapon hit makes the target count as flanked by allies until an ally attacks it or your next turn begins." },
+  { name: "Disruptive Attack", className: "Rogue", level: 4, replaces: "Sneak Attack +2d6", description: "Sacrifice sneak-attack dice on a flat-footed or flanked target to impose -5 AC for 1 round, even against sneak-attack-immune creatures." },
+  { name: "Dungeon Specialist", className: "Scout", level: 3, replaces: "Movement and Evasion Features", description: "Gain a climb speed and wall-adjacent AC/flank defense, trading away fast movement/evasion features." },
+  { name: "Metamagic Specialist", className: "Sorcerer", level: 1, replaces: "Summon Familiar", description: "Apply metamagic without increasing casting time 3 + Intelligence modifier times per day." },
+  { name: "Shield of Blades", className: "Swashbuckler", level: 5, replaces: "Dodge progression", description: "Gain +2 shield AC while attacking with at least two light weapons, increasing every five levels; lost in medium/heavy load or armor." },
+  { name: "Fiendish Flamewreath", className: "Warlock", level: 8, replaces: "Fiendish Resilience", description: "Once per day surround yourself with flame for up to 2 minutes; creatures striking with body or handheld weapons take scaling fire damage." },
+  { name: "Eclectic Learning", className: "Warmage", level: 3, replaces: "Advanced Learning", description: "Add a Sorcerer/Wizard spell of any school to the class list at one level higher than normal." },
+  { name: "Immediate Magic", className: "Wizard", level: 1, replaces: "Summon Familiar", description: "Specialist-only school spell-like ability used as an immediate action, a number of times per day equal to Intelligence modifier." },
+];
 
 export const startingClassFeatures: Partial<Record<ClassId, string[]>> = {
   barbarian: ["Rage", "Fast Movement"],
@@ -597,6 +648,10 @@ export const startingClassFeatures: Partial<Record<ClassId, string[]>> = {
   wizard: ["Scribe Scroll", "Spellbook", "Summon Familiar"],
   mystic: ["Domain", "Divine Spellcasting"],
   noble: ["Bonus Class Skill", "Favor +1"],
+  beguiler: ["Armored Mage", "Trapfinding"],
+  "dragon-shaman": ["Draconic Aura", "Totem Dragon"],
+  duskblade: ["Arcane Attunement", "Armored Mage (Light)"],
+  knight: ["Knight's Challenge", "Knight's Code", "Fighting Challenge +1"],
 };
 
 const inspireCourageDescription =

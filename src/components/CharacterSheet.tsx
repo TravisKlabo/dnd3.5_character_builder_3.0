@@ -1,17 +1,18 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
+import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, dragonShamanAuras, dragonShamanTotems, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
 import "../data/equipmentCatalog";
 import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSkillPointsPerLevel, getSpentSkillPoints, getAvailableSkillCount, getAvailableSkillTricks, getAvailableSkillTrickGrants, getSkillTrickGrantFeatSlots, getSkillTrickLimit, getSkillTrickSelections, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getAvailableFeatSpellMasteryChoices, getFeatSpellMasteryChoiceCount, getWizardSpellbookSpells, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier, requiresManualClericUndeadTurningMode } from "../rules";
 import { type CombatAttackMode, type CombatCastingContext, type SkillSynergyContext } from "../rules";
-import { getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay } from "../rules";
+import { getEncumbrance, getArmorNonproficiencyPenalties, getClassFeatureDisplay, getDailySpellSlots } from "../rules";
 import { getWizardBonusFeatWarnings } from "../rules";
 import { getMovement } from "../movementRules";
-import { abilities, skills, skillDescriptions, abilityLabels, featCatalog } from "../data/characterCatalog";
+import { abilities, skills, skillDescriptions, abilityLabels, featCatalog, alternativeClassFeatures } from "../data/characterCatalog";
 import { skillTrickCatalog } from "../data/skillTricks";
 import { classFeatureDescriptions } from "../data/classFeatureDescriptions";
 import { prestigeClassFeatureDescriptions } from "../data/prestigeClassFeatureDescriptions";
 import { getDuelistImprovedReactionBonus } from "../rules";
 import { Panel, Stat, ArmorClassStat, SavingThrowStat, DodgeTargetControl, AttacksOfOpportunityStat, CombatCastingContextControl, ContentSourceLabel } from "./shared";
+import { getClassSpells } from "../data/spellCatalog";
 import { RangerFavoredEnemies } from "./RangerFavoredEnemies";
 import { SpellPicker } from "./pickers";
 import { type HitPointAction, getCurrentHitPoints, getMaximumHitPoints } from "../hitPoints";
@@ -180,7 +181,7 @@ export function CharacterSheet({
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   onCharacterFeatureChange: (
-    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed" | "hasPowerPointReserve" | "hasKiPower" | "hasKiStrikeMagic" | "hasAllMartialWeaponProficiencies" | "hasStealSpell" | "hasSwashbucklerGrace" | "hasConjurationHealingSpell" | "hasSpontaneousCureOrInflict" | "hasCureWoundsSpell" | "hasSummonNaturesAllySpell" | "hasInflictWoundsSpell" | "canTurnElementalSubtype" | "canRebukeElementalSubtype" | "hasFastWildShape" | "hasWarmageLevelFour" | "hasGraduatedFromApprenticeship" | "hasMentorSkillPrerequisites" | "isGuildMember" | "hasGuildmasterPrerequisites" | "hasCompletedBondingRitual" | "hasRechargeableBreathWeapon" | "hasDetectMagicAccess" | "isThoonAffiliate" | "divineCasterLevel" | "clericUndeadTurningMode" | "manifesterLevel" | "skirmishDamageDice" | "skirmishACBonus">>,
+    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed" | "hasPowerPointReserve" | "hasKiPower" | "hasKiStrikeMagic" | "hasAllMartialWeaponProficiencies" | "hasStealSpell" | "hasSwashbucklerGrace" | "hasConjurationHealingSpell" | "hasSpontaneousCureOrInflict" | "hasCureWoundsSpell" | "hasSummonNaturesAllySpell" | "hasInflictWoundsSpell" | "canTurnElementalSubtype" | "canRebukeElementalSubtype" | "hasFastWildShape" | "hasWarmageLevelFour" | "hasGraduatedFromApprenticeship" | "hasMentorSkillPrerequisites" | "isGuildMember" | "hasGuildmasterPrerequisites" | "hasCompletedBondingRitual" | "hasRechargeableBreathWeapon" | "hasDetectMagicAccess" | "isThoonAffiliate" | "divineCasterLevel" | "clericUndeadTurningMode" | "manifesterLevel" | "skirmishDamageDice" | "skirmishACBonus" | "alternativeClassFeatures" | "dragonShamanTotem" | "dragonShamanAuras" | "beguilerAdvancedLearning">>,
   ) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
@@ -2003,6 +2004,125 @@ export function CharacterSheet({
           </div>
           <div className="abilities-column">
             <h3>Special Abilities</h3>
+            {getBaseClassLevel(character, "dragon-shaman") > 0 && (
+              <div>
+                <label>
+                  Totem Dragon
+                  <select
+                    value={character.dragonShamanTotem ?? ""}
+                    disabled={!editable}
+                    onChange={(event) =>
+                      onCharacterFeatureChange({
+                        dragonShamanTotem: (event.target.value || undefined) as Character["dragonShamanTotem"],
+                      })
+                    }
+                  >
+                    <option value="">Choose a totem</option>
+                    {dragonShamanTotems.map((totem) => (
+                      <option key={totem} value={totem}>{totem}</option>
+                    ))}
+                  </select>
+                </label>
+                <fieldset>
+                  <legend>Draconic Auras</legend>
+                  {dragonShamanAuras.map((aura) => (
+                    <label key={aura}>
+                      <input
+                        type="checkbox"
+                        disabled={!editable}
+                        checked={(character.dragonShamanAuras ?? []).includes(aura)}
+                        onChange={(event) => {
+                          const current = character.dragonShamanAuras ?? [];
+                          onCharacterFeatureChange({
+                            dragonShamanAuras: event.currentTarget.checked
+                              ? [...current, aura]
+                              : current.filter((selection) => selection !== aura),
+                          });
+                        }}
+                      />
+                      {aura}
+                    </label>
+                  ))}
+                </fieldset>
+              </div>
+            )}
+            {getBaseClassLevel(character, "beguiler") >= 3 && (
+              <div className="beguiler-advanced-learning">
+                <strong>Beguiler Advanced Learning</strong>
+                {Array.from(
+                  {
+                    length: [3, 7, 11, 15, 19].filter(
+                      (level) => level <= getBaseClassLevel(character, "beguiler"),
+                    ).length,
+                  },
+                  (_, index) => (
+                    <Suspense key={index} fallback={<PickerLoading className="spell-picker" label="Loading advanced-learning spells..." />}>
+                      <SpellPicker
+                        spells={getClassSpells("sorcerer", character.ruleset, character)
+                          .filter((spell) =>
+                            /^(?:Enchantment|Illusion)/.test(spell.school) &&
+                            !getClassSpells("beguiler", character.ruleset, character)
+                              .some((beguilerSpell) => beguilerSpell.name === spell.name) &&
+                            getDailySpellSlots(character, "beguiler", getBaseClassLevel(character, "beguiler"), spell.level) > 0,
+                          )}
+                        selected={character.beguilerAdvancedLearning?.[index]}
+                        disabled={!editable}
+                        placeholder={`Advanced Learning ${index + 1}`}
+                        onChange={(spell) => {
+                          const next = [...(character.beguilerAdvancedLearning ?? [])];
+                          next[index] = spell;
+                          onCharacterFeatureChange({ beguilerAdvancedLearning: next });
+                        }}
+                      />
+                    </Suspense>
+                  ),
+                )}
+              </div>
+            )}
+            {editable && character.classLevels.some((entry) =>
+              !("prestigeClassId" in entry) &&
+              alternativeClassFeatures.some((feature) =>
+                feature.className === classDefinitions[entry.classId].name &&
+                feature.level <= entry.level,
+              ),
+            ) && (
+              <div className="alternative-class-features">
+                {character.classLevels.filter((entry) => !("prestigeClassId" in entry)).map((entry) => {
+                  if ("prestigeClassId" in entry) return null;
+                  const options = alternativeClassFeatures.filter((feature) =>
+                    feature.className === classDefinitions[entry.classId].name &&
+                    feature.level <= entry.level,
+                  );
+                  if (!options.length) return null;
+                  return (
+                    <div key={entry.classId}>
+                      <strong>{classDefinitions[entry.classId].name} alternative features</strong>
+                      {options.map((feature) => (
+                        <label key={feature.name}>
+                          <input
+                            type="checkbox"
+                            checked={(character.alternativeClassFeatures?.[entry.classId] ?? []).includes(feature.name)}
+                            onChange={(event) => {
+                              const current = character.alternativeClassFeatures?.[entry.classId] ?? [];
+                              const next = event.currentTarget.checked
+                                ? [...new Set([...current, feature.name])]
+                                : current.filter((name) => name !== feature.name);
+                              onCharacterFeatureChange({
+                                alternativeClassFeatures: {
+                                  ...character.alternativeClassFeatures,
+                                  [entry.classId]: next,
+                                },
+                              });
+                            }}
+                          />
+                          {feature.name} <span title={feature.description}>({feature.replaces} replacement)</span>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="special-abilities-list">
               {specialAbilities.map((specialAbility, index) => {
                 const { source, ability } = specialAbility;
@@ -2015,9 +2135,11 @@ export function CharacterSheet({
                   specialAbility.isPrestigeClass;
                 const featureDescription = isPrestigeClass
                   ? prestigeClassFeatureDescriptions[ability] ??
-                    classFeatureDescriptions[ability]
+                    classFeatureDescriptions[ability] ??
+                    alternativeClassFeatures.find((feature) => feature.name === ability)?.description
                   : classFeatureDescriptions[ability] ??
-                    prestigeClassFeatureDescriptions[ability];
+                    prestigeClassFeatureDescriptions[ability] ??
+                    alternativeClassFeatures.find((feature) => feature.name === ability)?.description;
                 return (
                   <div
                     className="special-ability"

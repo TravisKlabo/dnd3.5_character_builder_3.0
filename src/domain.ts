@@ -6,8 +6,11 @@ import type { ClericDomainId } from './data/clericDomains'
 export type AbilityName = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
 
 export type AbilityScores = Record<AbilityName, number>
+export const dragonShamanTotems = ['Black', 'Blue', 'Brass', 'Bronze', 'Copper', 'Gold', 'Green', 'Red', 'Silver', 'White'] as const
+export type DragonShamanTotem = typeof dragonShamanTotems[number]
+export const dragonShamanAuras = ['Energy Shield', 'Power', 'Presence', 'Resistance', 'Senses', 'Toughness', 'Vigor'] as const
 
-export type ClassId = 'barbarian' | 'bard' | 'cleric' | 'druid' | 'fighter' | 'monk' | 'paladin' | 'ranger' | 'rogue' | 'sorcerer' | 'wizard' | 'mystic' | 'noble'
+export type ClassId = 'barbarian' | 'bard' | 'cleric' | 'druid' | 'fighter' | 'monk' | 'paladin' | 'ranger' | 'rogue' | 'sorcerer' | 'wizard' | 'mystic' | 'noble' | 'beguiler' | 'dragon-shaman' | 'duskblade' | 'knight'
 export type IndependentSpellcastingClassId = 'assassin' | 'blackguard'
 export type SpellcastingClassId = ClassId | IndependentSpellcastingClassId
 export const dragonDiscipleBonusLevels = [1, 2, 4, 5, 6, 8, 9] as const
@@ -576,6 +579,10 @@ export interface Character {
     crownOfKnighthoodUsed?: boolean
   }
   classFeatures?: string[]
+  alternativeClassFeatures?: Partial<Record<ClassId, string[]>>
+  dragonShamanTotem?: DragonShamanTotem
+  dragonShamanAuras?: string[]
+  beguilerAdvancedLearning?: string[]
   customItems?: StoreItem[]
   deity?: string
   coreWizardSpecializationSchool?: MagicSchool
@@ -619,6 +626,10 @@ export const classDefinitions: Record<ClassId, ClassDefinition> = {
   cleric: { id: 'cleric', name: 'Cleric', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", hitDie: 8, skillPoints: 2, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
   mystic: { id: 'mystic', name: 'Mystic', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', hitDie: 8, skillPoints: 2, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
   noble: { id: 'noble', name: 'Noble', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'good', will: 'good', spellcasting: false },
+  beguiler: { id: 'beguiler', name: 'Beguiler', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 6, skillPoints: 6, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
+  'dragon-shaman': { id: 'dragon-shaman', name: 'Dragon Shaman', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: false },
+  duskblade: { id: 'duskblade', name: 'Duskblade', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 8, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
+  knight: { id: 'knight', name: 'Knight', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 12, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: false },
 }
 
 export const raceDefinitions: Record<string, RaceDefinition> = {

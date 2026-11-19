@@ -540,6 +540,30 @@ describe("application workflows", () => {
       .toBe("dragonlance-user-pack");
   });
 
+  it("persists PHB II alternative class features and Dragon Shaman totems", async () => {
+    const character = savedHero();
+    character.classLevels = [
+      { classId: "dragon-shaman", level: 1 },
+      { classId: "barbarian", level: 1 },
+    ];
+    character.alignment = "Neutral Good";
+    character.dragonShamanTotem = "Gold";
+    character.dragonShamanAuras = ["Power", "Toughness", "Vigor"];
+    character.alternativeClassFeatures = {
+      barbarian: ["Berserker Strength"],
+    };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+
+    const totem = await screen.findByLabelText("Totem Dragon");
+    fireEvent.change(totem, { target: { value: "Bronze" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(readStoredCharacter()).toMatchObject({
+      dragonShamanTotem: "Bronze",
+      alternativeClassFeatures: { barbarian: ["Berserker Strength"] },
+    });
+  });
+
   it("offers and saves the newly supported Dragonlance deities", async () => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
     vi.spyOn(window, "confirm").mockReturnValue(true);

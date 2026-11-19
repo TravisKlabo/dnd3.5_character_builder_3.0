@@ -1,4 +1,4 @@
-import { classDefinitions, deityDefinitions, dragonlancePrestigeClasses, isHorizonWalkerTerrainHistory, isRulesetId, magicSchools, raceDefinitions, type Character, type RulesetId } from "./domain";
+import { classDefinitions, deityDefinitions, dragonlancePrestigeClasses, dragonShamanAuras, dragonShamanTotems, isHorizonWalkerTerrainHistory, isRulesetId, magicSchools, raceDefinitions, type Character, type RulesetId } from "./domain";
 import { storeCategories, type StoreItem } from "./data/itemTypes";
 import { isIndependentSpellcastingClass, type SpellcastingClassId } from "./domain";
 import { skillTrickCatalog } from "./data/skillTricks";
@@ -413,6 +413,10 @@ export function assertCharacter(value: unknown): asserts value is Character {
       !["feats", "knownSpells", "preparedSpells", "languages"].every((key) => isStringList(value[key])) ||
       !["speakLanguages", "classFeatures", "racialSpellLikeUses"].every((key) =>
         value[key] === undefined || isStringList(value[key])) ||
+      (value.alternativeClassFeatures !== undefined &&
+        !isMap(value.alternativeClassFeatures, isStringList)) ||
+      (value.beguilerAdvancedLearning !== undefined &&
+        !isStringList(value.beguilerAdvancedLearning)) ||
       !isMap(value.featSelections, isString) ||
       (value.featWeaponSelections !== undefined && !isMap(value.featWeaponSelections, isString)) ||
       (value.featSkillSelections !== undefined && !isMap(value.featSkillSelections, isString)) ||
@@ -424,6 +428,13 @@ export function assertCharacter(value: unknown): asserts value is Character {
       (value.wizardSpecializationSchool !== undefined && !isMagicSchool(value.wizardSpecializationSchool)) ||
       (value.coreWizardSpecializationSchool !== undefined &&
         !isMagicSchool(value.coreWizardSpecializationSchool)) ||
+      (value.dragonShamanTotem !== undefined &&
+        !dragonShamanTotems.includes(value.dragonShamanTotem as never)) ||
+      (value.dragonShamanAuras !== undefined &&
+        (!isStringList(value.dragonShamanAuras) ||
+          value.dragonShamanAuras.length > dragonShamanAuras.length ||
+          new Set(value.dragonShamanAuras).size !== value.dragonShamanAuras.length ||
+          value.dragonShamanAuras.some((aura) => !dragonShamanAuras.includes(aura as never)))) ||
       (value.wizardBarredSchools !== undefined &&
         (!Array.isArray(value.wizardBarredSchools) ||
           value.wizardBarredSchools.length > 2 ||

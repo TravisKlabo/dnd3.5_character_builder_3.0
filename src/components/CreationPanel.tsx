@@ -1,10 +1,11 @@
-import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, abilityModifier } from "../domain";
+import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, dragonShamanAuras, dragonShamanTotems, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
 import "../data/equipmentCatalog";
-import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellMasterySelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
+import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, isDragonShamanTotemAlignmentAllowed, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellMasterySelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
 import { formatClassDetails, formatPrestigeClassDetails, formatRaceDetails, isHighSorceryAlignmentAllowed, isPrestigeClassEligible } from "../creationRules";
 import { alignmentDescriptions, abilityNames, pointBuyCosts, abilities } from "../data/characterCatalog";
 import { getClassSpells } from "../data/spellCatalog";
+import { alternativeClassFeatures } from "../data/characterCatalog";
 import { getMysticDomainOptions, isMysticDomainAllowed } from "../clericDomains";
 import { ContentSourceLabel, Panel } from "./shared";
 import { LanguagePicker } from "./pickers";
@@ -250,6 +251,13 @@ export function CreationPanel({
     creationErrors.push(...getDragonlanceRangerWarnings(draft, 1));
   if (dragonlanceRuleset && classId === "druid")
     creationErrors.push(...getDragonlanceDruidWarnings(draft));
+  if (classId === "dragon-shaman") {
+    if (!draft.dragonShamanTotem) creationErrors.push("Choose a totem dragon.");
+    else if (!isDragonShamanTotemAlignmentAllowed(draft.dragonShamanTotem, draft.alignment))
+      creationErrors.push("Choose a totem dragon within one alignment step of the Dragon Shaman.");
+    if ((draft.dragonShamanAuras?.length ?? 0) !== 3)
+      creationErrors.push("Choose three Dragon Shaman auras.");
+  }
   if (classId === "ranger")
     creationErrors.push(...getRangerFavoredEnemyWarnings(draft));
   if (dragonlanceRuleset && classId === "mystic") {
@@ -605,6 +613,76 @@ export function CreationPanel({
                 )}
               </div>
             </label>
+            {classId === "dragon-shaman" && (
+             <div>
+               <label>
+                 Totem Dragon
+                 <select
+                 value={draft.dragonShamanTotem ?? ""}
+                 onChange={(event) =>
+                   onChange(
+                     "dragonShamanTotem",
+                     (event.target.value || undefined) as Character["dragonShamanTotem"],
+                   )
+                 }
+               >
+                 <option value="">Choose a totem</option>
+                 {dragonShamanTotems.map((totem) => (
+                   <option key={totem} value={totem}>{totem}</option>
+                 ))}
+                 </select>
+               </label>
+               <fieldset>
+                 <legend>Draconic Auras (choose three)</legend>
+                 {dragonShamanAuras.map((aura) => (
+                   <label key={aura}>
+                     <input
+                       type="checkbox"
+                       checked={(draft.dragonShamanAuras ?? []).includes(aura)}
+                       onChange={(event) => {
+                         const current = draft.dragonShamanAuras ?? [];
+                         const next = event.currentTarget.checked
+                           ? [...current, aura]
+                           : current.filter((selection) => selection !== aura);
+                         onChange("dragonShamanAuras", next);
+                       }}
+                     />
+                     {aura}
+                   </label>
+                 ))}
+               </fieldset>
+             </div>
+            )}
+            {alternativeClassFeatures.some((feature) =>
+             feature.className === classDefinitions[classId].name &&
+             feature.level <= 1,
+            ) && (
+             <fieldset className="alternative-class-features">
+               <legend>{classDefinitions[classId].name} alternative class features</legend>
+               {alternativeClassFeatures.filter((feature) =>
+                 feature.className === classDefinitions[classId].name &&
+                 feature.level <= 1,
+               ).map((feature) => (
+                 <label key={feature.name}>
+                   <input
+                     type="checkbox"
+                     checked={(draft.alternativeClassFeatures?.[classId] ?? []).includes(feature.name)}
+                     onChange={(event) => {
+                       const current = draft.alternativeClassFeatures?.[classId] ?? [];
+                       const selected = event.currentTarget.checked
+                         ? [...new Set([...current, feature.name])]
+                         : current.filter((name) => name !== feature.name);
+                       onChange("alternativeClassFeatures", {
+                         ...draft.alternativeClassFeatures,
+                         [classId]: selected,
+                       });
+                     }}
+                   />
+                   {feature.name} <span title={feature.description}>({feature.replaces} replacement)</span>
+                 </label>
+               ))}
+             </fieldset>
+            )}
             {classId === "wizard" && (
               <CoreWizardSpecializationChoice
                 school={draft.coreWizardSpecializationSchool}

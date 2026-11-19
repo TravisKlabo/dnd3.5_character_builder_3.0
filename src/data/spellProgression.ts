@@ -17,6 +17,8 @@ export const bardKnownProgression = `4|5 2|6 3|6 3 2|6 4 3|6 4 3|6 4 4 2|6 4 4 3
 
 export const sorcererKnownProgression = `4 2|5 2|5 3|6 3 1|6 4 2|7 4 2 1|7 5 3 2|8 5 3 2 1|8 5 4 3 2|9 5 4 3 2 1|9 5 5 4 3 2|9 5 5 4 3 2 1|9 5 5 4 4 3 2|9 5 5 4 4 3 2 1|9 5 5 4 4 4 3 2|9 5 5 4 4 4 3 2 1|9 5 5 4 4 4 3 3 2|9 5 5 4 4 4 3 3 2 1|9 5 5 4 4 4 3 3 3 2|9 5 5 4 4 4 3 3 3 3`.split("|").map((row) => row.split(" ").map(Number));
 
+export const duskbladeSpellProgression = `3|4|5|6|6 2|6 3|6 4|6 5|6 5 2|6 6 3|6 6 4|6 6 5|6 6 5 2|6 6 6 3|6 6 6 4|6 6 6 5|6 6 6 5 2|6 6 6 6 3|6 6 6 6 4|6 6 6 6 5`.split("|").map((row) => row.split(" ").map(Number));
+
 export const assassinKnownProgression = [[2], [3], [3, 2], [4, 3], [4, 3, 2], [4, 4, 3], [4, 4, 3, 2], [4, 4, 4, 3], [4, 4, 4, 3], [4, 4, 4, 4]];
 
 export const spellProgressions: Partial<Record<SpellcastingClassId, number[][]>> = {
@@ -30,4 +32,6 @@ export const spellProgressions: Partial<Record<SpellcastingClassId, number[][]>>
   ranger: partialCasterProgression,
   sorcerer: sorcererProgression,
   wizard: fullCasterProgression,
+  beguiler: sorcererProgression,
+  duskblade: duskbladeSpellProgression,
 };

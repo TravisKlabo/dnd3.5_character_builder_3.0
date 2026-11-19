@@ -244,6 +244,37 @@ describe("PHB class chassis and bonus feats", () => {
     }
   });
 
+  describe("Player's Handbook II base classes", () => {
+    it.each([
+      ["beguiler", 6, 6, 0.75, ["will"], true],
+      ["dragon-shaman", 10, 2, 1, ["fortitude", "will"], false],
+      ["duskblade", 8, 2, 1, ["fortitude", "will"], true],
+      ["knight", 12, 2, 1, ["fortitude", "will"], false],
+    ] as const)("represents the %s chassis through level 20", (
+      classId, hitDie, skillPoints, attackRate, goodSaves, spellcasting,
+    ) => {
+      const character = hero(classId, 1);
+      character.race = "Half-Elf";
+      character.abilities.int = 10;
+      expect(classDefinitions[classId]).toMatchObject({
+        hitDie,
+        skillPoints,
+        spellcasting,
+        sourceBook: "Player's Handbook II",
+      });
+      expect(getSkillPointsPerLevel(character, classId)).toBe(skillPoints);
+      for (let level = 1; level <= 20; level += 1) {
+        character.classLevels = [{ classId, level }];
+        expect(getBaseAttackBonus(character)).toBe(Math.floor(level * attackRate));
+        for (const save of ["fortitude", "reflex", "will"] as const) {
+          expect(getBaseSave(character, save)).toBe(
+            (goodSaves as readonly string[]).includes(save) ? 2 + Math.floor(level / 2) : Math.floor(level / 3),
+          );
+        }
+      }
+    });
+  });
+
   it("adds Divine Grace separately without improving the Paladin's base Will save", () => {
     const character = hero("paladin", 1);
     character.alignment = "Lawful Good";

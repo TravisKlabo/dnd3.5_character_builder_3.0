@@ -390,4 +390,4 @@ export const martialWeaponNames = new Set([
   "Scythe",
 ]);
 
-export const martialWeaponClasses = new Set(["barbarian", "fighter", "paladin", "ranger"]);
+export const martialWeaponClasses = new Set(["barbarian", "fighter", "paladin", "ranger", "duskblade", "knight"]);

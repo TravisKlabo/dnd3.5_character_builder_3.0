@@ -265,7 +265,7 @@ export function SpellSheet({
   const learningMode =
     spellcastingClass.id === "wizard"
       ? "Spellbook"
-      : spellcastingClass.id === "assassin" || spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic"
+      : spellcastingClass.id === "assassin" || spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic" || spellcastingClass.id === "duskblade" || spellcastingClass.id === "beguiler"
         ? "Spells Known"
         : "Prepared Spells";
   const classLevel = getEffectiveSpellcastingClassLevel(character, spellcastingClassId);
@@ -321,9 +321,17 @@ export function SpellSheet({
     character.spellPreparationCompletedByClass?.[spellcastingClass.id] === true;
   const requiresPreparation = learningMode !== "Spells Known";
   const preparationView = learningMode !== "Spellbook" || wizardView === "preparation";
-  const baseClassSpells = spellcastingClass.id === "wizard"
-    ? getWizardSpellbookSpells(character)
-    : getClassSpells(spellcastingClass.id, character.ruleset, character);
+  const baseClassSpells = [
+    ...(spellcastingClass.id === "wizard"
+      ? getWizardSpellbookSpells(character)
+      : getClassSpells(spellcastingClass.id, character.ruleset, character)),
+  ];
+  if (spellcastingClass.id === "beguiler") {
+    const advanced = new Set(character.beguilerAdvancedLearning ?? []);
+    baseClassSpells.push(...getClassSpells("sorcerer", character.ruleset, character)
+      .filter((spell) => advanced.has(spell.name) &&
+        !baseClassSpells.some((existing) => existing.name === spell.name)));
+  }
   const mysticDomainSpellLevels = spellcastingClass.id === "mystic"
     ? availableLevels
       .filter((level) => level > 0)
@@ -959,6 +967,7 @@ export function SpellSheet({
               learningMode === "Prepared Spells"
                 ? preparedSpells.includes(spell.name)
                 : activeClassKnownSpells.has(spell.name) ||
+                    spellcastingClass.id === "beguiler" ||
                   (spellcastingClass.id === "wizard" && preparationView && spell.name === "Read Magic") ||
                   isMysticDomainSpellAtLevel(spell.name, level),
           )

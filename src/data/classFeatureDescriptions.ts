@@ -28,6 +28,72 @@ const barbarianRageDescription =
   "Once per encounter, enter a rage on your turn (not in response to another creature's action); track the listed daily uses manually. Standard rage grants +4 Strength, +4 Constitution, +2 morale on Will saves, and -2 AC for 3 rounds plus your increased Constitution modifier. The Constitution increase adds 2 hit points per Barbarian level until the rage ends; Greater and Mighty Rage increase this to 3 and 4 hit points per level. You cannot use most Charisma-, Dexterity-, or Intelligence-based skills, Concentration, spells, or command-word/spell-trigger/spell-completion items; Balance, Escape Artist, Intimidate, and Ride are exceptions. Combat Expertise, item creation, and metamagic feats cannot be used. You may end rage early; afterward you are fatigued for the encounter unless you have Tireless Rage. Apply and track these effects manually.";
 
 export const classFeatureDescriptions: Record<string, string> = {
+  "Armored Mage":
+    "Ignore arcane spell failure from light armor for Beguiler spells only.",
+  "Trapfinding":
+    "Use Search to locate traps above DC 20 and Disable Device to disarm magic traps.",
+  "Cloaked Casting +1 DC":
+    "Against a target denied Dexterity bonus to AC, add +1 to the save DC of an illusion or enchantment spell.",
+  "Surprise Casting":
+    "A successful melee feint denies the foe its Dexterity bonus to AC against your next spell cast before your next turn; the foe is not otherwise flat-footed.",
+  "Improved Surprise Casting":
+    "Feint as a move action, or as a swift action if you have Improved Feint.",
+  "Cloaked Casting +2 to overcome SR":
+    "Gain +2 on caster-level checks to overcome spell resistance against a target denied Dexterity bonus to AC.",
+  "Cloaked Casting +2 DC":
+    "Against a target denied Dexterity bonus to AC, add +2 to the save DC of an illusion or enchantment spell.",
+  "Cloaked Casting overcomes SR":
+    "Against a target denied Dexterity bonus to AC, your illusion and enchantment spells automatically overcome spell resistance.",
+  "Draconic Aura":
+    "Project one known draconic aura as a swift action; it affects you and allies within 30 feet. Aura selection and its scaling bonus remain manual.",
+  "Totem Dragon":
+    "Choose a totem dragon with compatible alignment. Its skills, breath energy/shape, and adaptation determine later Dragon Shaman features.",
+  "Breath Weapon 2d6":
+    "Use the selected totem's breath shape and energy; Reflex save DC is 10 + half Dragon Shaman level + Constitution modifier. Recharge in 1d4 rounds.",
+  "Draconic Resolve":
+    "Immune to sleep and paralysis and to dragons' frightful presence.",
+  "Touch of Vitality":
+    "Spend a daily healing pool equal to 2 × Dragon Shaman level × Charisma modifier; track expenditure and later condition-healing options manually.",
+  "Energy Immunity":
+    "Immune to the chosen totem dragon's breath energy type.",
+  "Draconic Wings":
+    "Gain flight 60 feet (good), or 40 feet with a medium load.",
+  "Armored Mage (Light)":
+    "Ignore arcane spell failure from light armor and light shields for Duskblade spells only.",
+  "Armored Mage (Medium)":
+    "Also ignore arcane spell failure from medium armor for Duskblade spells only.",
+  "Armored Mage (Heavy Shield)":
+    "Also ignore arcane spell failure from heavy shields for Duskblade spells only.",
+  "Arcane Channeling":
+    "As a standard action, cast a touch spell and deliver it through one melee attack; a hit delivers the spell normally.",
+  "Arcane Channeling (Full Attack)":
+    "Channel a touch spell through every successful melee attack made during a full attack.",
+  "Quick Cast 1/day":
+    "Once per day, cast one eligible Duskblade spell of 1 standard action or less as a swift action.",
+  "Knight's Challenge":
+    "Spend uses equal to half Knight level + Charisma modifier (minimum one) to activate Knight challenge abilities against qualifying foes.",
+  "Fighting Challenge +1":
+    "As a swift action, designate a qualifying foe; for 5 + Charisma modifier rounds, gain +1 morale on Will saves and on attacks and damage against it.",
+  "Knight's Code":
+    "Do not accept a flanking bonus, attack flat-footed foes, or deal lethal damage to helpless foes. Violations consume challenge uses or impose the book's daily penalty.",
+  "Shield Block +1":
+    "During your action, designate an opponent and gain the listed shield bonus to AC against that opponent.",
+  "Bulwark of Defense":
+    "Squares you threaten are difficult terrain for opponents that begin their turns there.",
+  "Test of Mettle":
+    "Spend a challenge use to provoke qualifying enemies within 100 feet; failed Will saves force them to prioritize attacking you.",
+  "Vigilant Defender":
+    "Increase the Tumble DC for an opponent attempting to move through your threatened area by your Knight level.",
+  "Shield Ally":
+    "As an immediate action, absorb half the damage from a physical attack against an adjacent ally, if you have not yet used this ability this round.",
+  "Call to Battle":
+    "Spend a challenge use as a swift action to grant an ally another saving throw against a fear effect, with your Charisma modifier as a bonus.",
+  "Daunting Challenge":
+    "Spend a challenge use to force weaker nearby enemies to save or become shaken.",
+  "Bond of Loyalty":
+    "Once per round as a free action, spend a challenge use to gain another save against a mind-affecting effect.",
+  "Loyal Beyond Death":
+    "At 0 hit points or lower, spend challenge uses to remain active for additional rounds if your body is not destroyed.",
   "Sneak Attack +1d6":
     rogueSneakAttackDescription,
   "Sneak Attack +2d6":

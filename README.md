@@ -7,6 +7,18 @@ to inherited rules calculations are documented below.
 
 ## Sourcebook review progress
 
+**Player's Handbook II definition-pass certification (2026-11-19).** Beguiler,
+Dragon Shaman, Duskblade, and Knight now have complete 20-level class
+chassis/progression and source-checked selectable class surfaces. Dragon
+Shaman totem, aura, and totem-skill choices persist and print; Beguiler
+Advanced Learning and Duskblade spell selection are represented. All 105
+feats, 124 Chapter 4 spell descriptions, 21 alternative class features, and
+the Duskblade's three PHB II fallback Swift spells are present. The 14
+alternatives for currently implemented base classes are selectable now; the
+seven alternatives for classes from later Complete books are cataloged and
+activate when those class definitions are implemented. Situational combat
+effects remain manual with explicit source boundaries.
+
 **Dragonlance Campaign Setting definition-pass certification (2026-11-19).**
 The Dragonlance ruleset now has all sourcebook-selectable race variants
 represented, including Krynn gnome/mad gnome, Krynn half-elf, centaur, ogre,
@@ -544,7 +556,7 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 |---|---|---|
 | Player's Handbook | Seven selectable races, 11 base classes, 109 feats, 605 spell titles / 715 PHB records, and Chapter 7 equipment/trade goods/barding variants are represented, source-checked, persistent, and printable. Generated Forge/wand/scroll/potion items are included when configurable and printable. Manual effect boundaries are explicit. | [x] |
 | Dungeon Master's Guide v3.5 | All 16 prestige classes, 13 epic feats, the DMG spell and two direct race examples are represented, attributable, persistent, and printable. Rods, staffs, rings, specific arms/shields/weapons, wondrous items, cursed items, and named artifacts are represented; all generic magic-arm/weapon abilities are Forge-configurable. Generated wand/scroll/potion support is persisted and printable. Red Wizard circle magic, epic/cursed/artifact effects, and campaign-specific adjudication remain explicit manual boundaries. | [x] |
-| Player's Handbook II | First-pass inventory; selected checks include five feats visually verified against printed pp. 71–75; full pass not certified. See [rules coverage](docs/rules-coverage.md#player-s-handbook-ii-feat-inventory-and-selected-checks). | [ ] |
+| Player's Handbook II | Beguiler, Dragon Shaman, Duskblade, and Knight have complete selectable progression. All 105 feats, 124 Chapter 4 spells, 21 alternative class features, Duskblade PHB II fallback Swift spells, totem/aura/Advanced Learning choices, persistence, and print coverage are source-checked. Seven dependent alternatives remain dormant until their Complete-book base classes are certified. | [x] |
 | Complete Adventurer | First-pass inventory and selected checks; bardic-music and wild-feat benefit/prerequisite batches checked against pp. 109–111; full pass not certified. See [rules coverage](docs/rules-coverage.md). | [ ] |
 | Complete Arcane | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
 | Complete Champion | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
@@ -562,7 +574,8 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 
 **Definition-pass certified under the strict criteria:** Player's Handbook,
 Dungeon Master's Guide v3.5, Monster Manual I (Premium Edition), and
-Dragonlance Campaign Setting ([x], 2026-11-19).
+Dragonlance Campaign Setting, plus Player's Handbook II
+([x], 2026-11-19).
 
 The Monster Manual II–V `[x]` entries above predate this stricter
 selectable-option criteria and mean their scoped definition checks are
@@ -577,7 +590,7 @@ represented and print-tested, with explicit manual boundaries.
   against source-checked builds, starting with feat prerequisites at the level
   taken, then multiclass progression and spell slots/access. Check both legal
   selections and choices the builder should reject. Next sourcebook target:
-  Player's Handbook II.
+  Complete Divine.
 - **Explicitly deferred:** MMIV's Varag racial class (pp. 170-171).
   Its first five racial levels distribute only three racial Hit Dice and +2 LA;
   ordinary class advancement starts at racial level 6. It is not selectable,

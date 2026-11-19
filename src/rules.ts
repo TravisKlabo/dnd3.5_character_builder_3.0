@@ -1,4 +1,4 @@
-import { languageCatalog, dragonlanceLanguages, dragonlanceRegionalLanguages, dragonlanceRacialBonusLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures } from "./data/characterCatalog";
+import { languageCatalog, dragonlanceLanguages, dragonlanceRegionalLanguages, dragonlanceRacialBonusLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures, alternativeClassFeatures } from "./data/characterCatalog";
 import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, getApplicableRaceDefinition, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, deityDefinitions, type DeityDefinition, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool, type RulesetId, getTotalHitDice, type SkillRankSourceId, type RangerFavoredEnemyChoice, type RangerFavoredEnemyLevel, type FeatCategory, type SkillTrickCategory, type SkillTrickSelection } from "./domain";
 import { skillTrickCatalog, type SkillTrickDefinition } from "./data/skillTricks";
 import { isIndependentSpellcastingClass, type SpellcastingClassId } from "./domain";
@@ -107,6 +107,23 @@ export function getRaceDefinitionForCharacter(
 
 export function getRacialHitDiceForCharacter(character: Character) {
   return getRaceDefinitionForCharacter(character)?.racialHitDice;
+}
+
+export function getAlternativeClassFeatureOptions(character: Character, classId: ClassId) {
+  const definition = classDefinitions[classId];
+  const level = getBaseClassLevel(character, classId);
+  return alternativeClassFeatures.filter(
+    (feature) => feature.className === definition.name && feature.level <= level,
+  );
+}
+
+export function getAvailableAlternativeClassFeatures(character: Character) {
+  return getBaseClassLevels(character).flatMap((entry) =>
+    getAlternativeClassFeatureOptions(character, entry.classId).map((feature) => ({
+      ...feature,
+      classId: entry.classId,
+    })),
+  );
 }
 
 export function getAvailableLanguages(
@@ -311,6 +328,7 @@ export const spellcastingAbilities: Partial<Record<SpellcastingClassId, AbilityN
   assassin: "int", blackguard: "wis",
   bard: "cha", cleric: "wis", druid: "wis", mystic: "wis",
   paladin: "wis", ranger: "wis", sorcerer: "cha", wizard: "int",
+  beguiler: "int", duskblade: "int",
 };
 
 const highSorceryOrderSchools = {
@@ -319,7 +337,7 @@ const highSorceryOrderSchools = {
   black: ["Enchantment", "Necromancy"],
 } as const satisfies Record<NonNullable<Character["highSorceryOrder"]>, readonly MagicSchool[]>;
 
-const arcaneSpellcastingClasses = new Set<ClassId>(["bard", "sorcerer", "wizard"]);
+const arcaneSpellcastingClasses = new Set<ClassId>(["bard", "sorcerer", "wizard", "beguiler", "duskblade"]);
 const divineSpellcastingClasses = new Set<ClassId>(["cleric", "druid", "mystic", "paladin", "ranger"]);
 const validAlignments = new Set([
   "Lawful Good",
@@ -728,7 +746,7 @@ export function getRacialSpellLikeAbilities(character: Character) {
 }
 
 export function getArcaneSpellFailure(character: Character, classId: SpellcastingClassId) {
-  if (!["assassin", "bard", "sorcerer", "wizard"].includes(classId)) return undefined;
+  if (!["assassin", "bard", "sorcerer", "wizard", "beguiler", "duskblade"].includes(classId)) return undefined;
   const details: string[] = [];
   let total = 0;
   let unknown = false;
@@ -760,6 +778,26 @@ export function getArcaneSpellFailure(character: Character, classId: Spellcastin
       details.push(
         `${name}: 0% for bard spells (${armorCategory === "Light" ? "light armor exception" : "Battle Caster"})`,
       );
+      continue;
+    }
+    if (
+      slot === "Armor" &&
+      ((classId === "beguiler" && armorCategory === "Light") ||
+        (classId === "duskblade" &&
+          (armorCategory === "Light" ||
+            (getBaseClassLevel(character, "duskblade") >= 4 && armorCategory === "Medium"))))
+    ) {
+      details.push(`${name}: 0% for ${classId === "beguiler" ? "Beguiler" : "Duskblade"} spells (Armored Mage)`);
+      continue;
+    }
+    if (
+      slot === "Shield" &&
+      classId === "duskblade" &&
+      ((item?.shieldType === "Light" || base?.startsWith("Light ")) ||
+        (getBaseClassLevel(character, "duskblade") >= 7 &&
+          (item?.shieldType === "Heavy" || base?.startsWith("Heavy "))))
+    ) {
+      details.push(`${name}: 0% for Duskblade spells (Armored Mage)`);
       continue;
     }
     const failure = slot === "Armor"
@@ -808,6 +846,22 @@ export function getKnownSpellLimit(character: Character, classId: SpellcastingCl
     return getDailySpellSlots(character, classId, effectiveClassLevel, level) > 0
       ? assassinKnownProgression[effectiveClassLevel - 1]?.[level - 1] ?? 0 : 0;
   }
+  if (classId === "beguiler") {
+    const baseLimit = getClassSpells(classId, character.ruleset, character)
+      .filter((spell) => spell.level === level)
+      .length;
+    const advancedLimit = getClassSpells("sorcerer", character.ruleset, character)
+      .filter((spell) =>
+        spell.level === level &&
+        character.beguilerAdvancedLearning?.includes(spell.name),
+      ).length;
+    return baseLimit + advancedLimit;
+  }
+  if (classId === "duskblade") {
+    return getClassSpells(classId, character.ruleset, character)
+      .filter((spell) => spell.level === level)
+      .length;
+  }
   if (classId === "mystic") {
     const baseLimit = mysticKnownProgression[effectiveClassLevel - 1]?.[level] ?? 0;
     return baseLimit + Number(level > 0 && baseLimit > 0 && Boolean(getActiveMysticDomain(character)));
@@ -815,7 +869,9 @@ export function getKnownSpellLimit(character: Character, classId: SpellcastingCl
   if (classId === "bard" || classId === "sorcerer") {
     if (getEffectiveAbilityScore(character, getSpellcastingAbility(classId)) < 10 + level)
       return 0;
-    const progression = classId === "bard" ? bardKnownProgression : sorcererKnownProgression;
+    const progression = classId === "bard"
+      ? bardKnownProgression
+      : sorcererKnownProgression;
     return progression[effectiveClassLevel - 1]?.[level] ?? 0;
   }
   return 0;
@@ -837,7 +893,7 @@ export function getKnownSpellReplacementLevelLimit(
   const proposedLevel = classLevel(proposed);
   const eligibleLevel = classId === "bard"
     ? proposedLevel >= 5 && (proposedLevel - 5) % 3 === 0
-    : (classId === "assassin" || classId === "sorcerer" || classId === "mystic") &&
+    : (classId === "assassin" || classId === "sorcerer" || classId === "mystic" || classId === "duskblade") &&
       proposedLevel >= (classId === "assassin" ? 6 : 4) && proposedLevel % 2 === 0;
   if (proposedLevel !== originalLevel + 1 || !eligibleLevel) return undefined;
   const effectiveClassLevel = getEffectiveSpellcastingClassLevel(proposed, classId);
@@ -2320,14 +2376,14 @@ export function getArmorShieldProficiencies(
     proficiencies.add(`armor-proficiency-${proficiency}`);
   if (race?.racialShieldProficiency) proficiencies.add("shield-proficiency");
   for (const { classId } of getBaseClassLevels(character)) {
-    if (["fighter", "paladin", "cleric"].includes(classId)) proficiencies.add("armor-proficiency-heavy");
-    if (["fighter", "paladin", "cleric", "barbarian", "druid"].includes(classId)) {
+    if (["fighter", "paladin", "cleric", "duskblade", "knight"].includes(classId)) proficiencies.add("armor-proficiency-heavy");
+    if (["fighter", "paladin", "cleric", "barbarian", "druid", "dragon-shaman", "duskblade", "knight"].includes(classId)) {
       proficiencies.add("armor-proficiency-medium");
     }
-    if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger", "bard", "rogue", "noble"].includes(classId)) {
+    if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger", "bard", "rogue", "noble", "beguiler", "dragon-shaman", "duskblade", "knight"].includes(classId)) {
       proficiencies.add("armor-proficiency-light");
     }
-    if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger", "bard"].includes(classId)) {
+    if (["fighter", "paladin", "cleric", "barbarian", "druid", "ranger", "bard", "dragon-shaman", "duskblade", "knight"].includes(classId)) {
       proficiencies.add("shield-proficiency");
     }
     if (classId === "fighter") proficiencies.add("tower-shield-proficiency");
@@ -3062,6 +3118,10 @@ export function isWeaponProficient(
   return getBaseClassLevels(character).some(({ classId }) => {
     if (martialWeaponClasses.has(classId)) return proficiency === "Simple" || martialProficiencyApplies;
     if (classId === "bard") return proficiency === "Simple" || bardWeaponNames.has(baseName);
+    if (classId === "beguiler") return proficiency === "Simple" || [
+      "Hand Crossbow", "Rapier", "Shortbow", "Short Sword",
+    ].includes(baseName);
+    if (classId === "dragon-shaman") return proficiency === "Simple";
     if (classId === "cleric" || classId === "sorcerer" || classId === "mystic" || classId === "noble") {
       return proficiency === "Simple";
     }
@@ -3144,7 +3204,22 @@ export function isClassSkill(
       skill,
     ),
   );
+  const dragonShamanTotemSkills: Record<string, string[]> = {
+    Black: ["Hide", "Move Silently", "Swim"],
+    Blue: ["Bluff", "Hide", "Spellcraft"],
+    Brass: ["Bluff", "Gather Information", "Survival"],
+    Bronze: ["Disguise", "Survival", "Swim"],
+    Copper: ["Bluff", "Hide", "Jump"],
+    Gold: ["Disguise", "Heal", "Swim"],
+    Green: ["Bluff", "Hide", "Move Silently"],
+    Red: ["Appraise", "Bluff", "Jump"],
+    Silver: ["Bluff", "Disguise", "Jump"],
+    White: ["Hide", "Move Silently", "Swim"],
+  };
   return classIds.some((currentClassId) => skillListIncludes(classSkills[currentClassId] ?? [], skill) ||
+    (currentClassId === "dragon-shaman" &&
+      character.dragonShamanTotem &&
+      skillListIncludes(dragonShamanTotemSkills[character.dragonShamanTotem] ?? [], skill)) ||
     (currentClassId === "cleric" && isClericDomainClassSkill(character, skill))) ||
     prestigeSkillMatch ||
     (!classId && skillListIncludes(racialHitDiceClassSkills, skill));
@@ -3289,7 +3364,7 @@ function getLevelUpSpellWarningsForClass(original: Character, proposed: Characte
     return knownSpellCount + Number(includesDomainSpell);
   };
   const knownSpellReplacementWarnings: string[] = [];
-  if (classId === "assassin" || classId === "bard" || classId === "sorcerer" || classId === "mystic") {
+  if (classId === "assassin" || classId === "bard" || classId === "sorcerer" || classId === "mystic" || classId === "duskblade") {
     const originalNames = getClassSpellSelections(original, "knownSpells")[classId] ?? [];
     const proposedNames = getClassSpellSelections(proposed, "knownSpells")[classId] ?? [];
     const proposedNameKeys = new Set(proposedNames.map(normalizeSpellName));
@@ -3344,7 +3419,39 @@ function getLevelUpSpellWarningsForClass(original: Character, proposed: Characte
       ? "0-level"
       : `${level}${level === 1 ? "st" : level === 2 ? "nd" : level === 3 ? "rd" : "th"}-level`;
   const warnings: string[] = [...knownSpellReplacementWarnings];
-  if (classId === "assassin" || classId === "bard" || classId === "sorcerer" || classId === "mystic") {
+  if (classId === "duskblade") {
+    const proposedNames = getClassSpellSelections(proposed, "knownSpells").duskblade ?? [];
+    const required =
+      proposedLevel > 0
+        ? 3 + proposedLevel + Math.max(0, abilityModifier(proposed.abilities.int))
+        : 0;
+    if (proposedNames.length !== required)
+      warnings.push(`Choose exactly ${required} Duskblade spells known.`);
+    const allowed = new Set(getClassSpells("duskblade", proposed.ruleset, proposed).map((spell) => spell.name));
+    if (proposedNames.some((name) => !allowed.has(name)))
+      warnings.push("Every Duskblade spell known must come from the Duskblade spell list.");
+  } else if (classId === "beguiler") {
+    const required = [3, 7, 11, 15, 19].filter((level) => proposedLevel >= level).length;
+    const selections = proposed.beguilerAdvancedLearning ?? [];
+    if (selections.length !== required)
+      warnings.push(`Choose exactly ${required} Advanced Learning spell${required === 1 ? "" : "s"}.`);
+    const existingBeguilerSpells = new Set(
+      getClassSpells("beguiler", proposed.ruleset, proposed).map((spell) => spell.name),
+    );
+    const allowed = new Set(
+      getClassSpells("sorcerer", proposed.ruleset, proposed)
+        .filter((spell) =>
+          /^(?:Enchantment|Illusion)/.test(spell.school) &&
+          !existingBeguilerSpells.has(spell.name) &&
+          getDailySpellSlots(proposed, "beguiler", proposedLevel, spell.level) > 0,
+        )
+        .map((spell) => spell.name),
+    );
+    if (selections.some((name) => !allowed.has(name)))
+      warnings.push("Each Advanced Learning spell must be an available enchantment or illusion of a spell level the Beguiler can cast.");
+    if (new Set(selections).size !== selections.length)
+      warnings.push("Advanced Learning spells must be distinct.");
+  } else if (classId === "assassin" || classId === "bard" || classId === "sorcerer" || classId === "mystic") {
     for (let level = 0; level <= 9; level += 1) {
       const base = getKnownSpellLimit(proposed, classId, proposedLevel, level);
       const originalBase = getKnownSpellLimit(original, classId, originalLevel, level);
@@ -4341,6 +4448,21 @@ export function getClassFeatureDisplay(
     const progressions = isPrestigeClass
       ? prestigeClassFeatureProgression[entry.prestigeClassId] ?? []
       : classFeatureProgression[entry.classId] ?? [];
+    const selectedAlternatives = isPrestigeClass
+      ? []
+      : alternativeClassFeatures.filter((feature) =>
+          feature.className === definition.name &&
+          (character.alternativeClassFeatures?.[entry.classId] ?? []).includes(feature.name),
+        );
+    const replacedFeatures = new Set(selectedAlternatives.map((feature) => feature.replaces));
+    const isReplacedFeature = (feature: string) => {
+      if (replacedFeatures.has(feature)) return true;
+      if (replacedFeatures.has("Wild Shape") && feature.startsWith("Wild Shape")) return true;
+      if (replacedFeatures.has("Rage") &&
+        (feature.startsWith("Rage") || feature.startsWith("Greater Rage")))
+        return true;
+      return false;
+    };
     const choices = !isPrestigeClass ? [] : entry.prestigeClassId === "archmage"
       ? getEarnedHighArcana(character).flatMap((choice, index) => choice ? [{
           source: `Archmage ${index + 1} · ${classDefinitions[choice.classId].name} slot ${choice.slot}${choice.reserve === undefined ? "" : ` + slot ${choice.reserve}: ${choice.spellNote}`}`,
@@ -4359,18 +4481,29 @@ export function getClassFeatureDisplay(
               source: `Loremaster ${(index + 1) * 4}`, ability: `Bonus language: ${language}`, isPrestigeClass: true,
             })),
           ] : [];
-    return [...choices, ...progressions
+    return [
+      ...choices,
+      ...selectedAlternatives.map((feature) => ({
+        source: `${definition.name} ${feature.level} (alternative)`,
+        ability: feature.name,
+      })),
+      ...progressions
       .filter((progression) => progression.level <= entry.level)
       .flatMap((progression) =>
-        progression.features.map((feature) => ({
+        progression.features.filter((feature) => !isReplacedFeature(feature)).map((feature) => ({
           source: `${definition.name} ${progression.level}${
             isPrestigeClass && entry.prestigeClassId === "dragon-disciple" && character.dragonDiscipleVariety
               ? ` (${character.dragonDiscipleVariety})` : ""
           }`,
-          ability: feature,
+          ability: feature === "Totem Dragon" && character.dragonShamanTotem
+            ? `Totem Dragon: ${character.dragonShamanTotem}`
+            : feature === "Draconic Aura" && character.dragonShamanAuras?.length
+              ? `Draconic Auras: ${character.dragonShamanAuras.join(", ")}`
+              : feature,
           ...(isPrestigeClass ? { isPrestigeClass: true } : {}),
         })),
-      )];
+      ),
+    ];
   });
   const recordedFeatures = [
     ...new Set(character.classFeatures ?? []),
@@ -4490,6 +4623,7 @@ type FeatEligibilitySlot = {
   characterLevel?: number;
   rangerStyleLevel?: RangerCombatStyleLevel;
   monkBonusLevel?: MonkBonusFeatLevel;
+  knightOnly?: boolean;
 };
 
 type FeatSlot = FeatEligibilitySlot & {
@@ -4615,6 +4749,11 @@ export function getFeatSlots(character: Character) {
     .filter((entry) => entry.classId === "fighter")
     .forEach((entry) => {
       for (let classLevel = 1; classLevel <= entry.level; classLevel += 1) {
+        const alternative = character.alternativeClassFeatures?.fighter ?? [];
+        if ((classLevel === 6 && alternative.includes("Elusive Attack")) ||
+          (classLevel === 12 && alternative.includes("Counterattack")) ||
+          (classLevel === 16 && alternative.includes("Overpowering Attack")))
+          continue;
         if (classLevel === 1 || classLevel % 2 === 0)
           slots.push({
             id: `fighter-${classLevel}`,
@@ -4625,6 +4764,20 @@ export function getFeatSlots(character: Character) {
               "fighter",
               classLevel,
             ),
+          });
+      }
+    });
+  getBaseClassLevels(character)
+    .filter((entry) => entry.classId === "knight")
+    .forEach((entry) => {
+      for (const classLevel of [5, 10, 15]) {
+        if (entry.level >= classLevel)
+          slots.push({
+            id: `knight-${classLevel}`,
+            label: `Knight bonus feat (Knight level ${classLevel})`,
+            fighterOnly: false,
+            knightOnly: true,
+            characterLevel: getClassFeatCharacterLevel(character, "knight", classLevel),
           });
       }
     });
@@ -4771,6 +4924,15 @@ export function getChosenFeats(
     !chosenFeats.includes("scribe-scroll")
   )
     chosenFeats.push("scribe-scroll");
+  if (getBaseClassLevel(character, "duskblade") >= 2 &&
+    !chosenFeats.includes("combat-casting"))
+    chosenFeats.push("combat-casting");
+  if (getBaseClassLevel(character, "beguiler") >= 5 &&
+    !chosenFeats.includes("silent-spell"))
+    chosenFeats.push("silent-spell");
+  if (getBaseClassLevel(character, "beguiler") >= 10 &&
+    !chosenFeats.includes("still-spell"))
+    chosenFeats.push("still-spell");
   const rangerLevel = getBaseClassLevel(character, "ranger");
   if (rangerLevel >= 1 && !chosenFeats.includes("track"))
     chosenFeats.push("track");
@@ -5009,6 +5171,7 @@ export function getAvailableFeatWeaponChoices(
   const prerequisiteSlot = excludingSlot
     ? getFeatSlots(character).find((slot) => slot.id === excludingSlot)
     : undefined;
+  if (prerequisiteSlot?.knightOnly && featId === "weapon-focus") return ["Lance"];
   const prerequisiteCharacter = prerequisiteSlot
     ? getFeatPrerequisiteContext(
         character,
@@ -5217,6 +5380,11 @@ export function featQualifies(
   if (
     !currentlyUsing &&
     ((slot.fighterOnly && !feat.fighterBonus) ||
+      (slot.knightOnly && ![
+        "animal-affinity", "diehard", "endurance", "great-fortitude",
+        "iron-will", "quick-draw", "ride-by-attack", "spirited-charge",
+        "trample", "weapon-focus",
+      ].includes(feat.id)) ||
       (slot.metamagicOnly && !feat.categories?.includes("metamagic")) ||
       (slot.redWizardOnly &&
         !feat.categories?.some((category) =>
@@ -7387,6 +7555,8 @@ export function isClassAlignmentAllowed(classId: ClassId, alignment: string) {
     return !alignment.startsWith("Lawful ");
   if (classId === "monk") return alignment.startsWith("Lawful ");
   if (classId === "paladin") return alignment === "Lawful Good";
+  if (classId === "knight") return alignment.startsWith("Lawful ");
+  if (classId === "dragon-shaman") return alignment !== "True Neutral";
   if (classId === "druid") return isNeutralAlignment(alignment);
   return true;
 }
@@ -7395,8 +7565,30 @@ export function getClassAlignmentRestriction(classId: ClassId) {
   if (classId === "barbarian" || classId === "bard") return "must be non-lawful";
   if (classId === "monk") return "must be lawful";
   if (classId === "paladin") return "must be Lawful Good";
+  if (classId === "knight") return "must be lawful";
+  if (classId === "dragon-shaman") return "must have a non-neutral alignment tendency";
   if (classId === "druid") return "must be neutral on at least one alignment axis";
   return "";
+}
+
+export function isDragonShamanTotemAlignmentAllowed(totem: string, alignment: string) {
+  const allowed: Record<string, string[]> = {
+    Black: ["Neutral Evil", "Chaotic Evil", "Chaotic Neutral"],
+    Blue: ["Neutral Evil", "Lawful Evil", "Lawful Neutral"],
+    Brass: ["Neutral Good", "Chaotic Good", "Chaotic Neutral"],
+    Bronze: ["Neutral Good", "Lawful Good", "Lawful Neutral"],
+    Copper: ["Neutral Good", "Chaotic Good", "Chaotic Neutral"],
+    Gold: ["Neutral Good", "Lawful Good", "Lawful Neutral"],
+    Green: ["Neutral Evil", "Lawful Evil", "Lawful Neutral"],
+    Red: ["Neutral Evil", "Chaotic Evil", "Chaotic Neutral"],
+    Silver: ["Neutral Good", "Lawful Good", "Lawful Neutral"],
+    White: ["Neutral Evil", "Chaotic Evil", "Chaotic Neutral"],
+  };
+  return Boolean(allowed[totem]?.includes(alignment));
+}
+
+export function getRequiredDragonShamanAuraCount(level: number) {
+  return Math.min(7, 3 + [3, 5, 7, 9].filter((milestone) => level >= milestone).length);
 }
 
 export function getLevelUpAlignmentWarnings(character: Character, classId: ClassId) {
@@ -7404,12 +7596,24 @@ export function getLevelUpAlignmentWarnings(character: Character, classId: Class
     return [
       `Cannot take a ${classDefinitions[classId].name} level with ${character.alignment}; this class ${getClassAlignmentRestriction(classId)}.`,
     ];
+  if (classId === "dragon-shaman") {
+    if (!character.dragonShamanTotem)
+      return ["Choose a Dragon Shaman totem dragon before taking a level."];
+    if (!isDragonShamanTotemAlignmentAllowed(character.dragonShamanTotem, character.alignment))
+      return [`The ${character.dragonShamanTotem} totem is not within one alignment step of ${character.alignment}.`];
+    const requiredAuras = getRequiredDragonShamanAuraCount(
+      getBaseClassLevel(character, "dragon-shaman"),
+    );
+    if ((character.dragonShamanAuras?.length ?? 0) !== requiredAuras)
+      return [`Choose exactly ${requiredAuras} Dragon Shaman aura${requiredAuras === 1 ? "" : "s"}.`];
+  }
   if (classId !== "cleric") return [];
   const deity = deityDefinitions.find((entry) => entry.id === character.deity);
   if (!deity) return ["Choose a deity before taking a Cleric level."];
   if (deity.clericDomains?.length === 0) {
     return [`${deity.name} grants no divine spells or cleric domains; a Cleric level is unavailable.`];
   }
+
   if (isClericAlignmentAllowedForDeity(character.alignment, deity)) return [];
   if (deity.clericAlignments) {
     return [

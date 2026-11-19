@@ -161,6 +161,23 @@ describe("casting summary", () => {
     expect(getArcaneSpellFailure(character, "wizard")?.percent).toBe(30);
   });
 
+  it("applies PHB II Armored Mage failures only to Beguiler or Duskblade spells", () => {
+    const character = caster();
+    character.classLevels = [{ classId: "beguiler", level: 1 }];
+    character.equipment = { Armor: "Leather Armor (Medium)", Shield: "Light Wooden Shield (Medium)" };
+    expect(getArcaneSpellFailure(character, "beguiler")?.percent).toBe(5);
+    expect(getArcaneSpellFailure(character, "wizard")?.percent).toBe(15);
+
+    character.classLevels = [{ classId: "duskblade", level: 4 }];
+    character.equipment = { Armor: "Breastplate (Medium)", Shield: "Light Wooden Shield (Medium)" };
+    expect(getArcaneSpellFailure(character, "duskblade")?.percent).toBe(0);
+    character.classLevels = [{ classId: "duskblade", level: 6 }];
+    character.equipment.Shield = "Heavy Steel Shield (Medium)";
+    expect(getArcaneSpellFailure(character, "duskblade")?.percent).toBe(15);
+    character.classLevels = [{ classId: "duskblade", level: 7 }];
+    expect(getArcaneSpellFailure(character, "duskblade")?.percent).toBe(0);
+  });
+
   it("honors custom values, caps at 100%, and explicitly identifies missing failure data", () => {
     const armorName = "Casting test armor";
     const shieldName = "Casting test shield";

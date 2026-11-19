@@ -3877,6 +3877,22 @@ describe("spell catalog source attribution", () => {
     expect(screen.getByText("No spells match.")).toBeDefined();
   });
 
+  it("creates and persists configured potion inventory entries", () => {
+    const onInventoryChange = vi.fn();
+    const character = cloneCharacter(initialCharacter);
+    character.classLevels = [{ classId: "wizard", level: 1 }];
+    character.inventory = {};
+    render(<WandsScrollPanel character={character} onInventoryChange={onInventoryChange} />);
+    fireEvent.click(screen.getByLabelText("Purchase instead of craft"));
+    fireEvent.click(screen.getByRole("button", { name: "Purchase Potion" }));
+    expect(onInventoryChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        "Potion of Acid Splash (CL 1)": 1,
+      }),
+    );
+    expect(screen.getByText(/targets one or more creatures/)).toBeDefined();
+  });
+
   it("offers Dragonlance domain spell details in Dragonlance scroll purchase choices", () => {
     const character = cloneCharacter(initialCharacter);
     character.ruleset = "dragonlance-user-pack";

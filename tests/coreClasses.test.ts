@@ -724,6 +724,19 @@ describe("represented DMG prestige entry requirements", () => {
     expect(formatPrestigeClassDetails(dragonlancePrestigeClasses.loremaster)).toContain("7 different Divination spells");
   });
 
+  it("attributes and certifies the full DMG prestige roster", () => {
+    const names = Object.values(dragonlancePrestigeClasses)
+      .filter((definition) => definition.sourceBook === "Dungeon Master's Guide (3.5)")
+      .map((definition) => definition.name)
+      .sort();
+    expect(names).toEqual([
+      "Arcane Archer", "Arcane Trickster", "Archmage", "Assassin",
+      "Blackguard", "Dragon Disciple", "Duelist", "Dwarven Defender",
+      "Eldritch Knight", "Hierophant", "Horizon Walker", "Loremaster",
+      "Mystic Theurge", "Red Wizard", "Shadowdancer", "Thaumaturgist",
+    ]);
+  });
+
   describe("playable DMG prestige advancement", () => {
     it("preserves both Mystic Theurge advancements when either casting target changes", () => {
       const character = hero("wizard", 3);

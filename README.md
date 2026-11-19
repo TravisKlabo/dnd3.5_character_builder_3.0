@@ -7,6 +7,52 @@ to inherited rules calculations are documented below.
 
 ## Sourcebook review progress
 
+**DMG certification checkpoint (2026-11-18): fixed rods and staffs.** All
+36 Table 7-19 rod entries and all 21 Table 7-25 staff entries are now
+selectable with DMG table prices. Added the missing fixed rods/staffs and
+corrected Rod of Metamagic, Maximize (54,000 gp), Staff of Fire (17,750 gp),
+and Staff of Healing (27,750 gp). Potions, scrolls, wands, and generic
+magic arms/armor remain covered through generated-item tooling where
+configurable. Focused catalog tests, lint, and build pass.
+
+**DMG certification checkpoint (2026-11-18): rings.** All 46 Table 7-18 ring
+entries are represented. Split the four elemental-command rings into distinct
+Air, Earth, Fire, and Water selections while retaining one configurable item
+for each energy-resistance tier. Focused catalog tests, lint, and build pass.
+
+**DMG certification checkpoint (2026-11-18): specific arms and armor.** All
+12 Table 7-7 specific armors, eight Table 7-8 specific shields, and 34
+Table 7-16 specific weapons are selectable at their DMG table prices, with
+fixed item notes and separate luck-blade wish counts. Focused catalog tests,
+lint, and build pass.
+
+**DMG certification checkpoint (2026-11-18): wondrous items.** The 300
+minor/medium/major Table 7-27 through 7-29 entries are covered by the existing
+slot rosters, slotless catalog, generated ability-item families, or exact
+aliases. Added the remaining fixed utility gaps: Quiver of Ehlonna, Hand of
+Glory, Talisman of the Sphere, Bracelet of Friends, the 6x9 carpet, and
+Wings of Flying. Focused catalog tests, lint, and build pass.
+
+**DMG generated-item certification checkpoint (2026-11-18).** Forge
+weapon/armor/shield output and generated scroll/wand/potion entries persist in
+inventory and print on the character sheet. Added potion generation for
+spells of 3rd level or lower, with creature-target eligibility explicitly
+manual. Generated spell items now retain spell metadata for details and print
+their configured caster level. Focused creation and print tests pass.
+
+**DMG prestige/epic certification checkpoint (2026-11-18).** All 16 DMG
+prestige classes and 13 DMG epic feats have complete source attribution,
+prerequisite/representation tests, and printable selection coverage. Prestige
+class levels and Archmage history persist; selected epic feat names print.
+Focused DMG class/rules/print tests, lint, and build pass.
+
+**DMG spell/race certification checkpoint (2026-11-18).** Corrupt Weapon is
+the DMG-only spell; it is Blackguard-only, configurable in preparation, and
+printable. Added both direct DMG race examples: Gold Dwarf and Half-Human Elf.
+The 33 "Monsters as Races" rows are Monster Manual racial definitions merely
+classified by the DMG, so they remain in the Monster Manual cross-book scope
+rather than being misattributed as DMG race definitions.
+
 **PHB definition-pass certification (2026-11-18).** All seven PHB player
 races, 11 base classes, 109 feats, 605 represented spell titles / 715 PHB
 spell records, and Chapter 7 selectable equipment are represented and
@@ -475,7 +521,7 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 | Book | Review checkpoint and remaining gaps | Definition pass complete |
 |---|---|---|
 | Player's Handbook | Seven selectable races, 11 base classes, 109 feats, 605 spell titles / 715 PHB records, and Chapter 7 equipment/trade goods/barding variants are represented, source-checked, persistent, and printable. Generated Forge/wand/scroll/potion items are included when configurable and printable. Manual effect boundaries are explicit. | [x] |
-| Dungeon Master's Guide v3.5 | All 16 represented prestige-class entry sets support level-up through full class lengths. Red Wizard circle magic and specialist defense remain partly manual. Remaining certification work: complete DMG epic-feat/rule option inventory and every selectable equipment/magic-item entry with printable inventory representation. | [ ] |
+| Dungeon Master's Guide v3.5 | All 16 prestige classes, 13 epic feats, the DMG spell and two direct race examples are represented, attributable, persistent, and printable. Rods, staffs, rings, specific arms/shields/weapons, wondrous items, cursed items, and named artifacts are represented; all generic magic-arm/weapon abilities are Forge-configurable. Generated wand/scroll/potion support is persisted and printable. Red Wizard circle magic, epic/cursed/artifact effects, and campaign-specific adjudication remain explicit manual boundaries. | [x] |
 | Player's Handbook II | First-pass inventory; selected checks include five feats visually verified against printed pp. 71–75; full pass not certified. See [rules coverage](docs/rules-coverage.md#player-s-handbook-ii-feat-inventory-and-selected-checks). | [ ] |
 | Complete Adventurer | First-pass inventory and selected checks; bardic-music and wild-feat benefit/prerequisite batches checked against pp. 109–111; full pass not certified. See [rules coverage](docs/rules-coverage.md). | [ ] |
 | Complete Arcane | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
@@ -493,7 +539,7 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 | Monster Manual V | 12 monster feats and seven sidebars checked; Earthbind added; Brutal Throw Fighter eligibility fixed. No new base/prestige/racial class found. Creature/template support open. | [x] |
 
 **Definition-pass certified under the PHB/DMG criteria:** Player's Handbook
-([x], 2026-11-18).
+and Dungeon Master's Guide v3.5 ([x], 2026-11-19).
 
 The Monster Manual II–V `[x]` entries above predate this stricter
 selectable-option criteria and mean their scoped definition checks are
@@ -513,8 +559,7 @@ represented and print-tested, with explicit manual boundaries.
   ordinary class advancement starts at racial level 6. It is not selectable,
   and must not be approximated as five ordinary class levels. Resolve this
   progression model before claiming complete MMIV class support.
-- **Other explicitly open items:** complete DMG prestige progressions
-  (including manual Red Wizard circle magic), and familiar options;
+- **Other explicitly open items:** familiar options;
   Shifter/Warforged race creation, shifting, plating, and racial-feat
   effects; monster-PC/template conversions and summon/familiar/mount lists.
   New spell effects and creature management are manual. Githyanki Battlecaster's

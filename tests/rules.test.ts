@@ -413,6 +413,32 @@ describe("Fighter class rules", () => {
 });
 
 describe("provided-book feat inventory", () => {
+  it("represents the DMG race examples and DMG-only Blackguard spell", () => {
+    expect(raceDefinitions["gold-dwarf"].sourceBook).toBe(
+      "Dungeon Master's Guide (3.5)",
+    );
+    expect(raceDefinitions["half-human-elf"].sourceBook).toBe(
+      "Dungeon Master's Guide (3.5)",
+    );
+    expect(raceDefinitions["gold-dwarf"]).toMatchObject({
+      abilityModifiers: { con: 2, dex: -2 },
+      racialAttackBonuses: { aberration: 1 },
+    });
+    expect(raceDefinitions["half-human-elf"]).toMatchObject({
+      racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1 },
+      racialWeaponProficiencies: [
+        "Longsword", "Rapier", "Shortbow", "Longbow",
+      ],
+    });
+    expect(raceDefinitions["half-human-elf"].racialSkillBonuses).not
+      .toHaveProperty("Diplomacy");
+    expect(raceDefinitions["half-human-elf"].racialSkillBonuses).not
+      .toHaveProperty("Gather Information");
+    expect(srdSpells.filter(
+      (spell) => spell.sourceBook === "Dungeon Master's Guide (3.5)",
+    ).map((spell) => spell.name)).toEqual(["Corrupt Weapon"]);
+  });
+
   it("certifies the represented PHB player-option inventory", () => {
     const phbRaces = Object.values(raceDefinitions).filter(
       (race) => race.sourceBook === "Player's Handbook (3.5)",

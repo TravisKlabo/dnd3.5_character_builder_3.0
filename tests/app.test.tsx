@@ -842,6 +842,8 @@ describe("application workflows", () => {
       "Rope (50 ft.)": 1,
       "Rations, Trail (per day)": 3,
       "Banded Mail": 1,
+      "Potion of Bull's Strength (CL 3)": 1,
+      "+1 Keen Longsword (Medium)": 1,
     };
     window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
     render(<App />);
@@ -898,7 +900,7 @@ describe("application workflows", () => {
     expect(pageOne.querySelector(".reference-identity")?.textContent)
       .toContain("Human");
     expect(screen.getByText("Alertness", { exact: true })).toBeDefined();
-    expect(screen.getByText("Longsword", { exact: false })).toBeDefined();
+    expect(screen.getAllByText("Longsword", { exact: false }).length).toBeGreaterThan(0);
     expect(pageOne.querySelector(".reference-attack-table thead th:last-child")?.textContent)
       .toBe("Range / Reach");
     const attackRows = [...pageOne.querySelectorAll(".reference-attack-table tbody tr")];
@@ -950,6 +952,8 @@ describe("application workflows", () => {
     expect(document.querySelectorAll(".reference-inventory-list .reference-inventory-row")).toHaveLength(28);
     expect(screen.getByText("Rations, Trail (per day)")).toBeDefined();
     expect(screen.getByText("Banded Mail")).toBeDefined();
+    expect(screen.getByText(/Potion of Bull's Strength/)).toBeDefined();
+    expect(screen.getByText(/\+1 Keen Longsword/)).toBeDefined();
     const sidebar = document.querySelector(".reference-xp-sidebar");
     const feats = document.querySelector(".reference-feats");
     const featsDetails = document.querySelector(".reference-feats-details");
@@ -984,6 +988,28 @@ describe("application workflows", () => {
     expect(document.querySelectorAll(".reference-page-one, .reference-page-two")).toHaveLength(2);
     expect(document.querySelectorAll(".spell-form-page")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Print / Save as PDF" })).toBeDefined();
+  });
+
+  it("prints DMG prestige classes and epic feats by their selected names", async () => {
+    const user = userEvent.setup();
+    const character = savedHero();
+    character.classLevels = [
+      { classId: "wizard", level: 21 },
+      { classId: "wizard", prestigeClassId: "archmage", level: 2 },
+    ];
+    character.highArcanaChoices = [null, null];
+    character.featSelections = { "general-21": "improved-metamagic" };
+    window.localStorage.setItem(savedCharacterStorageKey, JSON.stringify(character));
+    render(<App />);
+    await user.click(within(
+      await screen.findByRole("navigation", { name: "Character sheets" }),
+    ).getByRole("button", { name: "Print" }));
+    const sheet = await screen.findByRole("region", {
+      name: "Character record sheet, page 1",
+    });
+    expect(sheet.querySelector(".reference-identity")?.textContent)
+      .toContain("Archmage 2");
+    expect(screen.getByText("Improved Metamagic", { exact: true })).toBeDefined();
   });
 
   it("shows known-spell limits for spontaneous casters on the printable sheet", () => {

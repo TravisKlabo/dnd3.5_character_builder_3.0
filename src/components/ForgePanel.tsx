@@ -23,7 +23,13 @@ function getWeaponDamageType(item: StoreItem | undefined) {
 }
 
 function canApplyWeaponProperty(name: string, item: StoreItem | undefined) {
-  return name !== "Keen" || /piercing|slashing/i.test(getWeaponDamageType(item));
+  const property = forgeWeaponProperties.find((entry) => entry.name === name);
+  const isRanged = Boolean(item?.ranged || item?.handedness === "Ranged");
+  if (property?.weaponType === "melee" && isRanged) return false;
+  if (property?.weaponType === "ranged" && !isRanged) return false;
+  if (name === "Keen" || name === "Vorpal") return /piercing|slashing/i.test(getWeaponDamageType(item));
+  if (name === "Disruption") return /bludgeoning/i.test(getWeaponDamageType(item));
+  return true;
 }
 
 function canApplyShieldProperty(name: string, item: StoreItem | undefined) {
@@ -102,7 +108,8 @@ export function ForgePanel({
   const shieldPropertyBonus = selectedShieldProperties.reduce((total, entry) => total + entry.bonus, 0);
   const shieldEnhancementCost = shieldEnhancement * shieldEnhancement * 1000;
   const shieldMasterworkCost = selectedShield && !isAlreadyMasterwork(selectedShield) ? 150 : 0;
-  const shieldPropertyCost = (shieldEnhancement + shieldPropertyBonus) ** 2 * 1000 - shieldEnhancementCost;
+  const shieldPropertyCost = (shieldEnhancement + shieldPropertyBonus) ** 2 * 1000 - shieldEnhancementCost +
+    selectedShieldProperties.reduce((total, entry) => total + (entry.flatCost ?? 0), 0);
   const forgedShieldName = `${selectedShieldProperties.length ? `${selectedShieldProperties.map((entry) => entry.name).join(" ")} ` : ""}+${shieldEnhancement} ${shieldName} (${getRaceDefinitionForCharacter(character)?.size ?? "Medium"})`;
   const forgeShield = () => {
     if (!selectedShield) return;
@@ -218,9 +225,9 @@ export function ForgePanel({
             setShieldPropertyName((current) => current && canApplyShieldProperty(current, nextShield) ? current : "");
           }}>{shields.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>
           <label>Enhancement bonus<select value={shieldEnhancement} onChange={(event) => setShieldEnhancement(Number(event.target.value))}>{[1, 2, 3, 4, 5].filter((bonus) => bonus + shieldPropertyBonus <= maximumEffectiveBonus).map((bonus) => { const change = (bonus * bonus - shieldEnhancement * shieldEnhancement) * 1000; const label = change > 0 ? `adds ${change.toLocaleString()} gp` : change < 0 ? `subtracts ${Math.abs(change).toLocaleString()} gp` : "no cost change"; return <option key={bonus} value={bonus}>+{bonus} - {label}</option>; })}</select></label>
-          <label>Add special property<span className="forge-property-control"><select value={shieldPropertyName} onChange={(event) => setShieldPropertyName(event.target.value)}><option value="">None</option>{forgeShieldProperties.filter((entry) => !shieldPropertyNames.includes(entry.name) && canApplyShieldProperty(entry.name, selectedShield) && shieldEnhancement + shieldPropertyBonus + entry.bonus <= maximumEffectiveBonus).map((entry) => { const prior = (shieldEnhancement + shieldPropertyBonus) ** 2 * 1000; const next = (shieldEnhancement + shieldPropertyBonus + entry.bonus) ** 2 * 1000; return <option key={entry.name} value={entry.name}>{entry.name} (+{entry.bonus}) - adds {(next - prior).toLocaleString()} gp</option>; })}</select><button className="forge-add-property-button" type="button" onClick={() => { const property = forgeShieldProperties.find((entry) => entry.name === shieldPropertyName); if (property && canApplyShieldProperty(property.name, selectedShield) && shieldEnhancement + shieldPropertyBonus + property.bonus <= maximumEffectiveBonus) { setShieldPropertyNames((current) => [...current, property.name]); setShieldPropertyName(""); } }} disabled={!shieldPropertyName || !canApplyShieldProperty(shieldPropertyName, selectedShield)} aria-label="Add shield property">+</button></span></label>
+          <label>Add special property<span className="forge-property-control"><select value={shieldPropertyName} onChange={(event) => setShieldPropertyName(event.target.value)}><option value="">None</option>{forgeShieldProperties.filter((entry) => !shieldPropertyNames.includes(entry.name) && canApplyShieldProperty(entry.name, selectedShield) && shieldEnhancement + shieldPropertyBonus + entry.bonus <= maximumEffectiveBonus).map((entry) => { const prior = (shieldEnhancement + shieldPropertyBonus) ** 2 * 1000; const next = (shieldEnhancement + shieldPropertyBonus + entry.bonus) ** 2 * 1000; const change = next - prior + (entry.flatCost ?? 0); return <option key={entry.name} value={entry.name}>{entry.name} {entry.bonus ? `(+${entry.bonus})` : ""} - adds {change.toLocaleString()} gp</option>; })}</select><button className="forge-add-property-button" type="button" onClick={() => { const property = forgeShieldProperties.find((entry) => entry.name === shieldPropertyName); if (property && canApplyShieldProperty(property.name, selectedShield) && shieldEnhancement + shieldPropertyBonus + property.bonus <= maximumEffectiveBonus) { setShieldPropertyNames((current) => [...current, property.name]); setShieldPropertyName(""); } }} disabled={!shieldPropertyName || !canApplyShieldProperty(shieldPropertyName, selectedShield)} aria-label="Add shield property">+</button></span></label>
         </div>
-        <div className="forge-preview"><strong>{forgedShieldName}</strong><span>Base shield: {(selectedShield?.price ?? 0).toLocaleString()} gp</span>{shieldMasterworkCost > 0 && <span>Masterwork quality: +{shieldMasterworkCost.toLocaleString()} gp</span>}<span>Enhancement: +{shieldEnhancementCost.toLocaleString()} gp</span>{selectedShieldProperties.map((entry) => <span key={entry.name}>{entry.name}: equivalent +{entry.bonus}</span>)}<strong>Total price: {((selectedShield?.price ?? 0) + shieldMasterworkCost + shieldEnhancementCost + shieldPropertyCost).toLocaleString()} gp</strong></div>
+        <div className="forge-preview"><strong>{forgedShieldName}</strong><span>Base shield: {(selectedShield?.price ?? 0).toLocaleString()} gp</span>{shieldMasterworkCost > 0 && <span>Masterwork quality: +{shieldMasterworkCost.toLocaleString()} gp</span>}<span>Enhancement: +{shieldEnhancementCost.toLocaleString()} gp</span>{selectedShieldProperties.map((entry) => <span key={entry.name}>{entry.name}: +{(entry.flatCost ?? 0).toLocaleString()} gp{entry.bonus ? " plus equivalent bonus cost" : ""}</span>)}<strong>Total price: {((selectedShield?.price ?? 0) + shieldMasterworkCost + shieldEnhancementCost + shieldPropertyCost).toLocaleString()} gp</strong></div>
         <button className="level-button" type="button" onClick={forgeShield} disabled={!selectedShield}>Forge Shield</button>
       </div>
     </section>

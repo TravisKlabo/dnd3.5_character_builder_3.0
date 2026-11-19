@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { storeItems, findStoreItem, addCustomStoreItems, deleteCustomStoreItem,
-  forgeArmorProperties, type StoreItem } from "../src/data/equipmentCatalog";
+  forgeArmorProperties, forgeShieldProperties, forgeWeaponProperties, type StoreItem } from "../src/data/equipmentCatalog";
 import { getInventoryEntryDetails, getSizedStorePrice, getSizedStoreWeight } from "../src/rules";
 import { armorBonuses, armorCheckPenalties, armorClasses, armorMaximumDexterity, armorSpellFailure } from "../src/data/equipmentRuleData";
 
@@ -260,6 +260,147 @@ describe("indexed equipment catalog", () => {
     }
   });
 
+  it("represents every fixed DMG rod and staff table entry", () => {
+    const rods = [
+      ["Rod of Metamagic, Lesser Enlarge", 3000],
+      ["Rod of Metamagic, Lesser Extend", 3000],
+      ["Rod of Metamagic, Lesser Silent", 3000],
+      ["Immovable Rod", 5000],
+      ["Rod of Metamagic, Lesser Empower", 9000],
+      ["Rod of Metal and Mineral Detection", 10500],
+      ["Rod of Cancellation", 11000],
+      ["Rod of Metamagic, Enlarge", 11000],
+      ["Rod of Metamagic, Extend", 11000],
+      ["Rod of Metamagic, Silent", 11000],
+      ["Rod of Wonder", 12000],
+      ["Rod of the Python", 13000],
+      ["Rod of Metamagic, Lesser Maximize", 14000],
+      ["Rod of Flame Extinguishing", 15000],
+      ["Rod of the Viper", 19000],
+      ["Rod of Enemy Detection", 23500],
+      ["Rod of Metamagic, Greater Enlarge", 24500],
+      ["Rod of Metamagic, Greater Extend", 24500],
+      ["Rod of Metamagic, Greater Silent", 24500],
+      ["Rod of Splendor", 25000],
+      ["Rod of Withering", 25000],
+      ["Rod of Metamagic, Empower", 32500],
+      ["Rod of Thunder and Lightning", 33000],
+      ["Rod of Metamagic, Lesser Quicken", 35000],
+      ["Rod of Negation", 37000],
+      ["Rod of Absorption", 50000],
+      ["Rod of Flailing", 50000],
+      ["Rod of Metamagic, Maximize", 54000],
+      ["Rod of Rulership", 60000],
+      ["Rod of Security", 61000],
+      ["Rod of Lordly Might", 70000],
+      ["Rod of Metamagic, Greater Empower", 73000],
+      ["Rod of Metamagic, Quicken", 75500],
+      ["Rod of Alertness", 85000],
+      ["Rod of Metamagic, Greater Maximize", 121500],
+      ["Rod of Metamagic, Greater Quicken", 170000],
+    ] as const;
+    for (const [name, price] of rods)
+      expect(findStoreItem(name)).toMatchObject({ price });
+
+    const staffs = [
+      ["Staff of Charming", 16500], ["Staff of Fire", 17750],
+      ["Staff of Swarming Insects", 24750], ["Staff of Healing", 27750],
+      ["Staff of Size Alteration", 29000], ["Staff of Illumination", 48250],
+      ["Staff of Frost", 56250], ["Staff of Defense", 58250],
+      ["Staff of Abjuration", 65000], ["Staff of Conjuration", 65000],
+      ["Staff of Enchantment", 65000], ["Staff of Evocation", 65000],
+      ["Staff of Illusion", 65000], ["Staff of Necromancy", 65000],
+      ["Staff of Transmutation", 65000], ["Staff of Divination", 73500],
+      ["Staff of Earth and Stone", 80500], ["Staff of Woodlands", 101250],
+      ["Staff of Life", 155750], ["Staff of Passage", 170500],
+      ["Staff of Power", 211000],
+    ] as const;
+    for (const [name, price] of staffs)
+      expect(findStoreItem(name)).toMatchObject({ price });
+  });
+
+  it("represents all 46 DMG ring table entries or configurable variants", () => {
+    const rings = [
+      "Ring of Protection +1", "Ring of Feather Falling",
+      "Ring of Sustenance", "Ring of Climbing", "Ring of Jumping",
+      "Ring of Swimming", "Ring of Counterspells", "Ring of Mind Shielding",
+      "Ring of Protection +2", "Ring of Force Shield", "Ring of Ram",
+      "Ring of Climbing, Improved", "Ring of Jumping, Improved",
+      "Ring of Swimming, Improved", "Ring of Animal Friendship",
+      "Ring of Energy Resistance (Minor)", "Ring of Chameleon Power",
+      "Ring of Water Walking", "Ring of Protection +3",
+      "Ring of Spell Storing, Minor", "Ring of Invisibility",
+      "Ring of Wizardry I", "Ring of Evasion", "Ring of X-Ray Vision",
+      "Ring of Blinking", "Ring of Energy Resistance (Major)",
+      "Ring of Protection +4", "Ring of Wizardry II",
+      "Ring of Freedom of Movement", "Ring of Energy Resistance (Greater)",
+      "Ring of Friend Shield", "Ring of Protection +5",
+      "Ring of Shooting Stars", "Ring of Spell Storing", "Ring of Wizardry III",
+      "Ring of Telekinesis", "Ring of Regeneration", "Ring of Three Wishes",
+      "Ring of Spell Turning", "Ring of Wizardry IV",
+      "Ring of Djinni Calling", "Ring of Elemental Command (Air)",
+      "Ring of Elemental Command (Earth)", "Ring of Elemental Command (Fire)",
+      "Ring of Elemental Command (Water)", "Ring of Spell Storing, Major",
+    ];
+    expect(rings).toHaveLength(46);
+    for (const name of rings)
+      expect(findStoreItem(name), `Missing DMG ring: ${name}`).toBeDefined();
+  });
+
+  it("represents all DMG specific armor, shield, and weapon table entries", () => {
+    const items = [
+      ["Mithral Shirt", 1100], ["Dragonhide Plate", 3300],
+      ["Elven Chain", 4150], ["Rhino Hide", 5165],
+      ["Adamantine Breastplate", 10200], ["Dwarven Plate", 16500],
+      ["Banded Mail of Luck", 18900], ["Celestial Armor", 22400],
+      ["Plate Armor of the Deep", 24650], ["Breastplate of Command", 25400],
+      ["Mithral Full Plate of Speed", 26500], ["Demon Armor", 52260],
+      ["Darkwood Buckler", 205], ["Darkwood Shield", 257],
+      ["Mithral Heavy Shield", 1020], ["Caster's Shield", 3153],
+      ["Spined Shield", 5580], ["Lion's Shield", 9170],
+      ["Winged Shield", 17257], ["Absorbing Shield", 50170],
+      ["Sleep Arrow", 132], ["Screaming Bolt", 267],
+      ["Silver Dagger, Masterwork", 322],
+      ["Masterwork Cold Iron Longsword", 330],
+      ["Javelin of Lightning", 1500], ["Slaying Arrow", 2282],
+      ["Adamantine Dagger", 3002], ["Adamantine Battleaxe", 3010],
+      ["Slaying Arrow, Greater", 4057], ["Shatterspike", 4315],
+      ["Dagger of Venom", 8302], ["Trident of Warning", 10115],
+      ["Assassin's Dagger", 10302], ["Shifter's Sorrow", 12780],
+      ["Trident of Fish Command", 18650], ["Flame Tongue", 20715],
+      ["Luck Blade (0 wishes)", 22060], ["Sword of Subtlety", 22310],
+      ["Sword of the Planes", 22315], ["Nine Lives Stealer", 23057],
+      ["Sword of Life Stealing", 25715], ["Oathbow", 25600],
+      ["Mace of Terror", 38552], ["Life-Drinker", 40320],
+      ["Sylvan Scimitar", 47315], ["Rapier of Puncturing", 50320],
+      ["Sun Blade", 50335], ["Frost Brand", 54475],
+      ["Dwarven Thrower", 60312], ["Luck Blade (1 wish)", 62360],
+      ["Mace of Smiting", 75312], ["Luck Blade (2 wishes)", 102660],
+      ["Holy Avenger", 120630], ["Luck Blade (3 wishes)", 142960],
+    ] as const;
+    for (const [name, price] of items)
+      expect(findStoreItem(name), `Missing DMG specific item: ${name}`)
+        .toMatchObject({ price });
+  });
+
+  it("fills the remaining fixed DMG wondrous-table gaps", () => {
+    const items = [
+      ["Quiver of Ehlonna", 1800],
+      ["Hand of Glory", 8000],
+      ["Talisman of the Sphere", 9000],
+      ["Bracelet of Friends", 19000],
+      ["Carpet of Flying, 6 ft. by 9 ft.", 53000],
+      ["Wings of Flying", 54000],
+    ] as const;
+    for (const [name, price] of items)
+      expect(findStoreItem(name)).toMatchObject({ price });
+    expect(findStoreItem("Golem Manual, Flesh")?.name).toBe("Manual of Golems, Flesh");
+    expect(findStoreItem("Golem Manual, Clay")?.name).toBe("Manual of Golems, Clay");
+    expect(findStoreItem("Golem Manual, Stone")?.name).toBe("Manual of Golems, Stone");
+    expect(findStoreItem("Golem Manual, Iron")?.name).toBe("Manual of Golems, Iron");
+    expect(findStoreItem("Golem Manual, Greater Stone")?.name).toBe("Manual of Golems, Greater Stone");
+  });
+
   it("uses the correct Forge armor property costs and describes their effects", () => {
     expect(forgeArmorProperties).toContainEqual(expect.objectContaining({
       name: "Glamered",
@@ -284,6 +425,62 @@ describe("indexed equipment catalog", () => {
       .toContain("Slick: +5 competence bonus");
   });
 
+  it("represents every DMG Forge special-ability family", () => {
+    const weaponNames = forgeWeaponProperties.map((entry) => entry.name);
+    expect(weaponNames).toEqual(expect.arrayContaining([
+      "Bane", "Defending", "Distance", "Disruption", "Returning", "Seeking",
+      "Wounding", "Speed", "Brilliant Energy", "Dancing", "Vorpal",
+    ]));
+    expect(forgeArmorProperties).toHaveLength(37);
+    expect(forgeShieldProperties).toHaveLength(31);
+    expect(forgeWeaponProperties).toHaveLength(30);
+    expect(forgeShieldProperties).toContainEqual(expect.objectContaining({
+      name: "Acid Resistance, Greater",
+      flatCost: 66000,
+    }));
+  });
+
+  it("includes the complete DMG specific cursed-item table and described artifacts", () => {
+    const cursedItems = [
+      ["Incense of Obsession", 200],
+      ["Ring of Clumsiness", 500],
+      ["Amulet of Inescapable Location", 1000],
+      ["Stone of Weight", 1000],
+      ["Bracers of Defenselessness", 1200],
+      ["Gauntlets of Fumbling", 1300],
+      ["-2 Sword, Cursed", 1500],
+      ["Armor of Rage", 1600],
+      ["Medallion of Thought Projection", 1800],
+      ["Flask of Curses", 2100],
+      ["Dust of Sneezing and Choking", 2400],
+      ["Helm of Opposite Alignment", 4000],
+      ["Potion of Poison", 5000],
+      ["Broom of Animated Attack", 5200],
+      ["Robe of Powerlessness", 5500],
+      ["Vacuous Grimoire", 6000],
+      ["Spear, Cursed Backbiter", 7500],
+      ["Armor of Arrow Attraction", 9000],
+      ["Net of Snaring", 10000],
+      ["Bag of Devouring", 0],
+      ["Mace of Blood", 16000],
+      ["Robe of Vermin", 16500],
+      ["Periapt of Foul Rotting", 17000],
+      ["Sword, Berserking", 17500],
+      ["Boots of Dancing", 30000],
+      ["Crystal Hypnosis Ball", 0],
+      ["Necklace of Strangulation", 60000],
+      ["Cloak of Poisonousness", 62000],
+      ["Scarab of Death", 80000],
+    ] as const;
+    for (const [name, price] of cursedItems) {
+      expect(findStoreItem(name), `Missing DMG cursed item: ${name}`).toMatchObject({ price });
+      expect(findStoreItem(name)?.description, `Missing curse description: ${name}`).toBeTruthy();
+    }
+    expect(findStoreItem("Book of Exalted Deeds")?.description).toContain("Minor artifact");
+    expect(findStoreItem("Gold Dragon Orb of Dragonkind")?.description).toContain("Major artifact");
+    expect(findStoreItem("Sword of Kas")?.description).toContain("+6 unholy keen vorpal");
+  });
+
   it("includes SRD torso-slot items with their prices and effects", () => {
     expect(findStoreItem("Vest of Escape")).toMatchObject({
       category: "Torso",
@@ -300,7 +497,7 @@ describe("indexed equipment catalog", () => {
   });
 
   it("includes all SRD robe items in the Body slot with verified prices and weights", () => {
-    const bodyItems = storeItems.filter((item) => item.category === "Body" && !item.custom);
+    const bodyItems = storeItems.filter((item) => item.category === "Body" && !item.custom && !item.itemKind);
     expect(bodyItems.map((item) => item.name).sort()).toEqual([
       "Robe of Blending",
       "Robe of Bones",
@@ -355,6 +552,7 @@ describe("indexed equipment catalog", () => {
       ["Amulet of the Planes", 120000],
       ["Amulet of Proof against Detection and Location", 35000],
       ["Brooch of Shielding", 1500],
+      ["Hand of Glory", 8000],
       ["Medallion of Thoughts", 12000],
       ["Necklace of Adaptation", 9000],
       ["Periapt of Health", 7400],
@@ -369,7 +567,7 @@ describe("indexed equipment catalog", () => {
       ["Strand of Prayer Beads (Standard)", 45800],
       ["Strand of Prayer Beads (Greater)", 95800],
     ] as const;
-    const neckItems = storeItems.filter((item) => item.category === "Neck" && !item.custom);
+    const neckItems = storeItems.filter((item) => item.category === "Neck" && !item.custom && !item.itemKind);
     expect(neckItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
     for (const [name, price] of expectedItems) {
@@ -439,6 +637,7 @@ describe("indexed equipment catalog", () => {
       ["Broom of Flying", 17000, "3 lb."],
       ["Carpet of Flying, 5 ft. by 5 ft.", 20000, "8 lb."],
       ["Carpet of Flying, 5 ft. by 10 ft.", 35000, "10 lb."],
+      ["Carpet of Flying, 6 ft. by 9 ft.", 53000, "10 lb."],
       ["Carpet of Flying, 10 ft. by 10 ft.", 60000, "15 lb."],
       ["Censer of Controlling Air Elementals", 100000, "1 lb."],
       ["Chaos Diamond", 160000, "1 lb."],
@@ -479,8 +678,10 @@ describe("indexed equipment catalog", () => {
       ["Stone of Controlling Earth Elementals", 100000, "5 lb."],
       ["Stone of Good Luck", 20000, "—"],
       ["Sustaining Spoon", 5400, "—"],
+      ["Talisman of the Sphere", 9000, "1 lb."],
       ["Well of Many Worlds", 82000, "—"],
       ["Wind Fan", 5500, "—"],
+      ["Wings of Flying", 54000, "2 lb."],
       ...pearlItems,
       ...figurineItems,
       ...inheritedBonusBooks,
@@ -514,7 +715,7 @@ describe("indexed equipment catalog", () => {
       ["Necklace of Fireballs VII", 8700, "—"],
     ];
     const actualItems = storeItems
-      .filter((item) => item.category === "Body & Wondrous Items" && !item.custom)
+      .filter((item) => item.category === "Body & Wondrous Items" && !item.custom && !item.itemKind)
       .map(({ name, price, weight }) => `${name}|${price}|${weight}`)
       .sort();
     expect(actualItems).toEqual(
@@ -609,7 +810,7 @@ describe("indexed equipment catalog", () => {
       ["Mantle of Faith", 76000, "—"],
       ["Mantle of Spell Resistance", 90000, "—"],
     ] as const;
-    const shoulderItems = storeItems.filter((item) => item.category === "Shoulders" && !item.custom);
+    const shoulderItems = storeItems.filter((item) => item.category === "Shoulders" && !item.custom && !item.itemKind);
     expect(shoulderItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
     for (const [name, price, weight] of expectedItems) {
@@ -633,13 +834,14 @@ describe("indexed equipment catalog", () => {
       ["Bracers of Armor +8", 64000],
       ["Bracers of Archery, Lesser", 5000],
       ["Bracers of Archery, Greater", 25000],
+      ["Bracelet of Friends", 19000, "—"],
     ] as const;
-    const armItems = storeItems.filter((item) => item.category === "Arms" && !item.custom);
+    const armItems = storeItems.filter((item) => item.category === "Arms" && !item.custom && !item.itemKind);
     expect(armItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
-    for (const [name, price] of expectedItems) {
+    for (const [name, price, weight = "1 lb."] of expectedItems) {
       expect(armItems).toEqual(expect.arrayContaining([
-        expect.objectContaining({ name, price, weight: "1 lb." }),
+        expect.objectContaining({ name, price, weight }),
       ]));
     }
   });
@@ -655,7 +857,7 @@ describe("indexed equipment catalog", () => {
       ["Glove of Storing", 10000, "—"],
       ["Gloves of Swimming and Climbing", 6250, "—"],
     ] as const;
-    const handItems = storeItems.filter((item) => item.category === "Hands" && !item.custom);
+    const handItems = storeItems.filter((item) => item.category === "Hands" && !item.custom && !item.itemKind);
     expect(handItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
     for (const [name, price, weight] of expectedItems) {
@@ -695,7 +897,7 @@ describe("indexed equipment catalog", () => {
       ["Boots, Winged", 16000, "1 lb."],
       ["Slippers of Spider Climbing", 4800, "0.5 lb."],
     ] as const;
-    const feetItems = storeItems.filter((item) => item.category === "Feet" && !item.custom);
+    const feetItems = storeItems.filter((item) => item.category === "Feet" && !item.custom && !item.itemKind);
     expect(feetItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
     for (const [name, price, weight] of expectedItems) {
@@ -726,7 +928,10 @@ describe("indexed equipment catalog", () => {
       ["Ring of Climbing, Improved", 10000],
       ["Ring of Counterspells", 4000],
       ["Ring of Djinni Calling", 125000],
-      ["Ring of Elemental Command", 200000],
+      ["Ring of Elemental Command (Air)", 200000],
+      ["Ring of Elemental Command (Earth)", 200000],
+      ["Ring of Elemental Command (Fire)", 200000],
+      ["Ring of Elemental Command (Water)", 200000],
       ["Ring of Energy Resistance (Minor)", 12000],
       ["Ring of Energy Resistance (Major)", 28000],
       ["Ring of Energy Resistance (Greater)", 44000],
@@ -764,7 +969,7 @@ describe("indexed equipment catalog", () => {
       ["Ring of Wizardry IV", 100000],
       ["Ring of X-Ray Vision", 25000],
     ] as const;
-    const ringItems = storeItems.filter((item) => item.category === "Rings" && !item.custom);
+    const ringItems = storeItems.filter((item) => item.category === "Rings" && !item.custom && !item.itemKind);
     expect(ringItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
     for (const [name, price] of expectedItems) {
@@ -803,7 +1008,7 @@ describe("indexed equipment catalog", () => {
       ["Phylactery of Faithfulness", 1000, "—"],
       ["Phylactery of Undead Turning", 11000, "—"],
     ] as const;
-    const headItems = storeItems.filter((item) => item.category === "Head" && !item.custom);
+    const headItems = storeItems.filter((item) => item.category === "Head" && !item.custom && !item.itemKind);
     expect(headItems.map((item) => item.name).sort())
       .toEqual(expectedItems.map(([name]) => name).sort());
     for (const [name, price, weight] of expectedItems) {

@@ -993,6 +993,7 @@ const combatTargetLabels: Record<CombatTargetType, string> = {
   goblinoid: "goblinoids",
   kobold: "kobolds",
   giant: "giants",
+  aberration: "aberrations",
 };
 
 export function getTowerShieldState(character: Character) {
@@ -1697,13 +1698,13 @@ export function getStoreItemDescription(
       ? " Masterwork: armor check penalty reduced by 1."
       : "";
     const armorPropertyDetails = [
-      /\bFortification\b/i.test(weaponName)
+      /\bFortification \+/i.test(weaponName)
         ? "Light Fortification: 25% chance to negate extra damage from a critical hit or sneak attack; resolve the percentile roll manually."
         : "",
-      /\bGlamered\b/i.test(weaponName)
+      /\bGlamered \+/i.test(weaponName)
         ? "Glamered: on command, appears to be ordinary clothing or other garb without changing the armor's properties or weight."
         : "",
-      /\bSlick\b/i.test(weaponName)
+      /\bSlick \+/i.test(weaponName)
         ? "Slick: +5 competence bonus on Escape Artist checks; this armor's check penalty still applies."
         : "",
     ].filter(Boolean);
@@ -1807,7 +1808,8 @@ export function getInventoryEntryDetails(key: string, compositeBowStrengthRating
   const compositeBowRatingCost = baseName === "Composite Longbow"
     ? 100 * compositeBowStrengthRating
     : baseName === "Composite Shortbow" ? 75 * compositeBowStrengthRating : 0;
-  const spellName = name.match(/^(?:Wand|Scroll) of (.+?) \(CL /)?.[1];
+  const spellItemMatch = name.match(/^(Wand|Scroll|Potion) of (.+?) \(CL /);
+  const spellName = spellItemMatch?.[2];
   const spell = spellName
     ? findSpellByName(spellName)
     : undefined;
@@ -1818,7 +1820,7 @@ export function getInventoryEntryDetails(key: string, compositeBowStrengthRating
     size,
     weight,
     price: item ? getSizedStorePrice(item, size) + compositeBowRatingCost : undefined,
-    category: item?.category ?? "Crafted item",
+    category: item?.category ?? (spellItemMatch ? "Potions, Scrolls & Wands" : "Crafted item"),
     description: item ? getStoreItemDescription(item, size, name) : "Inventory item.",
     material: item?.material ?? (item && (item.category === "Weapons" || item.category === "Ammunition")
       ? getMaterialFromName(name)

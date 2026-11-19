@@ -59,12 +59,17 @@ export function WandsScrollPanel({
   const availableScrollSpells = purchaseInstead ? itemSpells : craftableSpells;
   const wandSpells = (purchaseInstead ? itemSpells : craftableSpells)
     .filter((spell) => spell.level <= 4);
+  const potionSpells = (purchaseInstead ? itemSpells : craftableSpells)
+    .filter((spell) => spell.level <= 3);
   const [scrollSpellName, setScrollSpellName] = useState(availableScrollSpells[0]?.name ?? "");
   const [scrollCasterLevel, setScrollCasterLevel] = useState(1);
   const [wandSpellName, setWandSpellName] = useState(wandSpells[0]?.name ?? "");
   const [wandCasterLevel, setWandCasterLevel] = useState(1);
+  const [potionSpellName, setPotionSpellName] = useState(potionSpells[0]?.name ?? "");
+  const [potionCasterLevel, setPotionCasterLevel] = useState(1);
   const scrollSpell = availableScrollSpells.find((spell) => spell.name === scrollSpellName) ?? availableScrollSpells[0];
   const wandSpell = wandSpells.find((spell) => spell.name === wandSpellName) ?? wandSpells[0];
+  const potionSpell = potionSpells.find((spell) => spell.name === potionSpellName) ?? potionSpells[0];
   const scrollMinimumCasterLevel = scrollSpell
     ? purchaseInstead
       ? (scrollSpell.level === 0 ? 1 : scrollSpell.level * 2 - 1)
@@ -81,16 +86,30 @@ export function WandsScrollPanel({
         isSpellClassAccessAllowed(wandSpell, classLevel.classId, character),
       ).map((classLevel) => minimumCasterLevel(wandSpell, classLevel.classId)))
     : 1;
+  const potionMinimumCasterLevel = potionSpell
+    ? purchaseInstead
+      ? (potionSpell.level === 0 ? 1 : potionSpell.level * 2 - 1)
+      : Math.min(...spellcastingLevels.filter((classLevel) =>
+        potionSpell.classes.includes(classLevel.classId) &&
+        isSpellClassAccessAllowed(potionSpell, classLevel.classId, character),
+      ).map((classLevel) => minimumCasterLevel(potionSpell, classLevel.classId)))
+    : 1;
   const scrollLevel = scrollSpell?.level || 0.5;
   const wandLevel = wandSpell?.level || 0.5;
+  const potionLevel = potionSpell?.level || 0.5;
   const scrollPrice = 25 * scrollLevel * scrollCasterLevel;
   const wandPrice = 750 * wandLevel * wandCasterLevel;
+  const potionPrice = 50 * potionLevel * potionCasterLevel;
   const scrollCreationCost = scrollPrice / 2;
   const wandCreationCost = wandPrice / 2;
+  const potionCreationCost = potionPrice / 2;
   const scrollXpCost = scrollPrice / 25;
   const wandXpCost = wandPrice / 25;
+  const potionXpCost = potionPrice / 25;
   const scrollCraftingDays = Math.max(1, Math.ceil(scrollPrice / 1000));
   const wandCraftingDays = Math.max(1, Math.ceil(wandPrice / 1000));
+  const potionCraftingDays = 1;
+  const hasBrewPotion = chosenFeats.includes("brew-potion");
   const addCraftedItem = (name: string) => {
     const inventory = { ...(character.inventory ?? {}) };
     inventory[name] = (inventory[name] ?? 0) + 1;
@@ -111,6 +130,11 @@ export function WandsScrollPanel({
     const nextSpell = wandSpells[0];
     setWandSpellName(nextSpell?.name ?? "");
     setWandCasterLevel(nextSpell ? (purchaseInstead ? (nextSpell.level === 0 ? 1 : nextSpell.level * 2 - 1) : wandMinimumCasterLevel) : 1);
+  };
+  const forgePotion = () => {
+    if (!potionSpell) return;
+    if ((!hasBrewPotion && !purchaseInstead) || potionCasterLevel < potionMinimumCasterLevel) return;
+    addCraftedItem(`Potion of ${potionSpell.name} (CL ${potionCasterLevel})`);
   };
   return (
     <section className="forge-panel panel">
@@ -138,6 +162,21 @@ export function WandsScrollPanel({
           {!purchaseInstead && <span>XP cost: {scrollXpCost.toLocaleString()}; crafting time: {scrollCraftingDays} day{scrollCraftingDays === 1 ? "" : "s"}</span>}
         </div>
         <button className="level-button" type="button" onClick={forgeScroll} disabled={(!hasScribeScroll && !purchaseInstead) || !scrollSpell || scrollCasterLevel < scrollMinimumCasterLevel}>{purchaseInstead ? "Purchase Scroll" : "Make Scroll"}</button>
+        <div className="forge-divider" />
+        <h3>Make a Potion</h3>
+        <div className="forge-grid">
+          <label>Spell<SpellPicker spells={potionSpells} selected={potionSpell?.name} onChange={setPotionSpellName} placeholder="Choose a potion spell" disabled={(!hasBrewPotion && !purchaseInstead) || !potionSpells.length} /></label>
+          <label>Caster level<select value={potionCasterLevel} onChange={(event) => setPotionCasterLevel(Number(event.target.value))} disabled={!potionSpell || (!hasBrewPotion && !purchaseInstead)}>{Array.from({ length: Math.max(0, 20 - potionMinimumCasterLevel + 1) }, (_, index) => index + potionMinimumCasterLevel).map((level) => <option key={level} value={level}>CL {level}</option>)}</select></label>
+        </div>
+        <div className="forge-preview">
+          <strong>Potion of {potionSpell?.name} (CL {potionCasterLevel})</strong>
+          <span>{potionSpell?.description || "No spell description available."}</span>
+          <span>Spell level: {potionSpell?.level ?? 0}; school: {formatSpellSchool(potionSpell?.school)}</span>
+          <span>{purchaseInstead ? "Purchase cost" : "Market price"}: {potionPrice.toLocaleString()} gp{purchaseInstead ? "" : `; creation cost: ${potionCreationCost.toLocaleString()} gp`}</span>
+          {!purchaseInstead && <span>XP cost: {potionXpCost.toLocaleString()}; crafting time: {potionCraftingDays} day</span>}
+          <span>Verify the spell targets one or more creatures and has an otherwise valid potion effect.</span>
+        </div>
+        <button className="level-button" type="button" onClick={forgePotion} disabled={(!hasBrewPotion && !purchaseInstead) || !potionSpell || potionCasterLevel < potionMinimumCasterLevel}>{purchaseInstead ? "Purchase Potion" : "Make Potion"}</button>
         <div className="forge-divider" />
         <h3>Make a Wand</h3>
         <div className="forge-grid">

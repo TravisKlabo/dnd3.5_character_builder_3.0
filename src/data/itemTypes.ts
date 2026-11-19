@@ -14,6 +14,7 @@ export type StoreItem = {
   weight: string;
   description?: string;
   custom?: boolean;
+  itemKind?: "cursed" | "artifact";
   ranged?: boolean;
   thrown?: boolean;
   rangedDamageAbility?: "none" | "strength" | "strength-penalty-only";

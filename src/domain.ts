@@ -259,7 +259,7 @@ export interface RaceDefinition {
 
 export type SavingThrowCondition = 'fear' | 'poison' | 'disease' | 'spell' | 'fey-spell-like' | 'enchantment' | 'compulsion' | 'illusion' | 'sleep' | 'oath'
 export type RacialSkillCondition = 'unusual-stonework' | 'stone-or-metal' | 'alchemy' | 'taunt' | 'pitiable'
-export type CombatTargetType = 'orc' | 'goblinoid' | 'kobold' | 'giant'
+export type CombatTargetType = 'orc' | 'goblinoid' | 'kobold' | 'giant' | 'aberration'
 
 export interface PrestigeClassDefinition {
   id: PrestigeClassId
@@ -634,6 +634,23 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
   ], racialSpellSchoolDcBonuses: { illusion: 1 }, specialAbilities: ['Low-light vision', 'Illusion saves +2; DC +1', 'Hooked hammer familiarity', '+1 attack vs. kobolds/goblinoids; +4 dodge AC vs. giants', 'Craft (alchemy) +2'] },
   'half-orc': { id: 'half-orc', name: 'Half-orc', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 30, abilityModifiers: { str: 2, int: -2, cha: -2 }, specialAbilities: ['Darkvision 60 ft.', 'Orc blood'] },
   'half-elf': { id: 'half-elf', name: 'Half-elf', source: 'core-35-srd', sourceBook: "Player's Handbook (3.5)", size: 'Medium', speed: 30, abilityModifiers: {}, racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 }, racialSituationalSaveBonuses: { enchantment: 2 }, specialAbilities: ['Low-light vision (see twice as far as humans in starlight, moonlight, torchlight, and similar poor illumination; retain color and detail)', 'Immune to sleep spells and similar magical effects', 'Enchantment saves +2', 'Elven blood'] },
+  'gold-dwarf': {
+    id: 'gold-dwarf', name: 'Gold Dwarf', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)",
+    size: 'Medium', speed: 20, abilityModifiers: { con: 2, dex: -2 },
+    racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } },
+    racialSituationalSaveBonuses: { poison: 2, spell: 2 },
+    racialAttackBonuses: { aberration: 1 },
+    racialDodgeACBonuses: { giant: 4 },
+    specialAbilities: ['Darkvision 60 ft.', 'Stonecunning', 'Stability (+4 to resist bull rush or trip while firmly grounded)', 'Dwarven waraxe/urgrosh familiarity', '+2 saves vs. poison/spells', '+1 attack vs. aberrations; +4 dodge AC vs. giants', 'Gold Dwarf example uses the PHB dwarf chassis'],
+  },
+  'half-human-elf': {
+    id: 'half-human-elf', name: 'Half-Human Elf', source: 'core-35-srd', sourceBook: "Dungeon Master's Guide (3.5)",
+    size: 'Medium', speed: 30, abilityModifiers: {},
+    racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1 },
+    racialSituationalSaveBonuses: { enchantment: 2 },
+    racialWeaponProficiencies: ['Longsword', 'Rapier', 'Shortbow', 'Longbow'],
+    specialAbilities: ['Low-light vision', 'Immune to sleep spells and similar magical effects', 'Enchantment saves +2', 'Elven blood', 'No Diplomacy or Gather Information racial bonus', 'Elf weapon proficiency: longsword, rapier, longbow, shortbow', 'Favored class: Wizard'],
+  },
   kender: {
     id: 'kender',
     name: 'Kender',

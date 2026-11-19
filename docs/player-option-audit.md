@@ -318,6 +318,69 @@ coin-denomination rows remain represented as campaign transactions/currency,
 not character inventory objects. The certification covers source definition
 and representation; situational combat adjudication remains manual.
 
+### DMG certification checkpoint: fixed magic items
+
+All 36 entries in Table 7-19 (rods) and all 21 entries in Table 7-25 (staffs)
+are represented as selectable fixed items. The source table corrected three
+existing prices: Rod of Metamagic, Maximize is 54,000 gp, Staff of Fire is
+17,750 gp, and Staff of Healing is 27,750 gp. Potions and oils, scrolls, and
+wands remain covered by the configurable generated-item tooling rather than
+duplicate fixed entries.
+All 46 Table 7-18 ring entries are now represented. Air, Earth, Fire, and Water
+elemental-command rings are distinct selections; energy-resistance rings stay
+as one configurable table entry per minor/major/greater tier rather than
+duplicating a record for each energy type.
+All 12 specific armors, eight specific shields, and 34 specific weapons from
+Tables 7-7, 7-8, and 7-16 are represented as fixed selectable items. Arbitrary
+enhancement/property combinations remain Forge-generated, avoiding duplicate
+store records.
+
+Tables 7-27 through 7-29's 300 wondrous-item entries are covered by the
+existing exact slot rosters, slotless roster, generated ability-score item
+families, inherent-bonus books, or aliases for renamed DMG/SRD items. The fixed
+gaps added in this pass were Quiver of Ehlonna, Hand of Glory, Talisman of the
+Sphere, Bracelet of Friends, Carpet of Flying (6 by 9), and Wings of Flying.
+Exact table-name aliases now point to the represented Efficient Quiver and
+Manual of Golems entries without duplicating records.
+
+Generated DMG items now satisfy the persistence/print gate: Forge output and
+configured scrolls, wands, and potions remain in character inventory and
+render on the printable sheet. Potion generation is limited to spell level 3
+or lower, matching Brew Potion; the spell must target one or more creatures
+and otherwise be potion-valid, which remains an explicit manual check. Spell
+item parsing recognizes Potion as well as Wand and Scroll names so generated
+entries retain their spell metadata.
+
+Forge now contains every special ability named by the DMG armor, shield,
+melee-weapon, and ranged-weapon tables, including flat-cost properties and
+weapon compatibility restrictions. The app enforces the effective +10
+equivalent-bonus ceiling and prints the forged selection; property effects
+themselves remain resolved from their source text during play.
+
+All 29 entries in Table 7-31's specific cursed-item table are selectable with
+their DMG prices (or an explicit no-market-price marker), curse descriptions,
+and printable inventory details. The named minor and major artifacts are also
+selectable campaign items with explicit no-market-price and manual-effect
+boundaries. Artifacts are not treated as ordinary purchasable rewards.
+
+The DMG prestige/epic gate is complete for representation and print: all 16
+DMG prestige classes are level-up enabled with source attribution, and all 13
+DMG epic feats are represented with level-21 and feat-specific prerequisites.
+A printable-sheet regression now verifies prestige class level and epic feat
+names, including Archmage history validation.
+
+The DMG spell/race gate now treats *Corrupt Weapon* as the only DMG-only
+spell definition; it is Blackguard-only and supported through normal
+preparation and print. The two direct race examples—Gold Dwarf and Half-Human
+Elf—are selectable with DMG attribution. The 33 “Monsters as Races” entries
+remain cross-referenced to Monster Manual racial definitions, not duplicated
+as DMG races; their PC suitability also remains DM-dependent.
+
+The DMG definition-pass gate is complete under the strict PHB/DMG criteria:
+all selectable feats, spells, classes, direct races, and fixed/generated items
+are represented and printable, with campaign-specific adjudication explicitly
+manual where automation is not part of character creation.
+
 The supplied books are authoritative for this audit. Dragonlance options remain
 specific to a Dragonlance character. This is an inventory and gap analysis, not
 a claim that the collection is already implemented or that every option is
@@ -1095,7 +1158,9 @@ chapter.
 ### Races and monsters as characters
 
 The race-creation guidance (pp. 170–172) includes a Gold Dwarf subrace example
-and a modified Half-Human Elf example. The "Monsters as Races" table (p. 172)
+and a modified Half-Human Elf example. These two race examples are now
+selectable and attributed to the DMG; they print through the normal race
+summary path. The "Monsters as Races" table (p. 172)
 classifies 33 Monster Manual creatures by suitability for PCs and gives level
 adjustments:
 
@@ -1112,20 +1177,19 @@ adjustments:
 The chapter also provides monster-PC rules for racial Hit Dice, level
 adjustment, ECL, ability scores, skills, feats, and starting level. The current
 [domain.ts](../src/domain.ts) model supports racial Hit Dice and level
-adjustment and derives ECL, but no DMG-attributed definitions for these race
-examples or monster-PC choices were found. The Gold Dwarf and Half-Human Elf
-examples are likewise absent. A similarly named race from another setting
-must not be treated as the DMG version.
+adjustment and derives ECL. The 33 monster-PC entries require their Monster
+Manual racial definitions and are therefore tracked as a cross-book roster,
+not counted as DMG-only race definitions. A similarly named race from another
+setting must not be treated as the DMG version.
 
 ### Prestige classes and feats
 
 The DMG lists Arcane Archer, Arcane Trickster, Archmage, Assassin, Blackguard,
 Dragon Disciple, Duelist, Dwarven Defender, Eldritch Knight, Hierophant,
 Horizon Walker, Loremaster, Mystic Theurge, Red Wizard, Shadowdancer, and
-Thaumaturgist (pp. 176–196). Thirteen have DMG prestige-class definitions in
-[domain.ts](../src/domain.ts); Archmage, Blackguard, and Red Wizard are
-missing. The Dragonlance Red-Robed Wizard is a separate setting prestige
-class, not the DMG Red Wizard.
+Thaumaturgist (pp. 176–196). All 16 now have DMG-attributed definitions and
+level-up-enabled progressions in [domain.ts](../src/domain.ts). The Dragonlance
+Red-Robed Wizard remains separate from the DMG Red Wizard.
 
 The DMG's 13 epic feats are already inventoried and regression-tested in
 [rules-coverage.md](./rules-coverage.md) (pp. 209–210). Chapter 6 also

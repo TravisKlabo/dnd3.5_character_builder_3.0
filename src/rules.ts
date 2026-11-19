@@ -6713,6 +6713,7 @@ export function getSkillAbility(skill: string): AbilityName | null {
     "Spellcraft",
   ];
   const wisdomSkills = [
+    "Control Shape",
     "Heal",
     "Listen",
     "Profession",

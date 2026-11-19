@@ -2599,13 +2599,30 @@ establish them.
 
 ### Player-character creatures
 
-The DMG's candidate table supplies a source-backed starting set of monster
-PCs, while individual MM entries supply creature traits, racial Hit Dice, and
-level adjustments needed to apply those rules. The current [domain.ts](../src/domain.ts)
-race catalog has no MM1-attributed creature profiles; its racial Hit Dice and
-level-adjustment fields provide a reusable model, but the MM1 creature choices
-and their eligibility are not implemented. A complete creature-by-creature
-level-adjustment and rules audit remains outstanding.
+The DMG's candidate table supplies a source-backed starting set of 33 monster
+PCs. All 33 now have MM I source-attributed selectable profiles in
+[domain.ts](../src/domain.ts), with explicit ability adjustments, racial Hit
+Dice, saves, skill points/class skills, natural armor/proficiencies where
+modeled, and level adjustment. These profiles print through the normal race
+identity path and participate in the racial-HD/ECL calculations.
+
+The roster is Goblin, Kobold, Orc, Aasimar, Bugbear, Duergar, Gnoll,
+Hobgoblin, Lizardfolk, Tiefling, Centaur, Githyanki, Githzerai, Drow, Ogre,
+Minotaur, Troglodyte, Svirfneblin, Afflicted Lycanthrope, Natural Lycanthrope,
+Satyr, Yuan-ti Pureblood, Kuo-toa, Pixie, Gargoyle, Troll, Drider, Hill Giant,
+Janni, Yuan-ti Halfblood, Mind Flayer, Ogre Mage, and Vampire. Pixies exchange
+their racial Hit Die for the first class level. Lycanthrope animal-form HD and
+vampire base-creature/template interactions remain manual because they depend
+on choices not yet represented as structured character state; their LA
+increments and printed source boundaries are explicit.
+
+Control Shape is now represented as a Wisdom skill with its afflicted
+lycanthrope purpose and DC boundary in the printable skill catalog. Natural
+lycanthropes are explicitly exempt. This completes MM I's selectable player
+option definition pass: no new base/prestige class or standalone spell
+catalog was identified, and the 13 Chapter 6 monster feats were already
+source-checked. Creature powers that require live adjudication remain manual
+rather than being silently omitted.
 
 ## Monster Manual II: first-pass character-option inventory
 

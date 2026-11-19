@@ -35,6 +35,7 @@ export const skills = [
   "Bluff",
   "Climb",
   "Concentration",
+  "Control Shape",
   "Craft",
   "Craft (poisonmaking)",
   "Decipher Script",
@@ -251,6 +252,7 @@ export const skillDescriptions: Record<string, string> = {
   Bluff: "Convince others that something untrue is believable.",
   Climb: "Climb surfaces, ropes, and other handholds.",
   Concentration: "Maintain focus while distracted, injured, or casting.",
+  "Control Shape": "For afflicted lycanthropes, resist involuntary changes and assume or leave animal or hybrid form; natural lycanthropes do not use this skill.",
   Craft: "Create or repair items in a chosen craft.",
   "Decipher Script":
     "Understand unfamiliar writing, codes, and ancient scripts.",

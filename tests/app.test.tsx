@@ -1024,6 +1024,20 @@ describe("application workflows", () => {
     expect(knownSpellValues.slice(2).every((value) => !value)).toBe(true);
   });
 
+  it("prints MM I monster-race identity and racial level information", () => {
+    const character = savedHero();
+    character.name = "MM I Test";
+    character.race = "Bugbear";
+    character.classLevels = [{ classId: "fighter", level: 1 }];
+    render(<PrintableCharacterSheet character={character} />);
+
+    const identity = screen.getByRole("region", {
+      name: "Character record sheet, page 1",
+    }).querySelector(".reference-identity");
+    expect(identity?.textContent).toContain("Bugbear");
+    expect(identity?.textContent).toContain("Fighter 1");
+  });
+
   it("prints elemental weapon damage separately from physical damage", () => {
     const character = savedHero();
     character.equipment = {

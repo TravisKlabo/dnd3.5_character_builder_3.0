@@ -513,6 +513,7 @@ describe("skill training and untrained use", () => {
     expect(getSkillAbility("Disable Device")).toBe("int");
     expect(getSkillAbility("Forgery")).toBe("int");
     expect(getSkillAbility("Disguise")).toBe("cha");
+    expect(getSkillAbility("Control Shape")).toBe("wis");
     const character = cloneCharacter(initialCharacter);
     character.race = "Halfling";
     character.abilities.dex = 16;

@@ -7,6 +7,16 @@ to inherited rules calculations are documented below.
 
 ## Sourcebook review progress
 
+**Monster Manual I definition-pass certification (2026-11-19).** All 33
+DMG "Monsters as Races" candidates now have MM I source-attributed selectable
+profiles, including racial Hit Dice, level adjustment, racial skill metadata,
+and printable race identity. Added the Control Shape (Wis) skill for afflicted
+lycanthropes. Template and monster-specific effects that require campaign or
+form choices remain explicitly manual, especially lycanthrope animal forms,
+vampire base-creature adjustments, innate psionics/spell-like powers, natural
+attacks, regeneration, and other creature abilities. The 13 Chapter 6 monster
+feats were previously source-checked and remain represented.
+
 **DMG certification checkpoint (2026-11-18): fixed rods and staffs.** All
 36 Table 7-19 rod entries and all 21 Table 7-25 staff entries are now
 selectable with DMG table prices. Added the missing fixed rods/staffs and
@@ -532,14 +542,15 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 | Complete Warrior | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
 | Dragonlance Campaign Setting | Partial rules fixes and remaining TODOs documented below; full pass not certified | [ ] |
 | Dungeon Master's Guide II | First-pass inventory recorded; full pass not certified | [ ] |
-| Monster Manual I (Premium Edition) | Monster-feat chapter checked; creature coverage remains incomplete | [ ] |
+| Monster Manual I (Premium Edition) | All 33 DMG Monster-as-Race candidates have source-attributed selectable racial profiles with racial HD/ECL metadata and printable identity. All 13 Chapter 6 monster feats and Control Shape are represented. Campaign/form-dependent powers remain explicit manual boundaries. | [x] |
 | Monster Manual II | Nine sidebar feats checked: eight retained using 3.5 revisions, Multidexterity excluded; Beget Bogun added via verified 3.5 reprint. No new base/prestige class found. Race/template conversion open. | [x] |
 | Monster Manual III | Eight missed racial feats added; 11 monster-feat definitions checked; Powerful Charge attribution and Quicken SLA timing fixed. No new spell/base/prestige class found. Race, shifting, and plating support open. | [x] |
 | **Monster Manual IV** | 13 feats reviewed; summon spell and feat corrections implemented. Githyanki Battlecaster's Wizard bonus option is now implemented. **Varag racial progression remains deferred.** No new ordinary base/prestige class found. | [x] |
 | Monster Manual V | 12 monster feats and seven sidebars checked; Earthbind added; Brutal Throw Fighter eligibility fixed. No new base/prestige/racial class found. Creature/template support open. | [x] |
 
-**Definition-pass certified under the PHB/DMG criteria:** Player's Handbook
-and Dungeon Master's Guide v3.5 ([x], 2026-11-19).
+**Definition-pass certified under the PHB/DMG criteria:** Player's Handbook,
+Dungeon Master's Guide v3.5, and Monster Manual I (Premium Edition)
+([x], 2026-11-19).
 
 The Monster Manual II–V `[x]` entries above predate this stricter
 selectable-option criteria and mean their scoped definition checks are
@@ -553,7 +564,8 @@ represented and print-tested, with explicit manual boundaries.
 - **Next rules-correctness target:** verify character creation and level-up
   against source-checked builds, starting with feat prerequisites at the level
   taken, then multiclass progression and spell slots/access. Check both legal
-  selections and choices the builder should reject.
+  selections and choices the builder should reject. Next sourcebook target:
+  Dragonlance Campaign Setting.
 - **Explicitly deferred:** MMIV's Varag racial class (pp. 170-171).
   Its first five racial levels distribute only three racial Hit Dice and +2 LA;
   ordinary class advancement starts at racial level 6. It is not selectable,

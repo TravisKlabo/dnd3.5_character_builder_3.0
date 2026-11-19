@@ -439,6 +439,41 @@ describe("provided-book feat inventory", () => {
     ).map((spell) => spell.name)).toEqual(["Corrupt Weapon"]);
   });
 
+  it("represents the first MM I monster-PC batch with racial HD and ECL", () => {
+    const mm1Races = Object.values(raceDefinitions).filter(
+      (race) => race.sourceBook === "Monster Manual I (3.5)",
+    );
+    expect(mm1Races).toHaveLength(33);
+    expect(mm1Races.map((race) => race.name)).toEqual(expect.arrayContaining([
+      "Goblin", "Kobold", "Orc", "Aasimar", "Tiefling", "Duergar",
+      "Hobgoblin", "Drow", "Svirfneblin", "Bugbear", "Gnoll",
+      "Lizardfolk", "Centaur", "Githyanki", "Githzerai", "Ogre",
+      "Troglodyte", "Minotaur", "Satyr", "Kuo-toa", "Pixie",
+      "Gargoyle", "Troll", "Yuan-ti Pureblood", "Yuan-ti Halfblood",
+      "Drider", "Hill Giant", "Janni", "Mind Flayer", "Ogre Mage",
+      "Afflicted Lycanthrope", "Natural Lycanthrope", "Vampire",
+    ]));
+    expect(raceDefinitions["mm1-bugbear"]).toMatchObject({
+      levelAdjustment: 1,
+      racialHitDice: { count: 3, hitDie: 8, baseAttackBonus: "medium" },
+    });
+    expect(raceDefinitions["mm1-ogre"]).toMatchObject({
+      levelAdjustment: 2,
+      racialHitDice: { count: 4, hitDie: 8, fortitude: "good" },
+    });
+    expect(raceDefinitions["mm1-githzerai"].racialSpellLikeAbilities)
+      .toContainEqual(expect.objectContaining({ name: "Shatter", usesPerDay: 3 }));
+    expect(raceDefinitions["mm1-hill-giant"].racialHitDice).toMatchObject({
+      count: 12, hitDie: 8, fortitude: "good",
+    });
+    expect(raceDefinitions["mm1-vampire"]).toMatchObject({
+      levelAdjustment: 8,
+      racialNaturalArmorBonus: 6,
+    });
+    expect(raceDefinitions["mm1-afflicted-lycanthrope"].traits)
+      .toContainEqual(expect.stringContaining("Control Shape"));
+  });
+
   it("certifies the represented PHB player-option inventory", () => {
     const phbRaces = Object.values(raceDefinitions).filter(
       (race) => race.sourceBook === "Player's Handbook (3.5)",

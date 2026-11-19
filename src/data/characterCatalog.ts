@@ -217,6 +217,11 @@ export const racialBonusLanguages: Record<string, string[]> = {
   "kapak-draconian": ["Goblin", "Nerakese", "Ogre"],
   "dargonesti-elf": ["Common", "Elven", "Ergot"],
   "dimernesti-elf": ["Aquan", "Common", "Ergot", "Kothian"],
+  "krynn-gnome": ["Dwarven", "Ergot", "Ogre", "Solamnic"],
+  "mad-gnome": ["Dwarven", "Ergot", "Ogre", "Solamnic"],
+  centaur: ["Abanasinian", "Elven", "Goblin", "Ogre"],
+  ogre: ["Goblin", "Kothian", "High Ogre"],
+  "half-ogre": ["Goblin", "Kothian", "High Ogre"],
   "gully-dwarf": [],
 };
 
@@ -243,6 +248,12 @@ export const racialLanguages: Record<string, string[]> = {
   "deep-dwarf": ["Common", "Dwarven"],
   minotaur: ["Common", "Kothian"],
   irda: ["Common", "High Ogre"],
+  "krynn-half-elf": ["Common", "Elven"],
+  "krynn-gnome": ["Common", "Gnome"],
+  "mad-gnome": ["Common", "Gnome"],
+  centaur: ["Common", "Sylvan"],
+  ogre: ["Common", "Ogre"],
+  "half-ogre": ["Common", "Ogre"],
   "gully-dwarf": ["Gullytalk", "Common"],
 };
 

@@ -200,7 +200,8 @@ function inferLegacyRuleset(value: Record<string, unknown>): RulesetId {
     value.mysticDomain !== undefined ||
     value.dragonlanceMoonState !== undefined;
   if (!hasDragonlanceData) return "core-35-srd";
-  return race?.source === "dragonlance-user-pack" && race.levelAdjustment
+  return race?.source === "dragonlance-user-pack" &&
+    (race.levelAdjustment || race.id === "minotaur")
     ? "dragonlance-monster-classes"
     : "dragonlance-user-pack";
 }

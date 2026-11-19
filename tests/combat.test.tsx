@@ -774,15 +774,15 @@ describe("SRD weapon attack and damage", () => {
   });
 
   it.each([
-    ["Halfling", "Small", 1],
-    ["Human", "Medium", 0],
-    ["Gnome", "Small", 1],
-    ["Minotaur", "Medium", 0],
-  ] as const)("adds the %s size modifier to weapon attacks", (race, size, bonus) => {
+    ["Halfling", "Small", 1, 5],
+    ["Human", "Medium", 0, 4],
+    ["Gnome", "Small", 1, 5],
+    ["Minotaur", "Large", -1, 9],
+  ] as const)("adds the %s size modifier to weapon attacks", (race, size, bonus, expectedAttack) => {
     const character = fighter();
     character.race = race;
     expect(sizeModifier(character)).toBe(bonus);
-    expect(getEquippedWeaponStats(character, `Longsword (${size})`)?.attack).toBe(4 + bonus);
+    expect(getEquippedWeaponStats(character, `Longsword (${size})`)?.attack).toBe(expectedAttack);
   });
 
   it("applies weapon-size penalties and adjusts handedness or rejects unusable sizes", () => {
@@ -889,7 +889,7 @@ describe("SRD weapon attack and damage", () => {
     expect(getArmorClassValues(gnome, ["giant"]).racialDodgeACBonus).toBe(4);
   });
 
-  it("applies minotaur natural armor only with Dragonlance rules", () => {
+  it("applies the source-specific minotaur size and natural armor", () => {
     const minotaur = cloneCharacter(initialCharacter);
     minotaur.race = "Minotaur";
     minotaur.ruleset = "dragonlance-monster-classes";
@@ -902,8 +902,10 @@ describe("SRD weapon attack and damage", () => {
 
     minotaur.ruleset = "core-35-srd";
     expect(getArmorClassValues(minotaur)).toMatchObject({
-      normal: 10,
-      components: { naturalArmor: 0 },
+      normal: 14,
+      touch: 9,
+      flatFooted: 14,
+      components: { naturalArmor: 5 },
     });
   });
 

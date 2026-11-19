@@ -2424,7 +2424,7 @@ deity/domain inventory. The remaining warfare, mercenary, sporting-combat,
 organization, and campaign material is DM-facing rather than general
 character-creation content.
 
-## Dragonlance Campaign Setting: first-pass option inventory
+## Dragonlance Campaign Setting: certified option inventory
 
 This setting-specific inventory covers Chapters 1–4 (printed pp. 8–135);
 apply these options only to Dragonlance characters.
@@ -2436,13 +2436,15 @@ and gully dwarves; Kagonesti, Qualinesti, Silvanesti, half-elf, Dargonesti, and
 Dimernesti elves; gnomes; kender; centaurs; Baaz and Kapak draconians; Irda,
 ogres, and half-ogres; and minotaurs.
 
-The current race data has 16 Dragonlance-sourced records. The source-specific
-Kender, Baaz/Kapak, five elf, four dwarf, Irda, and minotaur options are
-represented. The generic Draconian and Deep Dwarf entries are explicitly
-placeholders, not complete sourcebook options. Centaur, Ogre, and Half-Ogre
-have no source-backed selectable race records. Civilized-human/nomad, gnome,
-and half-elf differences should be checked against the existing core race
-definitions rather than assumed to be new races.
+All source-selectable Krynn race variants are represented and source-gated.
+The explicit Dragonlance records cover Kender, Krynn gnome and mad gnome,
+Krynn half-elf, Qualinesti/Silvanesti/Kagonesti/Dargonesti/Dimernesti elves,
+hill/mountain/dark/gully dwarves, Baaz and Kapak draconians, centaur, Irda,
+ogre, half-ogre, and minotaur. Centaur and ogre carry the book's racial Hit
+Dice and LA; the Dragonlance minotaur is correctly a Medium LA +0 race rather
+than the different MM I minotaur. Civilized humans and nomads reuse the PHB
+human chassis with Dragonlance regional-language handling. Generic Draconian
+and Deep Dwarf legacy placeholders remain hidden from selection.
 
 ### Classes, prestige classes, and feats
 
@@ -2486,16 +2488,26 @@ referenced by the setting's domain material, not one of those 26 new
 descriptions. Preserve that source distinction.
 
 Chapter 4 (pp. 116–135) names 21 Krynn deities, and all 21 have
-Dragonlance-sourced definitions in [domain.ts](../src/domain.ts). Verify their
-cleric alignments, domains, favored weapons, and War of Souls-era status
-against the deity entries before treating name coverage as a completed
-eligibility audit.
+Dragonlance-sourced definitions in [domain.ts](../src/domain.ts). Their cleric
+alignment sets, domains, active/inactive status, and War of Souls-era
+restrictions are now represented. Paladine and Takhisis grant no cleric
+spellcasting, and Solinari, Lunitari, and Nuitari remain arcane patrons rather
+than divine-spell sources.
 
-Chapter 3 also describes Dragonmetal (p. 113), an Ansalon-specific material.
-Record it as a sourcebook finding only; the equipment catalog remains limited
-to SRD/open-license sources. Geography, organizations, and campaign-history
-material in later chapters should remain setting context, not automatic
-character options.
+Chapter 3 describes Dragonmetal (p. 113), and Chapter 1 describes the
+Frostreaver. The equipment catalog remains intentionally limited to
+SRD/open-license store entries, so the Store displays an explicit
+Dragonlance-only custom-item instruction rather than silently omitting these
+options. A player can enter them as custom items, which persist and print;
+their sourcebook effects remain manual. Geography, organizations, and
+campaign-history material in later chapters remain setting context.
+
+The Dragonlance definition-pass gate is complete under the strict
+player-option criteria: selectable races/classes/prestige classes/feats/spells
+are represented, source-gated, persistent, and printable where applicable.
+High Sorcery and other campaign adjudication remains manual only where the
+book presents a situational or roleplay effect, and those boundaries are
+visible in the application.
 
 ## Dungeon Master's Guide II: first-pass option inventory
 

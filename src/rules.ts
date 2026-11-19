@@ -1,5 +1,5 @@
 import { languageCatalog, dragonlanceLanguages, dragonlanceRegionalLanguages, dragonlanceRacialBonusLanguages, racialBonusLanguages, racialLanguages, classSkills, skills, featCatalog, abilityLabels, trainedOnlySkills, limitedUntrainedSkills, untrainedSkillNotes, skillTaskNotes, startingClassFeatures } from "./data/characterCatalog";
-import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, deityDefinitions, type DeityDefinition, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool, type RulesetId, getTotalHitDice, type SkillRankSourceId, type RangerFavoredEnemyChoice, type RangerFavoredEnemyLevel, type FeatCategory, type SkillTrickCategory, type SkillTrickSelection } from "./domain";
+import { type Character, abilityModifier, type ClassId, carryingCapacity, sizeModifier, raceDefinitions, getApplicableRaceDefinition, type AbilityName, type SavingThrowCondition, type RacialSkillCondition, type CombatTargetType, classDefinitions, deityDefinitions, type DeityDefinition, type FeatDefinition, dragonlancePrestigeClasses, type PrestigeClassId, magicSchools, type MagicSchool, type RulesetId, getTotalHitDice, type SkillRankSourceId, type RangerFavoredEnemyChoice, type RangerFavoredEnemyLevel, type FeatCategory, type SkillTrickCategory, type SkillTrickSelection } from "./domain";
 import { skillTrickCatalog, type SkillTrickDefinition } from "./data/skillTricks";
 import { isIndependentSpellcastingClass, type SpellcastingClassId } from "./domain";
 import { getHierophantAbilityOptions, loremasterSecrets, type LevelUpDraft, type LoremasterSecret } from "./domain";
@@ -84,11 +84,8 @@ export function getRaceDefinitionForCharacter(
   character: Character,
   ruleset: RulesetId = character.ruleset,
 ) {
-  const raceId = character.race.toLowerCase().replaceAll(" ", "-");
-  const race = raceDefinitions[raceId];
-  if (!race || (ruleset === core35ContentId && race.source !== core35ContentId)) {
-    return undefined;
-  }
+  const race = getApplicableRaceDefinition(character.race, ruleset);
+  if (!race) return undefined;
   if (["hill-dwarf", "mountain-dwarf", "dark-dwarf"].includes(race.id)) {
     const dwarf = raceDefinitions.dwarf;
     return {
@@ -141,8 +138,8 @@ export function getAvailableBonusLanguages(
   character: Character,
   ruleset: RulesetId = character.ruleset,
 ) {
-  const raceId = character.race.toLowerCase().replaceAll(" ", "-");
   const hasRace = getRaceDefinitionForCharacter(character, ruleset);
+  const raceId = hasRace?.id ?? character.race.toLowerCase().replaceAll(" ", "-");
   const racialChoices = hasRace
     ? (ruleset !== core35ContentId
       ? dragonlanceRacialBonusLanguages[raceId] ?? racialBonusLanguages[raceId]
@@ -6759,9 +6756,10 @@ export function getSkillAbility(skill: string): AbilityName | null {
 export function getSkillUse(character: Character, skill: string) {
   const ranks = Number(character.skills[skill] || 0);
   const trained = ranks >= 1;
-  const kenderUntrainedSkill =
-    getRaceDefinitionForCharacter(character)?.id === "kender" &&
-    ["Open Lock", "Sleight of Hand"].includes(skill);
+  const raceId = getRaceDefinitionForCharacter(character)?.id;
+  const racialUntrainedSkill =
+    (raceId === "kender" && ["Open Lock", "Sleight of Hand"].includes(skill)) ||
+    (raceId === "mad-gnome" && ["Open Lock", "Disable Device"].includes(skill));
   if (skill === "Speak Language") {
     return { ranks, trained, untrainedUse: "special" as const, usable: false,
       label: "No skill check", description: "Each full rank learns one language. Choose it in the Languages section; no check is required." };
@@ -6769,17 +6767,17 @@ export function getSkillUse(character: Character, skill: string) {
   const limitation = skill.startsWith("Knowledge (")
     ? "Intelligence checks for common knowledge only (DC 10 or lower)."
     : limitedUntrainedSkills[skill];
-  const untrainedUse = kenderUntrainedSkill
+  const untrainedUse = racialUntrainedSkill
     ? "allowed" as const
     : limitation ? "limited" as const : trainedOnlySkills.has(skill) ? "none" as const : "allowed" as const;
   const usable = trained || untrainedUse !== "none";
   const baseDescription = trained
     ? "At least 1 rank invested. Skill-specific task restrictions still apply."
-    : kenderUntrainedSkill
-      ? "Kenders may use this skill even with 0 ranks."
+    : racialUntrainedSkill
+      ? "This race may use the skill even with 0 ranks."
       : limitation ?? (usable ? "May attempt this skill without ranks." : "At least 1 rank is required to attempt this skill.");
   const descriptionNotes = [
-    !trained && !kenderUntrainedSkill ? untrainedSkillNotes[skill] : undefined,
+    !trained && !racialUntrainedSkill ? untrainedSkillNotes[skill] : undefined,
     skillTaskNotes[skill],
   ].filter(Boolean);
   return {

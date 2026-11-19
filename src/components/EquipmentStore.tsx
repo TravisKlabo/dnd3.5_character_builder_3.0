@@ -234,6 +234,14 @@ export function EquipmentStore({
           <p className="eyebrow">Town market</p>
           <h2>General Store</h2>
           <p>Buy gear, arms, armor, and magic items for this character.</p>
+          {character.ruleset !== "core-35-srd" && (
+            <p className="creation-rule-note" role="note">
+              Dragonlance equipment such as dragonmetal and the Frostreaver is
+              not pre-created in the open-license store catalog. Add it as a
+              custom item for persistence and print; apply its sourcebook effect
+              manually.
+            </p>
+          )}
         </div>
         <strong>
           {totalItems} item{totalItems === 1 ? "" : "s"} owned

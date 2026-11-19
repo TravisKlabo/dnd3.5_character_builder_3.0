@@ -523,6 +523,22 @@ describe("skill training and untrained use", () => {
     expect(getSkillUse(character, "Move Silently").trained).toBe(false);
     expect(getSkillCheckModifier(character, "Move Silently")).toBe(5);
   });
+
+  it("lets Mad Gnomes use Open Lock and Disable Device without ranks", () => {
+    const character = cloneCharacter(initialCharacter);
+    character.ruleset = "dragonlance-user-pack";
+    character.race = "Mad Gnome";
+    expect(getSkillUse(character, "Open Lock")).toMatchObject({
+      trained: false,
+      usable: true,
+      untrainedUse: "allowed",
+    });
+    expect(getSkillUse(character, "Disable Device")).toMatchObject({
+      trained: false,
+      usable: true,
+      untrainedUse: "allowed",
+    });
+  });
 });
 
 function skillRow(name: string) {

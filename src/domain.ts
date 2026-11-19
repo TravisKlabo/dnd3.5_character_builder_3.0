@@ -183,27 +183,27 @@ export const deityDefinitions: DeityDefinition[] = [
   { id: 'hextor', name: 'Hextor', alignment: 'Lawful Evil', description: 'Deity of tyranny, war, and discord.', source: 'core-35-srd', clericDomains: ['destruction', 'evil', 'law', 'war'], warDomainFavoredWeapon: 'Flail' },
   { id: 'nerull', name: 'Nerull', alignment: 'Neutral Evil', description: 'Deity of death, darkness, and murder.', source: 'core-35-srd', clericDomains: ['death', 'evil', 'trickery'] },
   { id: 'erythnul', name: 'Erythnul', alignment: 'Chaotic Evil', description: 'Deity of envy, slaughter, and panic.', source: 'core-35-srd', clericDomains: ['chaos', 'evil', 'trickery', 'war'], warDomainFavoredWeapon: 'Morningstar' },
-  { id: 'paladine', name: 'Paladine', alignment: 'Lawful Good', description: 'Former god of good dragons, guardianship, and justice; relinquished godhood to become mortal at the end of the War of Souls.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: [] },
-  { id: 'mishakal', name: 'Mishakal', alignment: 'Neutral Good', description: 'Goddess of healing, compassion, and restoration.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['community', 'good', 'healing', 'protection'] },
-  { id: 'solinari', name: 'Solinari', alignment: 'Lawful Good', description: 'Patron of the White Robe Wizards; grants no cleric domains or divine spells.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: [] },
-  { id: 'kiri-jolith', name: 'Kiri-Jolith', alignment: 'Lawful Good', description: 'God of honor, courage, and righteous battle.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['good', 'strength', 'war'], warDomainFavoredWeapon: 'Longsword' },
-  { id: 'majere', name: 'Majere', alignment: 'Lawful Good', description: 'God of discipline, meditation, and insight.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['good', 'law', 'meditation'] },
-  { id: 'gilean', name: 'Gilean', alignment: 'True Neutral', description: 'God of knowledge, balance, and free will.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['knowledge', 'liberation', 'protection'] },
-  { id: 'lunitari', name: 'Lunitari', alignment: 'True Neutral', description: 'Patron of the Red Robe Wizards; grants no cleric domains or divine spells.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: [] },
-  { id: 'zivilyn', name: 'Zivilyn', alignment: 'True Neutral', description: 'God of wisdom, foresight, and prophecy; favored weapon: quarterstaff.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['insight', 'knowledge', 'meditation'] },
-  { id: 'reorx', name: 'Reorx', alignment: 'True Neutral', description: 'God of forging, invention, and dwarven craft.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['earth', 'fire', 'forge'] },
-  { id: 'habbakuk', name: 'Habbakuk', alignment: 'Neutral Good', description: 'God of animals, the sea, and freedom.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['animal', 'good', 'water'] },
+  { id: 'paladine', name: 'Paladine', alignment: 'Lawful Good', description: 'Former god of good dragons, guardianship, and justice; relinquished godhood to become mortal at the end of the War of Souls.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: [], clericDomains: [] },
+  { id: 'mishakal', name: 'Mishakal', alignment: 'Neutral Good', description: 'Goddess of healing, compassion, and restoration.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Good', 'Lawful Good', 'Neutral Good'], clericDomains: ['community', 'good', 'healing', 'protection'] },
+  { id: 'solinari', name: 'Solinari', alignment: 'Lawful Good', description: 'Patron of the White Robe Wizards; grants no cleric domains or divine spells.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Good', 'Lawful Neutral', 'Neutral Good'], clericDomains: [] },
+  { id: 'kiri-jolith', name: 'Kiri-Jolith', alignment: 'Lawful Good', description: 'God of honor, courage, and righteous battle.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Good', 'Lawful Neutral', 'Neutral Good'], clericDomains: ['good', 'strength', 'war'], warDomainFavoredWeapon: 'Longsword' },
+  { id: 'majere', name: 'Majere', alignment: 'Lawful Good', description: 'God of discipline, meditation, and insight.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Good', 'Lawful Neutral', 'Neutral Good'], clericDomains: ['good', 'law', 'meditation'] },
+  { id: 'gilean', name: 'Gilean', alignment: 'True Neutral', description: 'God of knowledge, balance, and free will.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Neutral', 'Lawful Neutral', 'True Neutral', 'Neutral Evil', 'Neutral Good'], clericDomains: ['knowledge', 'liberation', 'protection'] },
+  { id: 'lunitari', name: 'Lunitari', alignment: 'True Neutral', description: 'Patron of the Red Robe Wizards; grants no cleric domains or divine spells.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Neutral', 'Lawful Neutral', 'True Neutral', 'Neutral Evil', 'Neutral Good'], clericDomains: [] },
+  { id: 'zivilyn', name: 'Zivilyn', alignment: 'True Neutral', description: 'God of wisdom, foresight, and prophecy; favored weapon: quarterstaff.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Neutral', 'Lawful Neutral', 'True Neutral', 'Neutral Evil', 'Neutral Good'], clericDomains: ['insight', 'knowledge', 'meditation'] },
+  { id: 'reorx', name: 'Reorx', alignment: 'True Neutral', description: 'God of forging, invention, and dwarven craft.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Neutral', 'Lawful Neutral', 'True Neutral', 'Neutral Evil', 'Neutral Good'], clericDomains: ['earth', 'fire', 'forge'] },
+  { id: 'habbakuk', name: 'Habbakuk', alignment: 'Neutral Good', description: 'God of animals, the sea, and freedom.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Good', 'Lawful Good', 'Neutral Good'], clericDomains: ['animal', 'good', 'water'] },
   { id: 'chislev', name: 'Chislev', alignment: 'True Neutral', description: 'Goddess of nature, wilderness, and beasts; favored weapon: shortspear.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Neutral', 'Lawful Neutral', 'True Neutral', 'Neutral Evil', 'Neutral Good'], clericDomains: ['air', 'animal', 'earth', 'plant'] },
   { id: 'shinare', name: 'Shinare', alignment: 'Lawful Neutral', description: 'Goddess of wealth, commerce, and travel; favored weapon: light mace.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Neutral', 'True Neutral'], clericDomains: ['law', 'luck', 'travel'] },
-  { id: 'branchala', name: 'Branchala', alignment: 'Chaotic Good', description: 'God of music, inspiration, and joy.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['chaos', 'good', 'luck', 'trickery'] },
-  { id: 'sirrion', name: 'Sirrion', alignment: 'Chaotic Neutral', description: 'God of creativity, passion, and fire; favored weapon: heavy flail.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['chaos', 'fire', 'passion'] },
-  { id: 'takhisis', name: 'Takhisis', alignment: 'Lawful Evil', description: 'Former goddess of darkness, tyranny, and evil dragons; killed at the end of the War of Souls.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: [] },
-  { id: 'sargonnas', name: 'Sargonnas', alignment: 'Lawful Evil', description: 'God of vengeance, fire, and destruction.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['evil', 'fire', 'law', 'war'], warDomainFavoredWeapon: 'Greataxe' },
-  { id: 'chemosh', name: 'Chemosh', alignment: 'Neutral Evil', description: 'God of undeath, false hope, and corruption.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['death', 'evil', 'trickery'] },
-  { id: 'hiddukel', name: 'Hiddukel', alignment: 'Chaotic Evil', description: 'God of ill-gotten wealth, deals, thieves, and lies; favored weapon: dagger.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['evil', 'treachery', 'trickery'] },
-  { id: 'morgion', name: 'Morgion', alignment: 'Neutral Evil', description: 'God of disease, decay, and secrets.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['destruction', 'evil', 'pestilence'] },
-  { id: 'nuitari', name: 'Nuitari', alignment: 'Lawful Evil', description: 'God of forbidden magic, darkness, and ambition.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: [] },
-  { id: 'zeboim', name: 'Zeboim', alignment: 'Chaotic Evil', description: 'Goddess of storms, the sea, and destruction.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericDomains: ['chaos', 'evil', 'storm', 'water'] },
+  { id: 'branchala', name: 'Branchala', alignment: 'Chaotic Good', description: 'God of music, inspiration, and joy.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Good', 'Chaotic Neutral', 'Neutral Good'], clericDomains: ['chaos', 'good', 'luck', 'trickery'] },
+  { id: 'sirrion', name: 'Sirrion', alignment: 'Chaotic Neutral', description: 'God of creativity, passion, and fire; favored weapon: heavy flail.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Chaotic Good', 'Chaotic Neutral'], clericDomains: ['chaos', 'fire', 'passion'] },
+  { id: 'takhisis', name: 'Takhisis', alignment: 'Lawful Evil', description: 'Former goddess of darkness, tyranny, and evil dragons; killed at the end of the War of Souls.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: [], clericDomains: [] },
+  { id: 'sargonnas', name: 'Sargonnas', alignment: 'Lawful Evil', description: 'God of vengeance, fire, and destruction.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Evil', 'Lawful Neutral', 'Neutral Evil'], clericDomains: ['evil', 'fire', 'law', 'war'], warDomainFavoredWeapon: 'Greataxe' },
+  { id: 'chemosh', name: 'Chemosh', alignment: 'Neutral Evil', description: 'God of undeath, false hope, and corruption.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Lawful Evil', 'Neutral Evil'], clericDomains: ['death', 'evil', 'trickery'] },
+  { id: 'hiddukel', name: 'Hiddukel', alignment: 'Chaotic Evil', description: 'God of ill-gotten wealth, deals, thieves, and lies; favored weapon: dagger.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Chaotic Neutral', 'Neutral Evil'], clericDomains: ['evil', 'treachery', 'trickery'] },
+  { id: 'morgion', name: 'Morgion', alignment: 'Neutral Evil', description: 'God of disease, decay, and secrets.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Lawful Evil', 'Neutral Evil'], clericDomains: ['destruction', 'evil', 'pestilence'] },
+  { id: 'nuitari', name: 'Nuitari', alignment: 'Lawful Evil', description: 'God of forbidden magic, darkness, and ambition.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Evil', 'Lawful Neutral', 'Neutral Evil'], clericDomains: [] },
+  { id: 'zeboim', name: 'Zeboim', alignment: 'Chaotic Evil', description: 'Goddess of storms, the sea, and destruction.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Chaotic Neutral', 'Neutral Evil'], clericDomains: ['chaos', 'evil', 'storm', 'water'] },
 ]
 
 export interface RaceDefinition {
@@ -896,6 +896,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'kender',
     name: 'Kender',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     size: 'Small',
     speed: 20,
     abilityModifiers: { str: -2, dex: 2, wis: -2 },
@@ -910,11 +911,33 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     racialImmunities: ['fear'],
     traits: ['Fearlessness (immune to fear)', 'Taunt (+4 Bluff when taunting)', 'Favored class: Rogue'],
   },
+  'krynn-half-elf': {
+    id: 'krynn-half-elf', name: 'Krynn Half-Elf', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    size: 'Medium', speed: 30, abilityModifiers: {},
+    racialSkillBonuses: { Listen: 1, Search: 1, Spot: 1, Diplomacy: 2, 'Gather Information': 2 },
+    racialSituationalSaveBonuses: { enchantment: 2 },
+    traits: ['Elvensight: low-light vision plus darkvision 30 ft.', 'Immune to sleep spells and similar magical effects', 'Enchantment saves +2', 'Elven blood', 'Favored class: Any', 'Automatic languages Common and Elven; bonus languages any except secret languages'],
+  },
+  'krynn-gnome': {
+    id: 'krynn-gnome', name: 'Krynn Gnome', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    size: 'Small', speed: 20, abilityModifiers: { str: -2, dex: 2, int: 2, wis: -2 },
+    racialSituationalSkillBonuses: { Craft: { alchemy: 2 } },
+    racialSavingThrowBonus: 2,
+    traits: ['Guild Affiliation: choose a Craft, Technical, or Sage guild; +2 Craft, Profession, or Knowledge checks respectively', '+2 racial Will saves from devotion to the Life Quest', 'Automatic languages Common and Gnome; favored class: Expert/Illusionist roleplay affinity'],
+  },
+  'mad-gnome': {
+    id: 'mad-gnome', name: 'Mad Gnome', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    size: 'Small', speed: 20, abilityModifiers: { str: -2, dex: 2 },
+    racialSkillBonuses: { 'Open Lock': 2, 'Disable Device': 2 },
+    racialSituationalSkillBonuses: { Craft: { alchemy: 2 } },
+    traits: ['May use Open Lock and Disable Device untrained; no Guild Affiliation or racial +2 Will save', '+2 racial Craft (alchemy)', 'Automatic languages Common and Gnome', 'Represents the Mad Gnome sidebar variant'],
+  },
   draconian: { id: 'draconian', name: 'Draconian', source: 'dragonlance-user-pack', selectable: false, size: 'Medium', abilityModifiers: { str: 2, con: 2, cha: -2 }, traits: ['Legacy generic placeholder; use Baaz or Kapak for sourcebook-specific draconian statistics.'] },
   'baaz-draconian': {
     id: 'baaz-draconian',
     name: 'Baaz Draconian',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     levelAdjustment: 1,
     size: 'Medium',
     speed: 30,
@@ -951,6 +974,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'kapak-draconian',
     name: 'Kapak Draconian',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     levelAdjustment: 2,
     size: 'Medium',
     speed: 30,
@@ -987,6 +1011,8 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'qualinesti-elf',
     name: 'Qualinesti Elf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    speed: 30,
     size: 'Medium',
     abilityModifiers: { dex: 2, con: -2 },
     racialSkillBonuses: { Listen: 2, Search: 2, Spot: 2, Diplomacy: 1, 'Sense Motive': 1 },
@@ -1003,6 +1029,8 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'silvanesti-elf',
     name: 'Silvanesti Elf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    speed: 30,
     size: 'Medium',
     abilityModifiers: { dex: 2, con: -2, int: 2, cha: -2 },
     racialSkillBonuses: {
@@ -1025,6 +1053,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'kagonesti-elf',
     name: 'Kagonesti Elf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     size: 'Medium',
     speed: 30,
     abilityModifiers: { dex: 2, int: -2, cha: -2 },
@@ -1057,6 +1086,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'dargonesti-elf',
     name: 'Dargonesti Elf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     levelAdjustment: 1,
     size: 'Medium',
     speed: 30,
@@ -1088,6 +1118,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'dimernesti-elf',
     name: 'Dimernesti Elf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     levelAdjustment: 1,
     size: 'Medium',
     speed: 30,
@@ -1109,12 +1140,14 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
       'Favored class: Barbarian',
     ],
   },
-  'hill-dwarf': { id: 'hill-dwarf', name: 'Hill Dwarf', source: 'dragonlance-user-pack', size: 'Medium', abilityModifiers: { con: 2, cha: -2 } },
-  'mountain-dwarf': { id: 'mountain-dwarf', name: 'Mountain Dwarf', source: 'dragonlance-user-pack', size: 'Medium', abilityModifiers: { con: 2, cha: -2 } },
+  'hill-dwarf': { id: 'hill-dwarf', name: 'Hill Dwarf', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, traits: ['Darkvision 60 ft.', 'Stonecunning and stability', 'Dwarven weapon familiarity', '+2 saves vs. poison and spells', '+1 attack vs. orcs/goblinoids and +4 dodge AC vs. giants', 'Favored class: Fighter'] },
+  'mountain-dwarf': { id: 'mountain-dwarf', name: 'Mountain Dwarf', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', size: 'Medium', speed: 20, abilityModifiers: { con: 2, cha: -2 }, racialSituationalSkillBonuses: { Search: { 'unusual-stonework': 2 }, Appraise: { 'stone-or-metal': 2 }, Craft: { 'stone-or-metal': 2 } }, racialSituationalSaveBonuses: { poison: 2, spell: 2 }, racialAttackBonuses: { orc: 1, goblinoid: 1 }, racialDodgeACBonuses: { giant: 4 }, traits: ['Darkvision 60 ft.', 'Stonecunning and stability', 'Dwarven weapon familiarity', '+2 saves vs. poison and spells', '+1 attack vs. orcs/goblinoids and +4 dodge AC vs. giants', 'Favored class: Fighter'] },
   'dark-dwarf': {
     id: 'dark-dwarf',
     name: 'Dark Dwarf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    speed: 20,
     size: 'Medium',
     abilityModifiers: { con: 2, cha: -4 },
     racialSkillBonuses: { Hide: 2, Listen: 2, 'Move Silently': 2 },
@@ -1131,8 +1164,29 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     ],
   },
   'deep-dwarf': { id: 'deep-dwarf', name: 'Deep Dwarf', source: 'dragonlance-user-pack', selectable: false, size: 'Medium', abilityModifiers: { con: 2, cha: -2 }, traits: ['Legacy generic placeholder; use Dark Dwarf for the sourcebook-specific dwarf variant.'] },
-  minotaur: { id: 'minotaur', name: 'Minotaur', source: 'dragonlance-user-pack', levelAdjustment: 2, size: 'Medium', speed: 30, abilityModifiers: { str: 4, dex: -2, int: -2, cha: -2 }, racialSkillBonuses: { Intimidate: 2, Swim: 2, 'Use Rope': 2 }, racialNaturalArmorBonus: 2, traits: ['Gore: 1d6 + Str mod; charge 2d6 + 1.5× Str mod; secondary attack: –5, half Str mod', 'Scent may be selected as a feat', 'Favored class: Fighter'] },
-  irda: { id: 'irda', name: 'Irda', source: 'dragonlance-user-pack', levelAdjustment: 2, size: 'Medium', speed: 30, abilityModifiers: { con: -2, int: 2, cha: 2 }, racialSpellLikeAbilities: [
+  centaur: {
+    id: 'centaur', name: 'Centaur', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    levelAdjustment: 2, size: 'Large', speed: 50, abilityModifiers: { str: 8, dex: 4, con: 4, int: -2, wis: 2 },
+    racialHitDice: { count: 4, hitDie: 8, baseAttackBonus: 'good', fortitude: 'poor', reflex: 'good', will: 'good', skillPoints: 2, classSkills: ['Listen', 'Move Silently', 'Spot', 'Survival'] },
+    racialNaturalArmorBonus: 3, racialWeaponProficiencies: ['Longsword', 'Longbow', 'Composite Longbow', 'Shortbow', 'Composite Shortbow'],
+    traits: ['Darkvision 60 ft.; space/reach 10 ft./5 ft.', 'Simple Weapon Proficiency and the listed bow/longsword proficiencies are bonus feats', 'Two hoof attacks, 1d6 each; secondary attacks when attacking with a weapon', 'Large nonhumanoid armor costs 4× and weighs 2× normal', 'Two racial Hit Dice feats are selected normally in addition to racial bonus proficiencies', 'Favored class: Ranger'],
+  },
+  ogre: {
+    id: 'ogre', name: 'Ogre', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    levelAdjustment: 2, size: 'Large', speed: 40, abilityModifiers: { str: 10, dex: -2, con: 4, int: -4, cha: -4 },
+    racialHitDice: { count: 4, hitDie: 8, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'poor', will: 'poor', skillPoints: 2, classSkills: ['Climb', 'Listen', 'Spot'] },
+    racialNaturalArmorBonus: 5, racialSimpleWeaponProficiency: true, racialWeaponProficiencies: ['Greatclub'],
+    racialArmorProficiencies: ['medium'], racialShieldProficiency: false,
+    traits: ['Darkvision 60 ft.; space/reach 10 ft./10 ft.', 'Simple weapons, greatclub, and Medium Armor Proficiency are racial bonus feats', 'Large armor costs and weighs 2× normal', 'Two racial Hit Dice feats are selected normally at creation', 'Favored class: Barbarian'],
+  },
+  'half-ogre': {
+    id: 'half-ogre', name: 'Half-Ogre', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)',
+    levelAdjustment: 1, size: 'Medium', speed: 30, abilityModifiers: { str: 4, con: 2, int: -2, cha: -2 },
+    racialNaturalArmorBonus: 1,
+    traits: ['Low-light vision', 'Automatic languages Common and Ogre', 'Favored class: Fighter'],
+  },
+  minotaur: { id: 'minotaur', name: 'Minotaur', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', size: 'Medium', speed: 30, abilityModifiers: { str: 4, dex: -2, int: -2, cha: -2 }, racialSkillBonuses: { Intimidate: 2, Swim: 2, 'Use Rope': 2 }, racialNaturalArmorBonus: 2, traits: ['Gore: 1d6 + Str mod; charge 2d6 + 1.5× Str mod; secondary attack: –5, half Str mod', 'Scent may be selected as a feat', 'Favored class: Fighter', 'No racial Hit Dice or level adjustment in the Dragonlance version'] },
+  irda: { id: 'irda', name: 'Irda', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', levelAdjustment: 2, size: 'Medium', speed: 30, abilityModifiers: { con: -2, int: 2, cha: 2 }, racialSpellLikeAbilities: [
     { name: 'Dancing Lights', usesPerDay: 1, casterLevel: 'character', spellLevel: 0, school: 'evocation' },
     { name: 'Detect Magic', usesPerDay: 1, casterLevel: 'character', spellLevel: 0, school: 'divination' },
     { name: 'Flare', usesPerDay: 1, casterLevel: 'character', spellLevel: 0, school: 'evocation', savingThrow: 'Fortitude negates' },
@@ -1144,6 +1198,7 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
     id: 'gully-dwarf',
     name: 'Gully Dwarf',
     source: 'dragonlance-user-pack',
+    sourceBook: 'Dragonlance Campaign Setting (3.5)',
     size: 'Small',
     speed: 20,
     abilityModifiers: { dex: 2, con: 2, int: -4, cha: -4 },
@@ -1161,6 +1216,27 @@ export const raceDefinitions: Record<string, RaceDefinition> = {
       'An ability score reduced to 2 or less by race is instead 3 when randomly generating abilities',
     ],
   },
+}
+
+export function getApplicableRaceDefinition(
+  raceName: string,
+  ruleset: RulesetId = 'core-35-srd',
+) {
+  const raceId = raceName.toLowerCase().replaceAll(' ', '-')
+  const directRace = raceDefinitions[raceId]
+  const candidates = [
+    directRace,
+    ...Object.values(raceDefinitions).filter(
+      (definition) =>
+        definition.id !== directRace?.id &&
+        definition.name.toLocaleLowerCase() === raceName.toLocaleLowerCase(),
+    ),
+  ].filter((definition): definition is RaceDefinition => Boolean(definition))
+  return candidates.find((definition) =>
+    ruleset === 'core-35-srd'
+      ? definition.source === 'core-35-srd'
+      : definition.source === 'dragonlance-user-pack',
+  ) ?? candidates.find((definition) => definition.source === 'core-35-srd')
 }
 
 const dmg35Source = { source: "core-35-srd", sourceBook: "Dungeon Master's Guide (3.5)" } as const;
@@ -1684,11 +1760,7 @@ export function abilityModifier(score: number) {
 }
 
 export function getRacialHitDiceDefinition(character: Character) {
-  const race = raceDefinitions[character.race.toLowerCase().replaceAll(' ', '-')]
-  const applicableRace = character.ruleset === 'core-35-srd' && race?.source !== 'core-35-srd'
-    ? undefined
-    : race
-  return applicableRace?.racialHitDice
+  return getApplicableRaceDefinition(character.race, character.ruleset)?.racialHitDice
 }
 
 export function getTotalHitDice(character: Character) {
@@ -1697,18 +1769,12 @@ export function getTotalHitDice(character: Character) {
 }
 
 export function getEffectiveCharacterLevel(character: Character) {
-  const race = raceDefinitions[character.race.toLowerCase().replaceAll(' ', '-')]
-  const applicableRace = character.ruleset === 'core-35-srd' && race?.source !== 'core-35-srd'
-    ? undefined
-    : race
+  const applicableRace = getApplicableRaceDefinition(character.race, character.ruleset)
   return getTotalHitDice(character) + (applicableRace?.levelAdjustment ?? 0)
 }
 
 export function sizeModifier(character: Character) {
-  const race = raceDefinitions[character.race.toLowerCase().replaceAll(' ', '-')]
-  const applicableRace = character.ruleset === 'core-35-srd' && race?.source !== 'core-35-srd'
-    ? undefined
-    : race
+  const applicableRace = getApplicableRaceDefinition(character.race, character.ruleset)
   const sizeModifiers = {
     Fine: 8,
     Diminutive: 4,
@@ -1737,10 +1803,7 @@ export function armorClass(
 }
 
 export function carryingCapacity(character: Character) {
-  const race = raceDefinitions[character.race.toLowerCase().replaceAll(' ', '-')]
-  const applicableRace = character.ruleset === 'core-35-srd' && race?.source !== 'core-35-srd'
-    ? undefined
-    : race
+  const applicableRace = getApplicableRaceDefinition(character.race, character.ruleset)
   const size = applicableRace?.size ?? 'Medium'
   const heavyCapacity = [
     0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 115, 130, 150, 175,
@@ -1767,14 +1830,10 @@ export function cloneCharacter(character: Character): Character {
 
 export function changeRace(character: Character, race: string): Character {
   const nextCharacter = cloneCharacter(character)
-  const oldRace = raceDefinitions[character.race.toLowerCase().replaceAll(' ', '-')]
-  const newRace = raceDefinitions[race.toLowerCase().replaceAll(' ', '-')]
-  const oldModifiers = character.ruleset === 'core-35-srd' && oldRace?.source !== 'core-35-srd'
-    ? {}
-    : oldRace?.abilityModifiers ?? {}
-  const newModifiers = character.ruleset === 'core-35-srd' && newRace?.source !== 'core-35-srd'
-    ? {}
-    : newRace?.abilityModifiers ?? {}
+  const oldRace = getApplicableRaceDefinition(character.race, character.ruleset)
+  const newRace = getApplicableRaceDefinition(race, character.ruleset)
+  const oldModifiers = oldRace?.abilityModifiers ?? {}
+  const newModifiers = newRace?.abilityModifiers ?? {}
   for (const ability of Object.keys(nextCharacter.abilities) as AbilityName[]) {
     nextCharacter.abilities[ability] -= oldModifiers[ability] ?? 0
     nextCharacter.abilities[ability] += newModifiers[ability] ?? 0

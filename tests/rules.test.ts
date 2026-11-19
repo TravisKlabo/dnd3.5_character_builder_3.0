@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { abilityModifier, armorClass, beginLevelUp, beginPrestigeLevelUp, carryingCapacity, changeRace, classDefinitions, cloneCharacter, raceDefinitions,
+import { abilityModifier, armorClass, beginLevelUp, beginPrestigeLevelUp, carryingCapacity, changeRace, classDefinitions, cloneCharacter, deityDefinitions, raceDefinitions,
   hitPointGain, initialCharacter, levelUpHitPointGain, nextClassLevel, sizeModifier, validateLevelUp,
   dragonlancePrestigeClasses, getEffectiveCharacterLevel, getTotalHitDice, isValidHitDieRoll,
   type Character,
@@ -45,6 +45,8 @@ import { getClassSpells, loadSpellCatalog, spells } from "../src/data/spellCatal
 import { formatRaceDetails } from "../src/creationRules";
 import { getConstitutionHitPointAdjustment, getEffectiveAbilityScore } from "../src/abilityEquipment";
 import { srdSpells } from "../src/srdSpells";
+import { dragonlanceSpells } from "../src/data/dragonlanceSpells";
+import { clericDomains } from "../src/data/clericDomains";
 
 beforeAll(loadSpellCatalog);
 
@@ -472,6 +474,13 @@ describe("provided-book feat inventory", () => {
     });
     expect(raceDefinitions["mm1-afflicted-lycanthrope"].traits)
       .toContainEqual(expect.stringContaining("Control Shape"));
+    const bugbear = cloneCharacter(initialCharacter);
+    bugbear.race = "Bugbear";
+    expect(getRaceDefinitionForCharacter(bugbear)).toBe(raceDefinitions["mm1-bugbear"]);
+    const centaur = cloneCharacter(initialCharacter);
+    centaur.race = "Centaur";
+    centaur.ruleset = "dragonlance-monster-classes";
+    expect(getRaceDefinitionForCharacter(centaur)).toBe(raceDefinitions.centaur);
   });
 
   it("certifies the represented PHB player-option inventory", () => {
@@ -500,6 +509,64 @@ describe("provided-book feat inventory", () => {
     expect(phbFeats).toHaveLength(109);
     expect(phbSpellRecords).toHaveLength(715);
     expect(phbSpellTitles).toHaveLength(605);
+  });
+
+  it("certifies Dragonlance races, classes, feats, spells, and deity eligibility", () => {
+    const dlRaces = Object.values(raceDefinitions).filter(
+      (race) =>
+        race.source === "dragonlance-user-pack" &&
+        race.selectable !== false &&
+        race.sourceBook === "Dragonlance Campaign Setting (3.5)",
+    );
+    expect(dlRaces.map((race) => race.name)).toEqual(expect.arrayContaining([
+      "Kender", "Baaz Draconian", "Kapak Draconian", "Qualinesti Elf",
+      "Silvanesti Elf", "Kagonesti Elf", "Dargonesti Elf", "Dimernesti Elf",
+      "Krynn Half-Elf", "Hill Dwarf", "Mountain Dwarf", "Dark Dwarf",
+      "Gully Dwarf", "Krynn Gnome", "Mad Gnome", "Centaur", "Ogre",
+      "Half-Ogre", "Minotaur", "Irda",
+    ]));
+    expect(raceDefinitions.minotaur.levelAdjustment).toBeUndefined();
+    expect(raceDefinitions.centaur.racialHitDice).toMatchObject({ count: 4, hitDie: 8 });
+    expect(raceDefinitions.ogre.racialHitDice).toMatchObject({ count: 4, hitDie: 8 });
+    expect(raceDefinitions["half-ogre"]).toMatchObject({ levelAdjustment: 1, size: "Medium" });
+    const krynnGnome = cloneCharacter(initialCharacter);
+    krynnGnome.ruleset = "dragonlance-user-pack";
+    krynnGnome.race = "Krynn Gnome";
+    expect(getAutomaticLanguages(krynnGnome)).toEqual(["Common", "Gnome"]);
+    const centaurCharacter = cloneCharacter(initialCharacter);
+    centaurCharacter.ruleset = "dragonlance-monster-classes";
+    centaurCharacter.race = "Centaur";
+    expect(getAutomaticLanguages(centaurCharacter)).toEqual(["Common", "Sylvan"]);
+    expect(getTotalHitDice(centaurCharacter)).toBe(5);
+    expect(getEffectiveCharacterLevel(centaurCharacter)).toBe(7);
+
+    expect(Object.values(classDefinitions)
+      .filter((definition) => definition.sourceBook === "Dragonlance Campaign Setting (3.5)")
+      .map((definition) => definition.name)).toEqual(["Mystic", "Noble"]);
+    expect(featCatalog.filter((feat) =>
+      feat.sourceBook === "Dragonlance Campaign Setting (3.5)",
+    )).toHaveLength(13);
+    expect(dragonlanceSpells.filter((spell) =>
+      spell.sourceBook?.startsWith("Dragonlance Campaign Setting"),
+    )).toHaveLength(26);
+    expect(Object.values(clericDomains).filter(
+      (domain) => "source" in domain && domain.source === "dragonlance-user-pack",
+    )).toHaveLength(13);
+    expect(Object.values(dragonlancePrestigeClasses).filter((prestige) =>
+      prestige.sourceBook === "Dragonlance Campaign Setting (3.5)" &&
+      !["white-robed-wizard", "red-robed-wizard", "black-robed-wizard"].includes(prestige.id),
+    )).toHaveLength(12);
+
+    const dragonlanceDeities = deityDefinitions.filter(
+      (deity) => deity.sourceBook === "Dragonlance Campaign Setting",
+    );
+    expect(dragonlanceDeities).toHaveLength(21);
+    expect(dragonlanceDeities.find((deity) => deity.id === "branchala"))
+      .toMatchObject({ clericAlignments: ["Chaotic Good", "Chaotic Neutral", "Neutral Good"] });
+    expect(dragonlanceDeities.find((deity) => deity.id === "solinari")?.clericDomains)
+      .toEqual([]);
+    expect(dragonlanceDeities.find((deity) => deity.id === "paladine")?.clericAlignments)
+      .toEqual([]);
   });
 
   const normalizeFeatName = (name: string) => name.replace(/[’']/g, "'");
@@ -6543,7 +6610,7 @@ describe("provided-book feat inventory", () => {
       featQualifies(
         kuoToaMonk,
         featById("kuo-toan-monasticism"),
-        slot(1),
+        slot(3),
       ),
     ).toBe(true);
 

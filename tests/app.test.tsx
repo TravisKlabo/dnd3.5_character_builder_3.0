@@ -509,11 +509,18 @@ describe("application workflows", () => {
     expect(within(raceChoices).queryByRole("option", { name: "Baaz Draconian" })).toBeNull();
     expect(within(raceChoices).queryByRole("option", { name: "Kapak Draconian" })).toBeNull();
     expect(within(raceChoices).queryByRole("option", { name: "Deep Dwarf" })).toBeNull();
+    expect(within(raceChoices).getByRole("option", { name: "Krynn Gnome" })).toBeDefined();
+    expect(within(raceChoices).getByRole("option", { name: "Mad Gnome" })).toBeDefined();
+    expect(within(raceChoices).getByRole("option", { name: "Krynn Half-Elf" })).toBeDefined();
+    expect(within(raceChoices).getByRole("option", { name: "Minotaur" })).toBeDefined();
 
     fireEvent.change(rulesetSelect, { target: { value: "dragonlance-monster-classes" } });
     const monsterRaceChoices = screen.getByRole("listbox", { name: "Race choices" });
     expect(within(monsterRaceChoices).getByRole("option", { name: "Baaz Draconian" })).toBeDefined();
     expect(within(monsterRaceChoices).getByRole("option", { name: "Kapak Draconian" })).toBeDefined();
+    expect(within(monsterRaceChoices).getAllByRole("option", { name: "Centaur" })).toHaveLength(1);
+    expect(within(monsterRaceChoices).getAllByRole("option", { name: "Ogre" })).toHaveLength(1);
+    expect(within(monsterRaceChoices).getByRole("option", { name: "Half-Ogre" })).toBeDefined();
     for (const unavailableSubtype of [
       "Draconian",
       "Bozak Draconian",
@@ -1036,6 +1043,22 @@ describe("application workflows", () => {
     }).querySelector(".reference-identity");
     expect(identity?.textContent).toContain("Bugbear");
     expect(identity?.textContent).toContain("Fighter 1");
+  });
+
+  it("prints Dragonlance centaur racial Hit Dice and identity", () => {
+    const character = savedHero();
+    character.name = "Krynn Centaur";
+    character.ruleset = "dragonlance-monster-classes";
+    character.race = "Centaur";
+    character.classLevels = [{ classId: "ranger", level: 1 }];
+    render(<PrintableCharacterSheet character={character} />);
+
+    const identity = screen.getByRole("region", {
+      name: "Character record sheet, page 1",
+    }).querySelector(".reference-identity");
+    expect(identity?.textContent).toContain("Centaur");
+    expect(identity?.textContent).toContain("4d8 racial HD");
+    expect(identity?.textContent).toContain("Ranger 1");
   });
 
   it("prints elemental weapon damage separately from physical damage", () => {

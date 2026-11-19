@@ -7,6 +7,18 @@ to inherited rules calculations are documented below.
 
 ## Sourcebook review progress
 
+**Dragonlance Campaign Setting definition-pass certification (2026-11-19).**
+The Dragonlance ruleset now has all sourcebook-selectable race variants
+represented, including Krynn gnome/mad gnome, Krynn half-elf, centaur, ogre,
+half-ogre, and the LA +0 Medium minotaur; setting-specific duplicates correctly
+replace same-name core/MM I profiles. Mystic, Noble, 12 prestige classes,
+13 feats, 13 domains, 26 new spells, High Sorcery lunar modifiers, and 21
+deities are represented and print-tested or source-gated. Cleric alignments
+and deity spell access now follow the book. Proprietary Dragonlance equipment
+such as dragonmetal and the Frostreaver is not inserted into the open-license
+store catalog; the Store explicitly directs players to create a persistent,
+printable custom item and resolve source effects manually.
+
 **Monster Manual I definition-pass certification (2026-11-19).** All 33
 DMG "Monsters as Races" candidates now have MM I source-attributed selectable
 profiles, including racial Hit Dice, level adjustment, racial skill metadata,
@@ -540,7 +552,7 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 | Complete Mage | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
 | Complete Scoundrel | First-pass inventory, feat checks, and skill-trick work recorded; full pass not certified | [ ] |
 | Complete Warrior | First-pass inventory and selected feat checks recorded; full pass not certified | [ ] |
-| Dragonlance Campaign Setting | Partial rules fixes and remaining TODOs documented below; full pass not certified | [ ] |
+| Dragonlance Campaign Setting | All player race variants, Mystic/Noble, 12 prestige classes, 13 feats, 13 domains, 26 new spells, 21 deity rules, and High Sorcery effects are source-checked and Dragonlance-gated. Selections persist and print. Proprietary setting equipment uses persistent custom items with an explicit manual-effect boundary. | [x] |
 | Dungeon Master's Guide II | First-pass inventory recorded; full pass not certified | [ ] |
 | Monster Manual I (Premium Edition) | All 33 DMG Monster-as-Race candidates have source-attributed selectable racial profiles with racial HD/ECL metadata and printable identity. All 13 Chapter 6 monster feats and Control Shape are represented. Campaign/form-dependent powers remain explicit manual boundaries. | [x] |
 | Monster Manual II | Nine sidebar feats checked: eight retained using 3.5 revisions, Multidexterity excluded; Beget Bogun added via verified 3.5 reprint. No new base/prestige class found. Race/template conversion open. | [x] |
@@ -548,9 +560,9 @@ wand/scroll/potion tooling can configure, save, and print the resulting item.
 | **Monster Manual IV** | 13 feats reviewed; summon spell and feat corrections implemented. Githyanki Battlecaster's Wizard bonus option is now implemented. **Varag racial progression remains deferred.** No new ordinary base/prestige class found. | [x] |
 | Monster Manual V | 12 monster feats and seven sidebars checked; Earthbind added; Brutal Throw Fighter eligibility fixed. No new base/prestige/racial class found. Creature/template support open. | [x] |
 
-**Definition-pass certified under the PHB/DMG criteria:** Player's Handbook,
-Dungeon Master's Guide v3.5, and Monster Manual I (Premium Edition)
-([x], 2026-11-19).
+**Definition-pass certified under the strict criteria:** Player's Handbook,
+Dungeon Master's Guide v3.5, Monster Manual I (Premium Edition), and
+Dragonlance Campaign Setting ([x], 2026-11-19).
 
 The Monster Manual II–V `[x]` entries above predate this stricter
 selectable-option criteria and mean their scoped definition checks are
@@ -565,7 +577,7 @@ represented and print-tested, with explicit manual boundaries.
   against source-checked builds, starting with feat prerequisites at the level
   taken, then multiclass progression and spell slots/access. Check both legal
   selections and choices the builder should reject. Next sourcebook target:
-  Dragonlance Campaign Setting.
+  Player's Handbook II.
 - **Explicitly deferred:** MMIV's Varag racial class (pp. 170-171).
   Its first five racial levels distribute only three racial Hit Dice and +2 LA;
   ordinary class advancement starts at racial level 6. It is not selectable,

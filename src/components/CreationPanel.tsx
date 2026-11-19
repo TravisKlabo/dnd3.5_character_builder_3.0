@@ -163,7 +163,16 @@ export function CreationPanel({
     (race) =>
       (race.selectable !== false || race.id === selectedRace.id) &&
       (race.source === "core-35-srd" || ruleset !== "core-35-srd") &&
-      (ruleset === "dragonlance-monster-classes" || !race.levelAdjustment),
+      (ruleset === "dragonlance-monster-classes" || !race.levelAdjustment) &&
+      !(
+        ruleset !== "core-35-srd" &&
+        race.source === "core-35-srd" &&
+        Object.values(raceDefinitions).some(
+          (replacement) =>
+            replacement.source === "dragonlance-user-pack" &&
+            replacement.name === race.name,
+        )
+      ),
   );
   const pointBuyTotal = abilityNames.reduce(
     (total, ability) =>

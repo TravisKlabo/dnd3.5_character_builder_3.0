@@ -1,10 +1,10 @@
-import type { ClassId, ContentSourceId } from "./domain";
+import type { ContentSourceId, SpellcastingClassId } from "./domain";
 
 export type SrdSpell = {
   name: string;
   level: number;
   classes: string[];
-  classLevels?: Partial<Record<ClassId, number>>;
+  classLevels?: Partial<Record<SpellcastingClassId, number>>;
   requiredHighSorceryOrder?: "white";
   description: string;
   school: string;

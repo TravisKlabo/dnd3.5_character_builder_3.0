@@ -1,6 +1,7 @@
 import { deityDefinitions, type Character, type DeityDefinition, type RulesetId } from "./domain";
 import { clericDomains, getClericDomain, type ClericDomainId } from "./data/clericDomains";
 import { getEffectiveAbilityScore } from "./abilityEquipment";
+import { getPrestigeClericDomains } from "./prestigeDomainRules";
 
 const domainAlignments: Partial<Record<ClericDomainId, string>> = {
   chaos: "Chaotic", evil: "Evil", good: "Good", law: "Lawful",
@@ -26,8 +27,11 @@ export function clericDomainAllowed(character: Character, id: ClericDomainId) {
 }
 
 export function getActiveClericDomains(character: Character) {
-  if (!character.classLevels.some((entry) => !("prestigeClassId" in entry) && entry.classId === "cleric")) return [];
-  return (character.clericDomains ?? []).filter((id) => clericDomainAllowed(character, id));
+  const selectedDomains = character.classLevels.some(
+    (entry) => !("prestigeClassId" in entry) && entry.classId === "cleric",
+  ) ? (character.clericDomains ?? []).filter((id) => clericDomainAllowed(character, id))
+    : [];
+  return [...new Set([...selectedDomains, ...getPrestigeClericDomains(character)])];
 }
 
 export function isMysticDomainAllowed(character: Character, id: ClericDomainId) {

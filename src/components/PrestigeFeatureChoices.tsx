@@ -1,5 +1,8 @@
-import { canRepeatHighArcana, classDefinitions, dragonDiscipleBonusLevels, dragonDiscipleVarieties, dragonlancePrestigeClasses, getHorizonWalkerTerrainOptions, highArcanaMinimumSlots, magicSchools, type HighArcana, type HighArcanaChoice, type LevelUpDraft } from "../domain";
-import { earnedDragonDiscipleBonusSlots, getBaseClassLevel, getDragonDiscipleSlotOptions, getHighArcanaSlotOptions, getNewLevelUpFeatSlots, getPrestigeClassLevel, getPrestigeFeatureChoice, getPrestigeSpellcastingClassOptions, getSpellcastingClassDefinition } from "../rules";
+import { canRepeatHighArcana, classDefinitions, deityDefinitions, dragonDiscipleBonusLevels, dragonDiscipleVarieties, dragonlancePrestigeClasses, getHorizonWalkerTerrainOptions, highArcanaMinimumSlots, magicSchools, type Character, type HighArcana, type HighArcanaChoice, type LevelUpDraft } from "../domain";
+import { earnedDragonDiscipleBonusSlots, getBaseClassLevel, getDragonDiscipleSlotOptions, getHighArcanaSlotOptions, getNewLevelUpFeatSlots, getPrestigeClassLevel, getPrestigeFeatureChoice, getPrestigeSpellcastingClassOptions, getSpellcastingClassDefinition, prestigeClassAdvancesSpellcastingAtLevel } from "../rules";
+import { getClericDomain } from "../data/clericDomains";
+import { clericDomainIds } from "../data/clericDomainIds";
+import { clericDomainAllowed } from "../clericDomains";
 import { getRedWizardNewSpellWarnings } from "../redWizardRules";
 import { CoreWizardSpecializationChoice } from "./CoreWizardSpecializationChoice";
 
@@ -29,7 +32,7 @@ export default function PrestigeChoices(props: Props) {
   const entry = draft.proposed.classLevels.find((level) => "prestigeClassId" in level && level.prestigeClassId === id);
   const progression = dragonlancePrestigeClasses[id].spellcastingProgression;
   const special = dragonlancePrestigeClasses[id].roleplayPrerequisite;
-  const targets = progression && (entry?.level ?? 0) >= (progression.startsAtLevel ?? 1)
+  const targets = progression && prestigeClassAdvancesSpellcastingAtLevel(id, entry?.level ?? 0)
     ? getPrestigeSpellcastingClassOptions(draft.original, id) : [];
   const divine = id === "mystic-theurge" ? getPrestigeSpellcastingClassOptions(draft.original, id, true) : [];
   const updateTarget = (value: string, isDivine: boolean) => {
@@ -47,9 +50,126 @@ export default function PrestigeChoices(props: Props) {
       },
     });
   };
+  const firstPrestigeLevel = !getPrestigeClassLevel(draft.original, id);
+  const divineCrusaderDomainOptions =
+    id === "divine-crusader" && firstPrestigeLevel
+      ? deityDefinitions.find((deity) => deity.id === draft.proposed.deity)?.clericDomains ?? []
+      : [];
+  const piousTemplarListOptions =
+    id === "pious-templar" && firstPrestigeLevel
+      ? getPiousTemplarSpellListOptions(draft.proposed)
+      : [];
+  const contemplativeDomainIndex =
+    id === "contemplative" &&
+    (entry?.level === 1 || entry?.level === 6)
+      ? entry.level === 1 ? 0 : 1
+      : undefined;
+  const contemplativeDomainOptions =
+    contemplativeDomainIndex !== undefined
+      ? clericDomainIds.filter((domain) =>
+          clericDomainAllowed(draft.proposed, domain),
+        )
+      : [];
+  const radiantServantDomainOptions =
+    id === "radiant-servant-of-pelor" && entry?.level === 5
+      ? [
+          ...(deityDefinitions.find((deity) => deity.id === draft.proposed.deity)
+            ?.clericDomains ?? []),
+          "glory" as const,
+          "purification" as const,
+        ].filter((domain, index, domains) => domains.indexOf(domain) === index)
+      : [];
   return <>
     {id === "red-wizard" && !getPrestigeClassLevel(draft.original, id) && <RedWizardChoices draft={draft} onChange={onChange} />}
     <PrestigeFeatureChoices {...props} />
+    {divineCrusaderDomainOptions.length > 0 && <label className="draft-class">
+      Divine Crusader domain
+      <select value={draft.proposed.divineCrusaderDomain ?? ""}
+        onChange={(event) => onChange({
+          ...draft,
+          proposed: {
+            ...draft.proposed,
+            divineCrusaderDomain: (
+              event.currentTarget.value || undefined
+            ) as Character["divineCrusaderDomain"],
+          },
+        })}>
+        <option value="" disabled>Choose a deity domain</option>
+        {divineCrusaderDomainOptions.map((domain) =>
+          <option key={domain} value={domain}>{getClericDomain(domain).name}</option>,
+        )}
+      </select>
+    </label>}
+    {piousTemplarListOptions.length > 0 && <label className="draft-class">
+      Pious Templar spell list
+      <select value={draft.proposed.piousTemplarSpellList ?? ""}
+        onChange={(event) => onChange({
+          ...draft,
+          proposed: {
+            ...draft.proposed,
+            piousTemplarSpellList: (
+              event.currentTarget.value || undefined
+            ) as Character["piousTemplarSpellList"],
+          },
+        })}>
+        <option value="" disabled>Choose a spell list</option>
+        {piousTemplarListOptions.map((classId) =>
+          <option key={classId} value={classId}>
+            {getSpellcastingClassDefinition(classId).name}
+          </option>,
+        )}
+      </select>
+    </label>}
+    {contemplativeDomainIndex !== undefined && <label className="draft-class">
+      Contemplative bonus domain
+      <select
+        value={draft.proposed.contemplativeDomains?.[contemplativeDomainIndex] ?? ""}
+        onChange={(event) => {
+          const domains = [...(draft.proposed.contemplativeDomains ?? [])];
+          const value = event.currentTarget.value;
+          domains[contemplativeDomainIndex] =
+            value as NonNullable<Character["contemplativeDomains"]>[number];
+          onChange({
+            ...draft,
+            proposed: { ...draft.proposed, contemplativeDomains: domains },
+          });
+        }}
+      >
+        <option value="" disabled>Choose a bonus domain</option>
+        {contemplativeDomainOptions.map((domain) =>
+          <option
+            key={domain}
+            value={domain}
+            disabled={draft.proposed.contemplativeDomains?.some(
+              (selected, index) =>
+                index !== contemplativeDomainIndex && selected === domain,
+            )}
+          >{getClericDomain(domain).name}</option>,
+        )}
+      </select>
+    </label>}
+    {radiantServantDomainOptions.length > 0 && <label className="draft-class">
+      Radiant Servant bonus domain
+      <select
+        value={draft.proposed.radiantServantDomain ?? ""}
+        onChange={(event) => onChange({
+          ...draft,
+          proposed: {
+            ...draft.proposed,
+            radiantServantDomain: (
+              event.currentTarget.value || undefined
+            ) as Character["radiantServantDomain"],
+          },
+        })}
+      >
+        <option value="" disabled>Choose a bonus domain</option>
+        {radiantServantDomainOptions.map((domain) =>
+          <option key={domain} value={domain}>
+            {getClericDomain(domain).name}
+          </option>,
+        )}
+      </select>
+    </label>}
     {targets.length > 1 && <label className="draft-class">
       {id === "mystic-theurge" ? "Advance arcane spellcasting in" : "Advance spellcasting in"}
       <select value={draft.classId} onChange={(event) => updateTarget(event.currentTarget.value, false)}>
@@ -73,6 +193,42 @@ export default function PrestigeChoices(props: Props) {
 }
 
 function getPrestigeChoiceWarnings(draft: LevelUpDraft) {
+  if (draft.prestigeClassId === "contemplative") {
+    const level = getPrestigeClassLevel(draft.proposed, "contemplative");
+    const required = level >= 6 ? 2 : level >= 1 ? 1 : 0;
+    const domains = draft.proposed.contemplativeDomains ?? [];
+    if (
+      domains.length < required ||
+      new Set(domains).size !== domains.length ||
+      domains.some((domain) => !clericDomainAllowed(draft.proposed, domain))
+    )
+      return ["Choose a distinct permitted Contemplative bonus domain at levels 1 and 6."];
+  }
+  if (
+    draft.prestigeClassId === "radiant-servant-of-pelor" &&
+    getPrestigeClassLevel(draft.proposed, "radiant-servant-of-pelor") >= 5 &&
+    (!draft.proposed.radiantServantDomain ||
+      ![
+        ...(deityDefinitions.find(({ id }) => id === draft.proposed.deity)?.clericDomains ?? []),
+        "glory", "purification",
+      ].includes(draft.proposed.radiantServantDomain))
+  ) return ["Choose the Radiant Servant's fifth-level bonus domain."];
+  if (draft.prestigeClassId === "divine-crusader" &&
+      !getPrestigeClassLevel(draft.original, "divine-crusader")) {
+    const options = deityDefinitions.find(
+      (deity) => deity.id === draft.proposed.deity,
+    )?.clericDomains ?? [];
+    if (!draft.proposed.divineCrusaderDomain ||
+        !options.includes(draft.proposed.divineCrusaderDomain))
+      return ["Choose one domain granted by the Divine Crusader's deity."];
+  }
+  if (draft.prestigeClassId === "pious-templar" &&
+      !getPrestigeClassLevel(draft.original, "pious-templar")) {
+    const options = getPiousTemplarSpellListOptions(draft.proposed);
+    if (!draft.proposed.piousTemplarSpellList ||
+        !options.some((option) => option === draft.proposed.piousTemplarSpellList))
+      return ["Choose the Pious Templar's permanent spell list."];
+  }
   if (draft.prestigeClassId === "archmage") {
     const level = getPrestigeClassLevel(draft.proposed, "archmage");
     const choices = draft.proposed.highArcanaChoices ?? [];
@@ -91,6 +247,7 @@ function getPrestigeChoiceWarnings(draft: LevelUpDraft) {
       return ["Choose legal High Arcana slot costs or decline High Arcana for this level."];
     return [];
   }
+
   if (draft.prestigeClassId === "dragon-disciple") {
     const level = getPrestigeClassLevel(draft.proposed, "dragon-disciple");
     const { dragonDiscipleVariety: variety, dragonDiscipleBonusSlots: slots = [] } = draft.proposed;
@@ -115,6 +272,19 @@ function getPrestigeChoiceWarnings(draft: LevelUpDraft) {
     choice.prior.every((value, index) => selected[index] === value) &&
     options.includes(selected[choice.prior.length])
     ? [] : [`Choose a legal ${choice.label} before confirming.`];
+}
+
+function getPiousTemplarSpellListOptions(character: Character) {
+  const deityAlignment = deityDefinitions.find(
+    (deity) => deity.id === character.deity,
+  )?.alignment ?? "";
+  if (character.alignment.includes("Good") ||
+      (!character.alignment.includes("Evil") && deityAlignment.includes("Good")))
+    return ["paladin"] as const;
+  if (character.alignment.includes("Evil") ||
+      (!character.alignment.includes("Good") && deityAlignment.includes("Evil")))
+    return ["blackguard"] as const;
+  return ["paladin", "blackguard"] as const;
 }
 
 function getRedWizardChoiceWarnings(draft: LevelUpDraft) {

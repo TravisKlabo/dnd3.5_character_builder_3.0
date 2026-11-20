@@ -3788,7 +3788,8 @@ describe("spell catalog source attribution", () => {
     });
     expect(findSpellByName("Unbinding")?.classes).toEqual(["sorcerer", "wizard"]);
     for (const classId of ["cleric", "mystic", "sorcerer", "wizard"] as const)
-      expect(getClassSpells(classId).some((spell) => names.includes(spell.name))).toBe(false);
+      expect(getClassSpells(classId).some((spell) => names.includes(spell.name) &&
+        spell.source === "dragonlance-user-pack")).toBe(false);
   });
 
   it("adds all Chapter 3 New Spells with source-backed class access and levels", () => {

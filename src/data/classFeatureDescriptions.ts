@@ -28,6 +28,20 @@ const barbarianRageDescription =
   "Once per encounter, enter a rage on your turn (not in response to another creature's action); track the listed daily uses manually. Standard rage grants +4 Strength, +4 Constitution, +2 morale on Will saves, and -2 AC for 3 rounds plus your increased Constitution modifier. The Constitution increase adds 2 hit points per Barbarian level until the rage ends; Greater and Mighty Rage increase this to 3 and 4 hit points per level. You cannot use most Charisma-, Dexterity-, or Intelligence-based skills, Concentration, spells, or command-word/spell-trigger/spell-completion items; Balance, Escape Artist, Intimidate, and Ride are exceptions. Combat Expertise, item creation, and metamagic feats cannot be used. You may end rage early; afterward you are fatigued for the encounter unless you have Tireless Rage. Apply and track these effects manually.";
 
 export const classFeatureDescriptions: Record<string, string> = {
+  "Spontaneous Divine Spellcasting":
+    "Know a limited set of cleric spells and cast them spontaneously from daily spell slots. Charisma controls casting slots; Wisdom sets save DCs.",
+  "Deity's Weapon Focus":
+    "Gain Weapon Focus with the favored weapon of your deity.",
+  "Deity's Weapon Specialization":
+    "Gain Weapon Specialization with the favored weapon of your deity.",
+  "Sense Elements":
+    "Sense nearby sources of the selected element as a spell-like ability.",
+  "Element Focus":
+    "Choose air, earth, fire, or water. At least half of known spells must use that element, and spells of its prohibited opposite element are unavailable.",
+  "Spirit Guide":
+    "A purely internal spirit guide assists retrieval of daily druid spells, guidance, and spiritual class features; it is not a separate familiar.",
+  "Retrieved Druid Spellcasting":
+    "After one hour of meditation, retrieve a daily set of druid spells and cast them spontaneously using Wisdom; metamagic is fixed when retrieved.",
   "Armored Mage":
     "Ignore arcane spell failure from light armor for Beguiler spells only.",
   "Trapfinding":

@@ -1,4 +1,4 @@
-import { classDefinitions, deityDefinitions, dragonlancePrestigeClasses, dragonShamanAuras, dragonShamanTotems, isHorizonWalkerTerrainHistory, isRulesetId, magicSchools, raceDefinitions, type Character, type RulesetId } from "./domain";
+import { classDefinitions, deityDefinitions, dragonlancePrestigeClasses, dragonShamanAuras, dragonShamanTotems, shugenjaElements, shugenjaOrderElements, shugenjaOrders, isHorizonWalkerTerrainHistory, isRulesetId, magicSchools, raceDefinitions, type Character, type RulesetId } from "./domain";
 import { storeCategories, type StoreItem } from "./data/itemTypes";
 import { isIndependentSpellcastingClass, type SpellcastingClassId } from "./domain";
 import { skillTrickCatalog } from "./data/skillTricks";
@@ -430,6 +430,15 @@ export function assertCharacter(value: unknown): asserts value is Character {
         !isMagicSchool(value.coreWizardSpecializationSchool)) ||
       (value.dragonShamanTotem !== undefined &&
         !dragonShamanTotems.includes(value.dragonShamanTotem as never)) ||
+      (value.shugenjaElement !== undefined &&
+        !shugenjaElements.includes(value.shugenjaElement as never)) ||
+      (value.shugenjaOrder !== undefined &&
+        !shugenjaOrders.includes(value.shugenjaOrder as never)) ||
+      (value.shugenjaOrder !== undefined &&
+        value.shugenjaElement !== undefined &&
+        !shugenjaOrderElements[
+          value.shugenjaOrder as keyof typeof shugenjaOrderElements
+        ].some((element) => element === value.shugenjaElement)) ||
       (value.dragonShamanAuras !== undefined &&
         (!isStringList(value.dragonShamanAuras) ||
           value.dragonShamanAuras.length > dragonShamanAuras.length ||
@@ -599,7 +608,18 @@ export function assertCharacter(value: unknown): asserts value is Character {
         (!Array.isArray(value.clericDomainExpended) || !value.clericDomainExpended.every((level) =>
           isNumber(level) && Number.isInteger(level) && level >= 1 && level <= 9) ||
           new Set(value.clericDomainExpended).size !== value.clericDomainExpended.length)) ||
-      (value.mysticDomain !== undefined && !isClericDomainId(value.mysticDomain))) {
+      (value.mysticDomain !== undefined && !isClericDomainId(value.mysticDomain)) ||
+      (value.divineCrusaderDomain !== undefined &&
+        !isClericDomainId(value.divineCrusaderDomain)) ||
+      (value.piousTemplarSpellList !== undefined &&
+        !["paladin", "blackguard"].includes(String(value.piousTemplarSpellList))) ||
+      (value.contemplativeDomains !== undefined &&
+        (!Array.isArray(value.contemplativeDomains) ||
+          value.contemplativeDomains.length > 2 ||
+          !value.contemplativeDomains.every(isClericDomainId) ||
+          new Set(value.contemplativeDomains).size !== value.contemplativeDomains.length)) ||
+      (value.radiantServantDomain !== undefined &&
+        !isClericDomainId(value.radiantServantDomain))) {
     throw new Error("Cleric domains, domain preparation, or expended domain slots are invalid.");
   }
 }

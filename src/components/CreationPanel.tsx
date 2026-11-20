@@ -1,4 +1,4 @@
-import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, dragonShamanAuras, dragonShamanTotems, abilityModifier } from "../domain";
+import { type Character, type ClassId, type AbilityName, type RulesetId, raceDefinitions, classDefinitions, deityDefinitions, dragonlancePrestigeClasses, dragonShamanAuras, dragonShamanTotems, shugenjaElements, shugenjaOrderElements, shugenjaOrders, abilityModifier } from "../domain";
 import { useState, useEffect } from "react";
 import "../data/equipmentCatalog";
 import { isClassAlignmentAllowed, isClericAlignmentAllowedForDeity, isDragonShamanTotemAlignmentAllowed, getClassAlignmentRestriction, getDragonlanceRangerPatron, getDragonlanceRangerWarnings, getDragonlanceDruidWarnings, getRangerFavoredEnemyWarnings, getSpentSkillPoints, getAvailableSkillCount, getFeatSlots, getFeatWeaponSelectionWarnings, getFeatSkillSelectionWarnings, getFeatSpellMasterySelectionWarnings, getAvailableLanguages, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getAutomaticLanguages, hasSpellLevelAtClassLevel, getDailySpellSlots, getClassSpellSelections, getKnownSpellLimit, getWizardFreeSpellAllowance, getLanguageBonusSlots, formatModifier, getRaceDefinitionForCharacter } from "../rules";
@@ -258,6 +258,16 @@ export function CreationPanel({
     if ((draft.dragonShamanAuras?.length ?? 0) !== 3)
       creationErrors.push("Choose three Dragon Shaman auras.");
   }
+  if (classId === "shugenja" && !draft.shugenjaElement)
+    creationErrors.push("Choose a shugenja element focus.");
+  if (classId === "shugenja" && !draft.shugenjaOrder)
+    creationErrors.push("Choose a shugenja order.");
+  if (classId === "shugenja" &&
+      draft.shugenjaOrder && draft.shugenjaElement &&
+      !shugenjaOrderElements[draft.shugenjaOrder].some(
+        (element) => element === draft.shugenjaElement,
+      ))
+    creationErrors.push("The selected shugenja order does not permit that element focus.");
   if (classId === "ranger")
     creationErrors.push(...getRangerFavoredEnemyWarnings(draft));
   if (dragonlanceRuleset && classId === "mystic") {
@@ -690,6 +700,38 @@ export function CreationPanel({
                   onChange("coreWizardSpecializationSchool", school)
                 }
               />
+            )}
+            {classId === "shugenja" && (
+              <>
+                <label>
+                  Element Focus
+                  <select
+                    value={draft.shugenjaElement ?? ""}
+                    onChange={(event) => onChange(
+                      "shugenjaElement",
+                      (event.target.value || undefined) as Character["shugenjaElement"],
+                    )}
+                  >
+                    <option value="">Choose an element</option>
+                    {shugenjaElements.map((element) =>
+                      <option key={element} value={element}>{element}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Order
+                  <select
+                    value={draft.shugenjaOrder ?? ""}
+                    onChange={(event) => onChange(
+                      "shugenjaOrder",
+                      (event.target.value || undefined) as Character["shugenjaOrder"],
+                    )}
+                  >
+                    <option value="">Choose an order</option>
+                    {shugenjaOrders.map((order) =>
+                      <option key={order} value={order}>{order}</option>)}
+                  </select>
+                </label>
+              </>
             )}
             <label className="prestige-creation-field">
               Prestige Class (reference only)

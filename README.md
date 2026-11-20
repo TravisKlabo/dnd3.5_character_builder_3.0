@@ -586,6 +586,45 @@ represented and print-tested, with explicit manual boundaries.
 
 ### Resume here: open implementation work
 
+- **Complete Divine implementation checkpoint (2026-11-19):** Draft
+  definitions add the three base classes, 24 prestige classes,
+  spells, feats, domains, and deities. These are not source-certified or ready
+  for release. Resume by checking the deity/domain integration and auditing
+  class eligibility, spellcasting, selectable features, and spell lists against
+  the book. The 24-class progression audit is now implemented: non-advancing
+  and even-level patterns (including Black Flame Zealot, Entropomancer,
+  Hospitaler, Seeker of the Misty Isle, Shining Blade of Heironeous,
+  Void Disciple, and Warpriest) are modeled explicitly. Blighter, Consecrated
+  Harrier, Divine Crusader, Holy Liberator, Pious Templar, Temple Raider,
+  Ur-Priest, and a noncasting-entry Contemplative use independent slot tables
+  rather than incorrectly advancing a prior caster. Their selectable lists are
+  now represented: Blighter, Consecrated Harrier, Holy Liberator, Temple
+  Raider, Ur-Priest, Divine Crusader's chosen deity domain, and Pious Templar's
+  permanent Paladin/Blackguard choice. Blighter's caster-level bonus from prior
+  Druid levels and Ur-Priest's bonus from half of other spellcasting levels are
+  modeled. Shugenja's full spell list and element/opposed-element rules are
+  implemented; its six sourcebook order spells persist, display automatically,
+  and print with the selected order/focus. Complete the feat,
+  equipment/manual-boundary, persistence, and print checks before considering
+  certification. The Blackguard spell list now includes
+  explicitly listed supplemental spells, including Blessed Aim at level 2
+  (p. 135).
+  Complete Divine deities, prestige definitions, and spell-list maps now load
+  as deferred catalog chunks before the React app renders, reducing initial
+  JavaScript from 623,383 bytes to 588,390. The production budget was increased
+  from 562,000 to 590,000 bytes for the new eager rules engine surfaces while
+  preserving a 1,610-byte margin. A focused Chapter 2 audit now covers the
+  mechanical entry requirements for all 24 printed prestige classes, including
+  deity, favored weapon, base save, spell, alignment, race, domain, turning, and
+  dual-caster requirements. Hospitaler levels 1/5/9 and Pious Templar levels
+  4/8 now grant Fighter-category bonus-feat slots. Contemplative and Radiant
+  Servant bonus domains persist and contribute spell access; fixed prestige
+  extra domains apply at the correct levels. Full validation passes: 2,758 unit tests and
+  10 Playwright print/PDF tests, plus lint, TypeScript, Vite, and the bundle
+  budget. Complete Divine remains uncertified until Geomancer drift/ley-line
+  choices, deity/domain granted powers, remaining automatic class-feature
+  effects, items/manual boundaries, and final Complete Divine print examples
+  are source-audited.
 - **Next rules-correctness target:** verify character creation and level-up
   against source-checked builds, starting with feat prerequisites at the level
   taken, then multiclass progression and spell slots/access. Check both legal

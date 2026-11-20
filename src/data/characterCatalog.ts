@@ -581,6 +581,20 @@ export const classSkills: Partial<Record<ClassId, string[]>> = {
     "Climb", "Handle Animal", "Intimidate", "Jump", "Knowledge (nobility and royalty)",
     "Ride", "Swim",
   ],
+  "favored-soul": [
+    "Concentration", "Craft", "Diplomacy", "Heal", "Jump",
+    "Knowledge (arcana)", "Profession", "Sense Motive", "Spellcraft",
+  ],
+  shugenja: [
+    "Concentration", "Craft", "Diplomacy", "Heal", "Knowledge (*)",
+    "Profession", "Spellcraft",
+  ],
+  "spirit-shaman": [
+    "Concentration", "Craft", "Diplomacy", "Handle Animal", "Heal",
+    "Knowledge (geography)", "Knowledge (history)", "Knowledge (local)",
+    "Knowledge (nature)", "Listen", "Profession", "Ride", "Spellcraft",
+    "Spot", "Survival", "Swim",
+  ],
 };
 
 export { featCatalog } from "./featCatalogRegistry";
@@ -652,6 +666,9 @@ export const startingClassFeatures: Partial<Record<ClassId, string[]>> = {
   "dragon-shaman": ["Draconic Aura", "Totem Dragon"],
   duskblade: ["Arcane Attunement", "Armored Mage (Light)"],
   knight: ["Knight's Challenge", "Knight's Code", "Fighting Challenge +1"],
+  "favored-soul": ["Deity's Weapon Focus", "Spontaneous Divine Spellcasting"],
+  shugenja: ["Sense Elements", "Element Focus"],
+  "spirit-shaman": ["Spirit Guide", "Wild Empathy", "Retrieved Druid Spellcasting"],
 };
 
 const inspireCourageDescription =

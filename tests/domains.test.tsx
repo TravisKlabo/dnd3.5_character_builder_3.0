@@ -13,6 +13,7 @@ import { findSpellByName, loadSpellCatalog } from "../src/data/spellCatalog";
 import { parseCharacter } from "../src/validation";
 import { savedCharacterStorageKey } from "../src/storage";
 import { ClericDomains } from "../src/components/ClericDomains";
+import { coreClericDomainIds } from "../src/data/clericDomainIds";
 import App from "../src/App";
 import { readStoredCharacter } from "./storageTestHelpers";
 
@@ -41,7 +42,7 @@ async function openCleric() {
 
 describe("SRD cleric domain catalog", () => {
   it("contains all 22 core SRD domains and nine spells in each, with explicit power handling", () => {
-    const coreDomains = Object.entries(clericDomains).filter(([, definition]) => !("source" in definition));
+    const coreDomains = coreClericDomainIds.map((id) => [id, clericDomains[id]] as const);
     expect(coreDomains).toHaveLength(22);
     for (const [id] of coreDomains as [ClericDomainId, (typeof clericDomains)[ClericDomainId]][]) {
       const definition = getClericDomain(id);
@@ -147,7 +148,8 @@ describe("SRD cleric domain catalog", () => {
       expect(options).toEqual(expect.arrayContaining([...dragonlanceIds]));
       for (const id of dragonlanceIds) {
         const definition = getClericDomain(id);
-        expect(definition.source).toBe("dragonlance-user-pack");
+        if (!["community", "liberation", "pestilence"].includes(id))
+          expect(definition.source).toBe("dragonlance-user-pack");
         expect(definition.spells).toHaveLength(9);
         expect(definition.mysticPower).toBeTruthy();
       }
@@ -533,6 +535,28 @@ describe("domain persistence and import validation", () => {
 });
 
 describe("cleric domain UI and lifecycle", () => {
+  it("adds Complete Divine prestige extra domains at their class levels", () => {
+    const character = cleric();
+    character.classLevels.push({
+      classId: "cleric",
+      prestigeClassId: "seeker-of-the-misty-isle",
+      level: 1,
+    });
+    expect(getActiveClericDomains(character)).toContain("travel");
+    expect(getActiveClericDomains(character)).not.toContain("magic");
+    character.classLevels[1].level = 7;
+    expect(getActiveClericDomains(character)).toContain("magic");
+
+    character.classLevels = [
+      { classId: "cleric", level: 8 },
+      { classId: "cleric", prestigeClassId: "warpriest", level: 1 },
+    ];
+    character.alignment = "Neutral Good";
+    expect(getActiveClericDomains(character)).toContain("glory");
+    character.alignment = "Neutral Evil";
+    expect(getActiveClericDomains(character)).toContain("domination");
+  });
+
   it("explains that Paladine grants no cleric domains in this source", () => {
     const character = cleric();
     character.clericDomains = ["healing"];

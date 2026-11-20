@@ -3,6 +3,7 @@ import { clericDomainIds, isDragonlanceDomainId, type ClericDomainId } from "./d
 import { clericDomainRuleMetadata } from "./data/clericDomainRuleMetadata";
 import { clericDomainSpellLists } from "./data/clericDomainSpellLists";
 import { getEffectiveAbilityScore } from "./abilityEquipment";
+import { getPrestigeClericDomains } from "./prestigeDomainRules";
 
 const core35ContentId = "core-35-srd";
 const dragonlanceContentId = "dragonlance-user-pack";
@@ -30,8 +31,11 @@ export function clericDomainAllowed(character: Character, id: ClericDomainId) {
 }
 
 export function getActiveClericDomains(character: Character) {
-  if (!character.classLevels.some((entry) => !("prestigeClassId" in entry) && entry.classId === "cleric")) return [];
-  return (character.clericDomains ?? []).filter((id) => clericDomainAllowed(character, id));
+  const selectedDomains = character.classLevels.some(
+    (entry) => !("prestigeClassId" in entry) && entry.classId === "cleric",
+  ) ? (character.clericDomains ?? []).filter((id) => clericDomainAllowed(character, id))
+    : [];
+  return [...new Set([...selectedDomains, ...getPrestigeClericDomains(character)])];
 }
 
 export function isMysticDomainAllowed(character: Character, id: ClericDomainId) {

@@ -1,6 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { dragonlancePrestigeClasses, isIndependentSpellcastingClass, type Character, type ContentSourceId, type RulesetId, type SpellcastingClassId } from "../domain";
 import type { SrdSpell } from "../srdSpells";
+import { getClericDomain } from "./clericDomains";
+import { getPrestigeClericDomains } from "../prestigeDomainRules";
 
 export const srdSpellContentSource: ContentSourceId = "core-35-srd";
 export const defaultSrdSpellSourceBook = "Player's Handbook (3.5)";
@@ -17,6 +19,7 @@ const spellNameAliases: Record<string, string> = {
   "rary's telepathic bond": "telepathic bond",
   "tasha's hideous laughter": "hideous laughter",
   "dance of blades": "dancing blade",
+  "invisibility to undead": "hide from undead",
   "whelming burst": "whelming blast",
 };
 
@@ -72,6 +75,9 @@ const duskbladeSpellLevels: Record<string, number> = {
   "Swift Expeditious Retreat": 1,
 };
 
+type CompleteDivineSpellLists = typeof import("./completeDivineSpellLists");
+let completeDivineSpellLists: CompleteDivineSpellLists | undefined;
+
 export function getSrdSpellSourceBook(spell: Pick<SrdSpell, "sourceBook">) {
   return spell.sourceBook === null ? undefined : spell.sourceBook ?? defaultSrdSpellSourceBook;
 }
@@ -108,8 +114,11 @@ export function loadSpellCatalog(): Promise<void> {
     import("./dragonlanceSpells"),
     import("./monsterManualSpells"),
     import("./phb2Spells"),
-  ]).then(([{ srdSpells }, { dragonlanceSpells }, { monsterManualSpells }, { phb2Spells }]) => {
-    spells.push(...srdSpells, ...dragonlanceSpells, ...monsterManualSpells, ...phb2Spells);
+    import("./completeDivineSpells"),
+    import("./completeDivineSpellLists"),
+  ]).then(([{ srdSpells }, { dragonlanceSpells }, { monsterManualSpells }, { phb2Spells }, { completeDivineSpells }, spellLists]) => {
+    completeDivineSpellLists = spellLists;
+    spells.push(...srdSpells, ...dragonlanceSpells, ...monsterManualSpells, ...phb2Spells, ...completeDivineSpells);
     for (const spell of spells) {
       if (!spellsByName.has(spell.name)) spellsByName.set(spell.name, spell);
       const normalizedName = normalizeSpellName(spell.name);
@@ -135,6 +144,13 @@ export function getSpellLevelForClass(spell: SrdSpell, classId: string): number 
   return classLevel ?? mysticClericLevel ?? spell.level;
 }
 
+export function getShugenjaOrderSpell(
+  order: Character["shugenjaOrder"],
+  level: number,
+) {
+  return completeDivineSpellLists?.getShugenjaOrderSpell(order, level);
+}
+
 export function isSpellClassAccessAllowed(
   spell: Pick<SrdSpell, "requiredHighSorceryOrder">,
   classId: string,
@@ -147,15 +163,100 @@ export function isSpellClassAccessAllowed(
 export function getClassSpells(
   classId: SpellcastingClassId,
   ruleset: RulesetId = "core-35-srd",
-  character?: Pick<Character, "highSorceryOrder">,
+  character?: Pick<
+    Character,
+    "classLevels" | "highSorceryOrder" | "divineCrusaderDomain" | "piousTemplarSpellList" |
+    "shugenjaElement" | "shugenjaOrder" | "clericUndeadTurningMode" | "alignment" |
+    "contemplativeDomains" | "radiantServantDomain"
+  >,
 ): SrdSpell[] {
   if (state.status !== "ready") throw new Error("The spell catalog has not loaded.");
   const whiteWizardAccess = classId === "wizard" && character?.highSorceryOrder === "white";
-  const cacheKey = `${classId}:${ruleset}:${whiteWizardAccess ? "white" : "standard"}`;
+  const classLevel = character?.classLevels.find((entry) =>
+    "prestigeClassId" in entry && entry.prestigeClassId === classId,
+  )?.level ?? 0;
+  const cacheKey = [
+    classId, ruleset, whiteWizardAccess ? "white" : "standard", classLevel,
+    character?.divineCrusaderDomain ?? "",
+    character?.piousTemplarSpellList ?? "",
+    character?.shugenjaElement ?? "",
+    character?.shugenjaOrder ?? "",
+    character ? getPrestigeClericDomains(character).join(",") : "",
+    character?.classLevels
+      .filter((entry) => "prestigeClassId" in entry)
+      .map((entry) => `${entry.prestigeClassId}:${entry.level}`)
+      .join(",") ?? "",
+  ].join(":");
   let entries = spellsByClass.get(cacheKey);
+  if (!entries && classId === "favored-soul") {
+    entries = getClassSpells("cleric", ruleset, character);
+    spellsByClass.set(cacheKey, entries);
+  }
+  if (!entries && classId === "spirit-shaman") {
+    entries = getClassSpells("druid", ruleset, character);
+    spellsByClass.set(cacheKey, entries);
+  }
+  if (!entries && classId === "ur-priest") {
+    entries = getClassSpells("cleric", ruleset, character);
+    spellsByClass.set(cacheKey, entries);
+  }
+  if (!entries && classId === "divine-crusader" &&
+      character?.divineCrusaderDomain) {
+    const domainSpells = getClericDomain(character.divineCrusaderDomain).spells;
+    entries = [...new Map(spells.flatMap((spell) => {
+      const level = domainSpells.findIndex((name) =>
+        normalizeSpellName(name) === normalizeSpellName(spell.name));
+      return level < 0 ? [] : [
+        [normalizeSpellName(spell.name), { ...spell, level: level + 1 }] as const,
+      ];
+    })).values()];
+    spellsByClass.set(cacheKey, entries);
+  }
+  if (!entries && classId === "pious-templar" &&
+      character?.piousTemplarSpellList) {
+    entries = getClassSpells(character.piousTemplarSpellList, ruleset, character);
+    spellsByClass.set(cacheKey, entries);
+  }
+  if (!entries && (
+    classId === "consecrated-harrier" ||
+    classId === "holy-liberator"
+  )) {
+    const baseEntries = getClassSpells(
+      classId === "consecrated-harrier" ? "ranger" : "paladin",
+      ruleset,
+      character,
+    );
+    const added = classId === "consecrated-harrier"
+      ? completeDivineSpellLists?.consecratedHarrierAddedSpellLevels
+      : completeDivineSpellLists?.holyLiberatorAddedSpellLevels;
+    const levels = new Map(
+      Object.entries(added ?? {}).map(([name, level]) => [normalizeSpellName(name), level]),
+    );
+    const additions = spells.flatMap((spell) => {
+      const level = levels.get(normalizeSpellName(spell.name));
+      return level === undefined ? [] : [{ ...spell, level }];
+    });
+    entries = [...new Map([
+      ...baseEntries.filter((spell) =>
+        classId !== "holy-liberator" || !/\[Law\]/i.test(spell.school),
+      ),
+      ...additions,
+    ].map((spell) =>
+      [normalizeSpellName(spell.name), spell] as const,
+    )).values()];
+    spellsByClass.set(cacheKey, entries);
+  }
   const fixedClassSpellLevels =
     classId === "beguiler" ? beguilerSpellLevels :
     classId === "duskblade" ? duskbladeSpellLevels :
+    classId === "blighter" ? completeDivineSpellLists?.blighterSpellLevels :
+    classId === "shugenja" ?
+      completeDivineSpellLists?.getShugenjaSpellLevels(
+        character?.shugenjaElement,
+        character?.shugenjaOrder,
+      ) :
+    classId === "temple-raider-of-olidammara" ?
+      completeDivineSpellLists?.templeRaiderSpellLevels :
     undefined;
   if (!entries && fixedClassSpellLevels) {
     const levelsByNormalizedName = new Map(
@@ -175,6 +276,15 @@ export function getClassSpells(
     entries = [...new Map(entries.map((spell) =>
       [normalizeSpellName(spell.name), spell] as const,
     )).values()];
+    if (classId === "temple-raider-of-olidammara" && classLevel >= 10) {
+      const existing = new Set(entries.map((spell) => normalizeSpellName(spell.name)));
+      const luckSpells = completeDivineSpellLists?.clericLuckDomainSpellNames.slice(0, 4) ?? [];
+      entries.push(...spells.flatMap((spell) =>
+        luckSpells.includes(spell.name) && !existing.has(normalizeSpellName(spell.name))
+          ? [{ ...spell, level: luckSpells.indexOf(spell.name) + 1 }]
+          : []),
+      );
+    }
     spellsByClass.set(cacheKey, entries);
   }
   if (!entries && isIndependentSpellcastingClass(classId)) {
@@ -192,6 +302,14 @@ export function getClassSpells(
           } : {}),
         }];
       }));
+    const listedNames = new Set(entries.map((spell) => normalizeSpellName(spell.name)));
+    for (const spell of spells) {
+      const name = normalizeSpellName(spell.name);
+      if (!spell.classes.includes(classId) || listedNames.has(name)) continue;
+      if (getSrdSpellContentSource(spell) !== srdSpellContentSource && ruleset === "core-35-srd") continue;
+      entries.push({ ...spell, level: getSpellLevelForClass(spell, classId) });
+      listedNames.add(name);
+    }
     spellsByClass.set(cacheKey, entries);
   }
   if (!entries) {
@@ -209,6 +327,32 @@ export function getClassSpells(
       const level = getSpellLevelForClass(spell, classId);
       return level === spell.level ? spell : { ...spell, level };
     });
+    spellsByClass.set(cacheKey, entries);
+  }
+  if (character) {
+    const additional = getPrestigeClericDomains(character).flatMap((domain) =>
+      getClericDomain(domain).spells.flatMap((name, index) => {
+        const spell = findSpellByName(name);
+        return spell ? [{ ...spell, level: index + 1 }] : [];
+      }),
+    );
+    const rainbowEntry = character.classLevels.find((entry) =>
+      "prestigeClassId" in entry && entry.prestigeClassId === "rainbow-servant",
+    );
+    if (
+      rainbowEntry?.level === 10 &&
+      "prestigeClassId" in rainbowEntry &&
+      rainbowEntry.classId === classId
+    ) {
+      additional.push(...getClassSpells("cleric", ruleset, character).map((spell) => ({
+        ...spell,
+      })));
+    }
+    entries = [...new Map(
+      [...entries, ...additional].map((spell) =>
+        [normalizeSpellName(spell.name), spell] as const,
+      ),
+    ).values()];
     spellsByClass.set(cacheKey, entries);
   }
   return entries;

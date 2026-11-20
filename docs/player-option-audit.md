@@ -1854,6 +1854,43 @@ follow-up.
 
 ## Complete Divine: first-pass option inventory
 
+### Definition audit checkpoint (2026-11-19)
+
+The three base classes, 24 printed prestige classes, 127 Complete Divine
+spell records (after deduplicating *Beget Bogun* with its earlier Monster
+Manual II attribution), 53 Chapter 3 standard/faith/epic feat titles plus
+the class-specific Practiced Spellcaster variants, and the
+domain/deity catalogs are now wired into the builder. Prestige spellcasting was
+checked level by level against Chapter 2: all distinct even-level, skipped
+level, independent-slot, and Rainbow Servant patterns now have focused tests.
+
+Entry requirements were then checked against Chapter 2. The implementation
+now distinguishes base saves from class-feature text, checks Zone of Truth,
+two divination spells, dual arcane/divine spellcasting, "either" casting,
+racial restrictions, deity alignment/domain/patron requirements, favored-weapon
+Weapon Focus, fixed deity patrons, Sun/domain access, undead-turning access, and
+the Ur-Priest's loss of divine spellcasting. Blighter's former-Druid condition
+remains a confirmed roleplay checkbox because saved characters do not record
+abandoned class capabilities.
+
+Selectable spellcasting surfaces include Shugenja element/order choice and
+automatic order spells, Divine Crusader domain choice, Pious Templar's
+permanent Paladin/Blackguard list, Blighter's own list, and the fixed
+prestige lists. Hospitaler levels 1/5/9 and Pious Templar levels 4/8 now grant
+Fighter-category bonus-feat slots. The selected Shugenja order, focus, and
+automatic order spells persist and print. Contemplative bonus domains at
+levels 1/6 and Radiant Servant's level-5 domain are selectable, while fixed
+prestige domains become selectable spell/domain-granted-power surfaces at
+their sourcebook class levels. Pious Templar and Divine Crusader now apply
+their deity-weapon Weapon Specialization bonus mechanically.
+
+This checkpoint is not certification. Remaining class-surface gaps include
+Geomancer drift choices and the deity-domain/power/automatic-feat effects that
+are still represented only by feature names. Void specialization also retains
+a manual elemental-spell
+boundary. Chapter 4 relic/staff entries remain excluded by the SRD/open-license
+equipment policy, with their inventory and manual custom-item boundary intact.
+
 The printed contents (PDF p. 4) place three new base classes in Chapter 1
 (pp. 6–18), prestige classes in Chapter 2 (pp. 19–76), feats and epic divine
 options in Chapter 3 (pp. 77–90), relics in Chapter 4 (beginning on p. 91),

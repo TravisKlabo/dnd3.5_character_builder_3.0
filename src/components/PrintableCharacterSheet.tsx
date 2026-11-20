@@ -40,7 +40,7 @@ import {
   getWornArmor,
 } from "../rules";
 import { getMovement } from "../movementRules";
-import { findSpellByName, getClassSpells, useSpellCatalog } from "../data/spellCatalog";
+import { findSpellByName, getClassSpells, getShugenjaOrderSpell, useSpellCatalog } from "../data/spellCatalog";
 import type { SrdSpell } from "../srdSpells";
 import {
   formatSpellCastingTime,
@@ -51,6 +51,7 @@ import {
 import { getEffectiveAbilityScore } from "../abilityEquipment";
 import { getMaximumHitPoints } from "../hitPoints";
 import "./PrintableCharacterSheet.css";
+import { getClericDomain } from "../data/clericDomains";
 
 type Props = {
   character: Character;
@@ -432,7 +433,17 @@ export function PrintableCharacterSheet({ character }: Props) {
     : {};
   const spellPages: PrintableSpellPage[] = spellCatalog.ready
     ? spellcasters.flatMap(([classId, classLevel]) => {
-        const knownNames = knownSpellSelections[classId] ?? [];
+        const selectedKnownNames = knownSpellSelections[classId] ?? [];
+        const knownNames = classId === "shugenja"
+          ? [...new Set([
+              ...selectedKnownNames,
+              ...Array.from({ length: 10 }, (_, level) =>
+                hasSpellLevelAtClassLevel(classId, classLevel, level)
+                  ? getShugenjaOrderSpell(character.shugenjaOrder, level)
+                  : undefined,
+              ).filter((name): name is string => Boolean(name)),
+            ])]
+          : selectedKnownNames;
         const preparedNames = [
           ...new Set([
             ...(preparedSpellSelections[classId] ?? []),
@@ -518,7 +529,30 @@ export function PrintableCharacterSheet({ character }: Props) {
       return `${ability.name} (${uses}/${ability.usesPerDay} used; caster level ${ability.casterLevel}${ability.savingThrow ? `; ${ability.savingThrow} DC ${ability.saveDC}` : ""})`;
     }),
   ];
-  const classFeatures = getClassFeatureDisplay(character);
+  const classFeatures = [
+    ...getClassFeatureDisplay(character),
+    ...(character.shugenjaOrder
+      ? [{
+          source: "Shugenja",
+          ability: `${character.shugenjaOrder} order${character.shugenjaElement
+            ? ` (${character.shugenjaElement} focus)`
+            : ""}`,
+          isPrestigeClass: false,
+        }]
+      : []),
+    ...(character.contemplativeDomains ?? []).map((domain, index) => ({
+      source: `Contemplative ${index === 0 ? 1 : 6}`,
+      ability: `Bonus domain: ${getClericDomain(domain).name}`,
+      isPrestigeClass: true,
+    })),
+    ...(character.radiantServantDomain
+      ? [{
+          source: "Radiant Servant 5",
+          ability: `Bonus domain: ${getClericDomain(character.radiantServantDomain).name}`,
+          isPrestigeClass: true,
+        }]
+      : []),
+  ];
   const feats = Object.entries(character.featSelections ?? [])
     .filter(([, featId]) => Boolean(featId))
     .map(([slotId, featId]) => {

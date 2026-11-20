@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, dragonShamanAuras, dragonShamanTotems, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
+import { type Character, type ClassId, type PrestigeClassId, type SavingThrowCondition, type RacialSkillCondition, dragonlancePrestigeClasses, classDefinitions, raceDefinitions, deityDefinitions, dragonShamanAuras, dragonShamanTotems, shugenjaElements, shugenjaOrderElements, shugenjaOrders, type AbilityName, abilityModifier, type MagicSchool, type SkillRankSourceId, getEffectiveCharacterLevel, getTotalHitDice } from "../domain";
 import "../data/equipmentCatalog";
 import { getLevelUpSkillSourceId, getBaseClassLevel, getBaseClassLevels, getRangerFavoredEnemyChoiceLevels, getPrestigeClassLevel, getKnightOfCrownHeroicInitiativeBonus, getChosenFeats, formatModifier, getBaseAttackBonus, getCharacterLanguages, getAutomaticLanguages, getLanguageBonusSlots, getAvailableBonusLanguages, getAvailableSpeakLanguages, getSpeakLanguageRankCount, getSpeakLanguageWarnings, getHumanRegionalLanguages, getLevelUpSpentSkillPoints, getSkillPointsPerLevel, getSpentSkillPoints, getAvailableSkillCount, getAvailableSkillTricks, getAvailableSkillTrickGrants, getSkillTrickGrantFeatSlots, getSkillTrickLimit, getSkillTrickSelections, isClassSkill, getRacialSkillBonus, getRacialSkillContextOptions, getSkillSynergyContextOptions, getClassFeatureSkillSynergy, getCharacterRace, getRaceDefinitionForCharacter, getRacialHitDiceForCharacter, getSkillAbility, getAssignedSkillRanks, canIncreaseSkillRank, getSkillTotalTooltip, getSkillUse, getSkillCheckModifier, getSkillCheckPenalties, getNewLevelUpFeatSlots, getFeatSlots, getChronologicalFeatSlots, getAvailableFeats, getAvailableFeatWeaponChoices, getAvailableFeatSkillChoices, getAvailableFeatSpellSchoolChoices, getAvailableFeatSpellMasteryChoices, getFeatSpellMasteryChoiceCount, getWizardSpellbookSpells, getRacialSpellLikeAbilities, getImprovedInitiativeBonus, getInitiativeModifier, requiresManualClericUndeadTurningMode } from "../rules";
 import { type CombatAttackMode, type CombatCastingContext, type SkillSynergyContext } from "../rules";
@@ -181,7 +181,7 @@ export function CharacterSheet({
   onHitPointAction: (action: HitPointAction, amount: number) => void;
   onCombatEffectsChange: (round: number, effects: CombatEffect[]) => void;
   onCharacterFeatureChange: (
-    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed" | "hasPowerPointReserve" | "hasKiPower" | "hasKiStrikeMagic" | "hasAllMartialWeaponProficiencies" | "hasStealSpell" | "hasSwashbucklerGrace" | "hasConjurationHealingSpell" | "hasSpontaneousCureOrInflict" | "hasCureWoundsSpell" | "hasSummonNaturesAllySpell" | "hasInflictWoundsSpell" | "canTurnElementalSubtype" | "canRebukeElementalSubtype" | "hasFastWildShape" | "hasWarmageLevelFour" | "hasGraduatedFromApprenticeship" | "hasMentorSkillPrerequisites" | "isGuildMember" | "hasGuildmasterPrerequisites" | "hasCompletedBondingRitual" | "hasRechargeableBreathWeapon" | "hasDetectMagicAccess" | "isThoonAffiliate" | "divineCasterLevel" | "clericUndeadTurningMode" | "manifesterLevel" | "skirmishDamageDice" | "skirmishACBonus" | "alternativeClassFeatures" | "dragonShamanTotem" | "dragonShamanAuras" | "beguilerAdvancedLearning">>,
+    update: Partial<Pick<Character, "knightOfTheCrownState" | "honorBoundSuspended" | "temporaryHitPoints" | "rangerFavoredEnemies" | "racialSpellLikeUses" | "flySpeed" | "hasPowerPointReserve" | "hasKiPower" | "hasKiStrikeMagic" | "hasAllMartialWeaponProficiencies" | "hasStealSpell" | "hasSwashbucklerGrace" | "hasConjurationHealingSpell" | "hasSpontaneousCureOrInflict" | "hasCureWoundsSpell" | "hasSummonNaturesAllySpell" | "hasInflictWoundsSpell" | "canTurnElementalSubtype" | "canRebukeElementalSubtype" | "hasFastWildShape" | "hasWarmageLevelFour" | "hasGraduatedFromApprenticeship" | "hasMentorSkillPrerequisites" | "isGuildMember" | "hasGuildmasterPrerequisites" | "hasCompletedBondingRitual" | "hasRechargeableBreathWeapon" | "hasDetectMagicAccess" | "isThoonAffiliate" | "divineCasterLevel" | "clericUndeadTurningMode" | "manifesterLevel" | "skirmishDamageDice" | "skirmishACBonus" | "alternativeClassFeatures" | "dragonShamanTotem" | "dragonShamanAuras" | "beguilerAdvancedLearning" | "shugenjaElement" | "shugenjaOrder">>,
   ) => void;
   rangedTargetDistanceFeet: number | undefined;
   onRangedTargetDistanceFeetChange: (distanceFeet: number | undefined) => void;
@@ -2078,6 +2078,51 @@ export function CharacterSheet({
                   ),
                 )}
               </div>
+            )}
+            {getBaseClassLevel(character, "shugenja") > 0 && (
+              <>
+                <label>
+                  Element Focus
+                  <select
+                    value={character.shugenjaElement ?? ""}
+                    disabled={!editable}
+                    onChange={(event) => onCharacterFeatureChange({
+                      shugenjaElement: (event.target.value || undefined) as Character["shugenjaElement"],
+                    })}
+                  >
+                    <option value="">Choose an element</option>
+                    {shugenjaElements.map((element) =>
+                      <option key={element} value={element}>{element}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Order
+                  <select
+                    value={character.shugenjaOrder ?? ""}
+                    disabled={!editable}
+                    onChange={(event) => {
+                      const shugenjaOrder =
+                        (event.target.value || undefined) as Character["shugenjaOrder"];
+                      const allowed = shugenjaOrder
+                        ? shugenjaOrderElements[shugenjaOrder]
+                        : shugenjaElements;
+                      onCharacterFeatureChange({
+                        shugenjaOrder,
+                        ...(
+                          character.shugenjaElement &&
+                          allowed.some((element) => element === character.shugenjaElement)
+                            ? {}
+                            : { shugenjaElement: allowed[0] }
+                        ),
+                      });
+                    }}
+                  >
+                    <option value="">Choose an order</option>
+                    {shugenjaOrders.map((order) =>
+                      <option key={order} value={order}>{order}</option>)}
+                  </select>
+                </label>
+              </>
             )}
             {editable && character.classLevels.some((entry) =>
               !("prestigeClassId" in entry) &&

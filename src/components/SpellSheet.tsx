@@ -7,6 +7,7 @@ import { formatSpellDuration, formatSpellSchool } from "../spellFormatting";
 import {
   findSpellByName,
   getClassSpells,
+  getShugenjaOrderSpell,
   getSrdSpellContentSource,
   getSrdSpellSourceBook,
   normalizeSpellName,
@@ -265,7 +266,7 @@ export function SpellSheet({
   const learningMode =
     spellcastingClass.id === "wizard"
       ? "Spellbook"
-      : spellcastingClass.id === "assassin" || spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic" || spellcastingClass.id === "duskblade" || spellcastingClass.id === "beguiler"
+      : spellcastingClass.id === "assassin" || spellcastingClass.id === "bard" || spellcastingClass.id === "sorcerer" || spellcastingClass.id === "mystic" || spellcastingClass.id === "duskblade" || spellcastingClass.id === "beguiler" || spellcastingClass.id === "favored-soul" || spellcastingClass.id === "shugenja" || spellcastingClass.id === "spirit-shaman"
         ? "Spells Known"
         : "Prepared Spells";
   const classLevel = getEffectiveSpellcastingClassLevel(character, spellcastingClassId);
@@ -360,6 +361,17 @@ export function SpellSheet({
       domainSpell && normalizeSpellName(name) === normalizeSpellName(domainSpell),
     );
   };
+  const isShugenjaOrderSpellAtLevel = (name: string, level: number) => {
+    const orderSpell = spellcastingClass.id === "shugenja"
+      ? getShugenjaOrderSpell(character.shugenjaOrder, level)
+      : undefined;
+    return Boolean(
+      orderSpell && normalizeSpellName(name) === normalizeSpellName(orderSpell),
+    );
+  };
+  const isAutomaticKnownSpellAtLevel = (name: string, level: number) =>
+    isMysticDomainSpellAtLevel(name, level) ||
+    isShugenjaOrderSpellAtLevel(name, level);
   const mysticDomainSpellEntries = mysticDomainSpellLevels.map(({ name, level }) => {
     const spell = findSpellByName(name);
     return spell
@@ -641,6 +653,7 @@ export function SpellSheet({
       const isDomainSpell = spellcastingClass.id === "mystic" &&
         (isOriginalDomainSpell || isProposedDomainSpell);
       return !isDomainSpell &&
+        !isShugenjaOrderSpellAtLevel(name, spell?.level ?? -1) &&
         !activeKnownSpellNameKeys.has(normalizeSpellName(name));
     },
   );
@@ -648,7 +661,7 @@ export function SpellSheet({
     knownSpellReplacementLevelLimit !== undefined &&
     level <= knownSpellReplacementLevelLimit &&
     originalClassKnownSpells.has(name) &&
-    !isMysticDomainSpellAtLevel(name, level) &&
+    !isAutomaticKnownSpellAtLevel(name, level) &&
     !hasUsedKnownSpellReplacement;
   const castingModifier = abilityModifier(
     getEffectiveAbilityScore(character, castingAbility),
@@ -665,7 +678,7 @@ export function SpellSheet({
       .map((entry) => entry.name)
       .filter((name) =>
         activeClassKnownSpells.has(name) &&
-        !isMysticDomainSpellAtLevel(name, level),
+        !isAutomaticKnownSpellAtLevel(name, level),
       );
     const nextLevelSelections = [...levelSelections];
     nextLevelSelections[slot] = spell;
@@ -969,7 +982,7 @@ export function SpellSheet({
                 : activeClassKnownSpells.has(spell.name) ||
                     spellcastingClass.id === "beguiler" ||
                   (spellcastingClass.id === "wizard" && preparationView && spell.name === "Read Magic") ||
-                  isMysticDomainSpellAtLevel(spell.name, level),
+                  isAutomaticKnownSpellAtLevel(spell.name, level),
           )
           .map((spell) => spell.name);
         const rowCount = learningMode === "Prepared Spells"
@@ -1064,6 +1077,9 @@ export function SpellSheet({
                   const isMysticDomainBonusSpell = Boolean(
                     spellName && isMysticDomainSpellAtLevel(spellName, level),
                   );
+                  const isShugenjaOrderBonusSpell = Boolean(
+                    spellName && isShugenjaOrderSpellAtLevel(spellName, level),
+                  );
                   const canReplaceExistingKnownSpell = Boolean(
                     spellName && canReplaceKnownSpell(spellName, level),
                   );
@@ -1078,6 +1094,8 @@ export function SpellSheet({
                     );
                   const spellMarker = isMysticDomainBonusSpell
                     ? " (Domain)"
+                    : isShugenjaOrderBonusSpell
+                      ? " (Order)"
                     : isLevelUpLearned
                       ? " (L)"
                       : spellAcquisition === "scroll"
@@ -1263,7 +1281,7 @@ export function SpellSheet({
                       <td>
                         {learningMode === "Prepared Spells" || learningMode === "Spellbook" ? (
                           spellName ?? ""
-                        ) : isMysticDomainBonusSpell || !editable ||
+                        ) : isMysticDomainBonusSpell || isShugenjaOrderBonusSpell || !editable ||
                           (levelUpOriginal && spellName && originalClassKnownSpells.has(spellName) && !canReplaceExistingKnownSpell) ? (
                           spellName ? (
                             <>
@@ -1280,7 +1298,7 @@ export function SpellSheet({
                                   selectedForLevel[slot] === entry.name,
                               ).filter((entry) =>
                                 !canReplaceExistingKnownSpell ||
-                                !isMysticDomainSpellAtLevel(entry.name, level),
+                                !isAutomaticKnownSpellAtLevel(entry.name, level),
                               )}
                               selected={spellName}
                               placeholder={
@@ -1297,7 +1315,7 @@ export function SpellSheet({
                                 selectedForLevel
                                   .slice(0, slot)
                                   .filter((selectedName) =>
-                                    !isMysticDomainSpellAtLevel(selectedName, level),
+                                    !isAutomaticKnownSpellAtLevel(selectedName, level),
                                   ).length,
                                 name,
                               )}

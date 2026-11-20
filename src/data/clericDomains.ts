@@ -96,7 +96,6 @@ export const clericDomains = {
   },
   community: {
     name: "Community",
-    source: "dragonlance-user-pack",
     clericDeities: ["mishakal"],
     mysticPower: "Once per day, cast Calm Emotions as a spell-like ability; gain a +2 competence bonus on Diplomacy checks.",
     spells: clericDomainSpellLists.community,
@@ -117,7 +116,6 @@ export const clericDomains = {
   },
   liberation: {
     name: "Liberation",
-    source: "dragonlance-user-pack",
     clericDeities: ["gilean"],
     mysticPower: "Gain a +2 morale bonus on saving throws against enchantment spells and effects.",
     spells: clericDomainSpellLists.liberation,
@@ -152,7 +150,6 @@ export const clericDomains = {
   },
   pestilence: {
     name: "Pestilence",
-    source: "dragonlance-user-pack",
     clericDeities: ["morgion"],
     mysticPower: "Become immune to the effects of all diseases, though you can still carry infectious diseases.",
     spells: clericDomainSpellLists.pestilence,
@@ -217,6 +214,23 @@ export const clericDomains = {
     spells: clericDomainSpellLists.water,
     spellNotes: { 9: "Water spell only." },
   },
+  celerity: { name: "Celerity", manualPower: "+10 feet to land speed while not in medium/heavy armor or load.", spells: clericDomainSpellLists.celerity },
+  cold: { name: "Cold", manualPower: "Turn/destroy fire creatures and rebuke/command cold creatures; shared total 3 + CHA modifier/day.", spells: clericDomainSpellLists.cold },
+  competition: { name: "Competition", manualPower: "+1 on all opposed checks.", spells: clericDomainSpellLists.competition },
+  creation: { name: "Creation", manualPower: "+1 caster level for Conjuration (creation) spells.", spells: clericDomainSpellLists.creation },
+  domination: { name: "Domination", grantedPower: "Gain Spell Focus (Enchantment).", spells: clericDomainSpellLists.domination },
+  dream: { name: "Dream", manualPower: "Immune to fear effects.", spells: clericDomainSpellLists.dream },
+  force: { name: "Force", manualPower: "Once per day reroll one damage roll and take the better result.", spells: clericDomainSpellLists.force },
+  glory: { name: "Glory", manualPower: "+2 on turning checks and +1d6 on turning damage.", spells: clericDomainSpellLists.glory },
+  inquisition: { name: "Inquisition", manualPower: "+4 on dispel checks.", spells: clericDomainSpellLists.inquisition },
+  madness: { name: "Madness", manualPower: "-1 on Wisdom checks/Will saves; once per day add half level to one such check before rolling.", spells: clericDomainSpellLists.madness },
+  mind: { name: "Mind", manualPower: "+2 on Bluff, Diplomacy, and Sense Motive checks.", spells: clericDomainSpellLists.mind },
+  mysticism: { name: "Mysticism", manualPower: "Once per day gain a luck save bonus equal to Charisma for 1 round/level.", spells: clericDomainSpellLists.mysticism },
+  oracle: { name: "Oracle", manualPower: "+2 caster level for divination spells.", spells: clericDomainSpellLists.oracle },
+  pact: { name: "Pact", classSkills: ["Appraise", "Intimidate", "Sense Motive"], manualPower: "Add the listed skills as cleric class skills.", spells: clericDomainSpellLists.pact },
+  purification: { name: "Purification", manualPower: "+1 caster level for abjuration spells.", spells: clericDomainSpellLists.purification },
+  summoner: { name: "Summoner", manualPower: "+2 caster level for Conjuration (summoning) and Conjuration (calling) spells.", spells: clericDomainSpellLists.summoner },
+  weather: { name: "Weather", manualPower: "Ignore Spot/Search penalties from rain/snow, snow/ice movement penalties, and treat wind effects as one size larger.", spells: clericDomainSpellLists.weather },
 } as const satisfies Record<ClericDomainId, DomainDefinition>;
 
 export type ClericDomainSpell = { domain: ClericDomainId; spell: string };

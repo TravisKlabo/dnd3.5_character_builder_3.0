@@ -1055,6 +1055,17 @@ describe("application workflows", () => {
     expect(knownSpellValues.slice(2).every((value) => !value)).toBe(true);
   });
 
+  it("prints a Shugenja's order, focus, and automatic order spells", async () => {
+    const character = savedHero();
+    character.classLevels = [{ classId: "shugenja", level: 4 }];
+    character.shugenjaElement = "Air";
+    character.shugenjaOrder = "All-Seeing Eye";
+    render(<PrintableCharacterSheet character={character} />);
+
+    expect(await screen.findByText(/All-Seeing Eye order \(Air focus\)/)).toBeDefined();
+    expect(screen.getByText("Detect Thoughts")).toBeDefined();
+  });
+
   it("prints MM I monster-race identity and racial level information", () => {
     const character = savedHero();
     character.name = "MM I Test";

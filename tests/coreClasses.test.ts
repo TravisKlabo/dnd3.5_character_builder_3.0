@@ -12,6 +12,7 @@ import { getMovement } from "../src/movementRules";
 import { parseCharacter } from "../src/validation";
 import { getMaximumHitPoints } from "../src/hitPoints";
 import { getRedWizardNewSpellWarnings } from "../src/redWizardRules";
+import { getActiveClericDomains } from "../src/clericDomains";
 import {
   featQualifies, getAvailableFeats, getBaseAttackBonus, getBaseSave,
   getChosenFeats, getClassFeatureDisplay, getFeatSlots, getNewLevelUpFeatSlots,
@@ -273,6 +274,33 @@ describe("PHB class chassis and bonus feats", () => {
         }
       }
     });
+
+    describe("Complete Divine base classes", () => {
+      it.each([
+        ["favored-soul", 8, 2, 0.75, ["fortitude", "reflex", "will"]],
+        ["shugenja", 6, 4, 0.5, ["reflex", "will"]],
+        ["spirit-shaman", 8, 4, 0.75, ["will"]],
+      ] as const)("represents the %s chassis", (
+        classId, hitDie, skillPoints, attackRate, goodSaves,
+      ) => {
+        const character = hero(classId, 1);
+        expect(classDefinitions[classId]).toMatchObject({
+          hitDie, skillPoints, spellcasting: true,
+          sourceBook: "Complete Divine (3.5)",
+        });
+        for (let level = 1; level <= 20; level += 1) {
+          character.classLevels = [{ classId, level }];
+          expect(getBaseAttackBonus(character)).toBe(Math.floor(level * attackRate));
+          for (const save of ["fortitude", "reflex", "will"] as const) {
+            expect(getBaseSave(character, save)).toBe(
+              (goodSaves as readonly string[]).includes(save)
+                ? 2 + Math.floor(level / 2)
+                : Math.floor(level / 3),
+            );
+          }
+        }
+      });
+    });
   });
 
   it("adds Divine Grace separately without improving the Paladin's base Will save", () => {
@@ -405,6 +433,158 @@ describe("represented DMG prestige entry requirements", () => {
   const requirements = (character: Character, id: PrestigeClassId, confirm = true) =>
     getPrestigeClassPrerequisiteErrors(character, id, confirm);
 
+  it("checks Complete Divine's structured entry requirements and spellcasting types", () => {
+    const churchInquisitor = hero("cleric", 6);
+    churchInquisitor.skills = {
+      "Knowledge (arcana)": 4,
+      "Knowledge (religion)": 4,
+      Spellcraft: 4,
+    };
+    expect(requirements(churchInquisitor, "church-inquisitor")).not.toContain(
+      "Ability to cast Zone of Truth is required.",
+    );
+    churchInquisitor.classLevels = [{ classId: "fighter", level: 6 }];
+    expect(requirements(churchInquisitor, "church-inquisitor")).toContain(
+      "Base will save must be +3.",
+    );
+
+    const geomancer = hero("wizard", 5);
+    geomancer.skills = { "Knowledge (arcana)": 6, "Knowledge (nature)": 6 };
+    expect(requirements(geomancer, "geomancer")).toContain(
+      "Ability to cast divine spells of level 2 is required.",
+    );
+    geomancer.classLevels.push({ classId: "cleric", level: 5 });
+    expect(requirements(geomancer, "geomancer")).not.toContain(
+      "Ability to cast arcane spells of level 2 is required.",
+    );
+    expect(requirements(geomancer, "geomancer")).not.toContain(
+      "Ability to cast divine spells of level 2 is required.",
+    );
+
+    const voidDisciple = hero("wizard", 5);
+    voidDisciple.skills = { Spellcraft: 10 };
+    voidDisciple.feats = ["Heighten Spell", "Spell Penetration"];
+    expect(requirements(voidDisciple, "void-disciple")).toEqual([]);
+    expect(requirements({ ...voidDisciple, alignment: "Chaotic Good" },
+      "void-disciple")).toContain("Alignment must be Any neutral.");
+  });
+
+  it("checks Complete Divine deity, domain, race, weapon, and turning requirements", () => {
+    const radiant = hero("cleric", 8);
+    radiant.skills = { Heal: 5, "Knowledge (religion)": 9 };
+    radiant.feats = ["Extra Turning"];
+    radiant.deity = "pelor";
+    radiant.clericDomains = ["healing", "sun"];
+    expect(requirements(radiant, "radiant-servant-of-pelor")).toEqual([]);
+    radiant.deity = "corellon";
+    expect(requirements(radiant, "radiant-servant-of-pelor")).toContain(
+      "Pelor must be the selected deity.",
+    );
+
+    const seeker = hero("cleric", 5);
+    seeker.skills = { "Knowledge (religion)": 4, Survival: 8 };
+    seeker.race = "Elf";
+    expect(requirements(seeker, "seeker-of-the-misty-isle")).toEqual([]);
+    seeker.race = "Human";
+    expect(requirements(seeker, "seeker-of-the-misty-isle")).toContain(
+      "Race must be one of: Elf, Half-Elf.",
+    );
+
+    const crusader = hero("fighter", 8);
+    crusader.skills = { "Knowledge (religion)": 2 };
+    crusader.deity = "corellon";
+    crusader.alignment = "Chaotic Good";
+    crusader.featSelections = { "general-1": "weapon-focus" };
+    crusader.featWeaponSelections = { "general-1": "Longsword" };
+    expect(requirements(crusader, "divine-crusader")).not.toContain(
+      "Weapon Focus in the selected deity's favored weapon is required.",
+    );
+    crusader.featWeaponSelections = { "general-1": "Longbow" };
+    expect(requirements(crusader, "divine-crusader")).toContain(
+      "Weapon Focus in the selected deity's favored weapon is required.",
+    );
+
+    const urPriest = hero("cleric", 6);
+    urPriest.alignment = "Neutral Evil";
+    urPriest.skills = {
+      Bluff: 6, "Knowledge (arcana)": 5, "Knowledge (the planes)": 5,
+      "Knowledge (religion)": 8, Spellcraft: 8,
+    };
+    urPriest.feats = ["Iron Will", "Spell Focus (Evil)"];
+    expect(requirements(urPriest, "ur-priest")).toContain(
+      "Current ability to cast divine spells must be forsaken before entering Ur-Priest.",
+    );
+  });
+
+  it("grants Complete Divine's fighter-category bonus feat slots at their class levels", () => {
+    const hospitaler = hero("paladin", 8);
+    hospitaler.classLevels.push({
+      classId: "paladin", prestigeClassId: "hospitaler", level: 5,
+    });
+    expect(getFeatSlots(hospitaler)).toContainEqual(
+      expect.objectContaining({ id: "hospitaler-1", fighterOnly: true }),
+    );
+    expect(getFeatSlots(hospitaler)).toContainEqual(
+      expect.objectContaining({ id: "hospitaler-5", fighterOnly: true }),
+    );
+    expect(getFeatSlots(hospitaler)).not.toContainEqual(
+      expect.objectContaining({ id: "hospitaler-9" }),
+    );
+
+    const templar = hero("fighter", 8);
+    templar.classLevels.push({
+      classId: "fighter", prestigeClassId: "pious-templar", level: 8,
+    });
+    expect(getFeatSlots(templar)).toContainEqual(
+      expect.objectContaining({ id: "pious-templar-4", fighterOnly: true }),
+    );
+    expect(getFeatSlots(templar)).toContainEqual(
+      expect.objectContaining({ id: "pious-templar-8", fighterOnly: true }),
+    );
+    templar.deity = "heironeous";
+    expect(getChosenFeats(templar)).toContain("weapon-specialization");
+    templar.classLevels[1].level = 2;
+    expect(getChosenFeats(templar)).not.toContain("weapon-specialization");
+  });
+
+  it("requires distinct Contemplative bonus domains at levels 1 and 6", () => {
+    const character = hero("cleric", 13);
+    character.skills["Knowledge (religion)"] = 13;
+    const first = beginPrestigeLevelUp(character, "contemplative", "cleric");
+    expect(getPrestigeFeatureChoiceWarnings(first)).toContain(
+      "Choose a distinct permitted Contemplative bonus domain at levels 1 and 6.",
+    );
+    first.proposed.contemplativeDomains = ["healing"];
+    expect(getPrestigeFeatureChoiceWarnings(first)).toEqual([]);
+
+    const fifth = Array.from({ length: 4 }).reduce<Character>(
+      (current) => beginPrestigeLevelUp(current, "contemplative", "cleric").proposed,
+      first.proposed,
+    );
+    const sixth = beginPrestigeLevelUp(fifth, "contemplative", "cleric");
+    expect(getPrestigeFeatureChoiceWarnings(sixth)).toContain(
+      "Choose a distinct permitted Contemplative bonus domain at levels 1 and 6.",
+    );
+    sixth.proposed.contemplativeDomains = ["healing", "sun"];
+    expect(getPrestigeFeatureChoiceWarnings(sixth)).toEqual([]);
+  });
+
+  it("requires Radiant Servant's fifth-level bonus domain", () => {
+    const fourth = hero("cleric", 8);
+    fourth.classLevels.push({
+      classId: "cleric", prestigeClassId: "radiant-servant-of-pelor", level: 4,
+    });
+    const fifth = beginPrestigeLevelUp(
+      fourth, "radiant-servant-of-pelor", "cleric",
+    );
+    expect(getPrestigeFeatureChoiceWarnings(fifth)).toContain(
+      "Choose the Radiant Servant's fifth-level bonus domain.",
+    );
+    fifth.proposed.radiantServantDomain = "glory";
+    expect(getPrestigeFeatureChoiceWarnings(fifth)).toEqual([]);
+    expect(getActiveClericDomains(fifth.proposed)).toContain("glory");
+  });
+
   it("checks Blackguard's mechanical requirements separately from the DM-confirmed contact", () => {
     const character = hero("fighter", 6);
     character.alignment = "Neutral Evil";
@@ -490,14 +670,15 @@ describe("represented DMG prestige entry requirements", () => {
   it("uses the complete independent spell lists at their prestige levels", () => {
     const assassin = getClassSpells("assassin");
     const blackguard = getClassSpells("blackguard");
-    expect([1, 2, 3, 4].map((level) => assassin.filter((spell) => spell.level === level).length))
+    expect([1, 2, 3, 4].map((level) => assassin.filter((spell) => spell.level === level && spell.sourceBook !== "Player's Handbook II").length))
       .toEqual([8, 9, 6, 8]);
-    expect([1, 2, 3, 4].map((level) => blackguard.filter((spell) => spell.level === level).length))
+    expect([1, 2, 3, 4].map((level) => blackguard.filter((spell) => spell.level === level && spell.sourceBook !== "Player's Handbook II" && spell.sourceBook !== "Complete Divine (3.5)").length))
       .toEqual([7, 8, 6, 5]);
     expect(assassin).toContainEqual(expect.objectContaining({ name: "True Strike", level: 1 }));
     expect(assassin).not.toContainEqual(expect.objectContaining({ name: "Magic Missile" }));
     expect(blackguard).toContainEqual(expect.objectContaining({ name: "Protection from Energy", level: 3 }));
     expect(blackguard).toContainEqual(expect.objectContaining({ name: "Summon Monster IV", level: 4, description: expect.stringContaining("only evil creatures") }));
+    expect(blackguard).toContainEqual(expect.objectContaining({ name: "Blessed Aim", level: 2 }));
     expect(getClassSpells("cleric")).not.toContainEqual(expect.objectContaining({ name: "Corrupt Weapon" }));
   });
 
@@ -750,7 +931,7 @@ describe("represented DMG prestige entry requirements", () => {
       source === "core-35-srd" && !levelUpEnabled,
     );
     expect(entries).toEqual([]);
-    expect(Object.values(dragonlancePrestigeClasses).filter(({ source }) => source === "core-35-srd"))
+    expect(Object.values(dragonlancePrestigeClasses).filter(({ sourceBook }) => sourceBook === "Dungeon Master's Guide (3.5)"))
       .toHaveLength(16);
     expect(formatPrestigeClassDetails(dragonlancePrestigeClasses.loremaster)).toContain("7 different Divination spells");
   });
@@ -769,6 +950,202 @@ describe("represented DMG prestige entry requirements", () => {
   });
 
   describe("playable DMG prestige advancement", () => {
+    it("uses Complete Divine's nonstandard spellcasting advancement levels", () => {
+      let character = hero("cleric", 10);
+      const blackFlameOne = beginPrestigeLevelUp(
+        character, "black-flame-zealot", "cleric",
+      ).proposed;
+      expect(getEffectiveSpellcastingClassLevel(blackFlameOne, "cleric")).toBe(10);
+      const blackFlameTwo = beginPrestigeLevelUp(
+        blackFlameOne, "black-flame-zealot", "cleric",
+      ).proposed;
+      expect(getEffectiveSpellcastingClassLevel(blackFlameTwo, "cleric")).toBe(11);
+
+      const hospitalerOne = beginPrestigeLevelUp(character, "hospitaler", "cleric").proposed;
+      expect(getEffectiveSpellcastingClassLevel(hospitalerOne, "cleric")).toBe(10);
+      const hospitalerFour = Array.from({ length: 3 }).reduce<Character>(
+        (current) => beginPrestigeLevelUp(current, "hospitaler", "cleric").proposed,
+        hospitalerOne,
+      );
+      expect(getEffectiveSpellcastingClassLevel(hospitalerFour, "cleric")).toBe(13);
+
+      character = hero("cleric", 10);
+      const shiningBladeOne = beginPrestigeLevelUp(
+        character, "shining-blade-of-heironeous", "cleric",
+      ).proposed;
+      expect(getEffectiveSpellcastingClassLevel(shiningBladeOne, "cleric")).toBe(10);
+      const shiningBladeTwo = beginPrestigeLevelUp(
+        shiningBladeOne, "shining-blade-of-heironeous", "cleric",
+      ).proposed;
+      expect(getEffectiveSpellcastingClassLevel(shiningBladeTwo, "cleric")).toBe(11);
+
+      const wizard = hero("wizard", 10);
+      const rainbowLevels = Array.from({ length: 4 }).reduce<Character>(
+        (current) => beginPrestigeLevelUp(current, "rainbow-servant", "wizard").proposed,
+        wizard,
+      );
+      expect(getEffectiveSpellcastingClassLevel(rainbowLevels, "wizard")).toBe(12);
+    });
+
+    it("treats Blighter as an independent divine caster", () => {
+      const first = beginPrestigeLevelUp(hero("druid", 5), "blighter").proposed;
+      const tenth = Array.from({ length: 9 }).reduce<Character>(
+        (current) => beginPrestigeLevelUp(current, "blighter").proposed,
+        first,
+      );
+      expect(getSpellcastingClassLevels(first)).toContainEqual({
+        classId: "blighter", level: 1,
+      });
+      expect(baseSpellSlots("blighter", 1, 0)).toBe(4);
+      expect(baseSpellSlots("blighter", 1, 1)).toBe(2);
+      expect(baseSpellSlots("blighter", 10, 9)).toBe(1);
+      expect(getClassSpells("blighter")).toContainEqual(
+        expect.objectContaining({ name: "Decomposition", level: 1 }),
+      );
+      expect(getClassSpells("blighter")).toContainEqual(
+        expect.objectContaining({ name: "Miasma", level: 7 }),
+      );
+      expect(getEffectiveSpellcastingClassLevel(first, "druid")).toBe(5);
+      expect(getEffectiveSpellcastingClassLevel(tenth, "druid")).toBe(5);
+      expect(getCasterLevel("blighter", 1, first)).toBe(6);
+      expect(getCasterLevel("blighter", 10, tenth)).toBe(15);
+    });
+
+    it("models the other Complete Divine prestige classes with their own spell slots", () => {
+      const casters = [
+        "consecrated-harrier",
+        "divine-crusader",
+        "holy-liberator",
+        "pious-templar",
+        "temple-raider-of-olidammara",
+        "ur-priest",
+      ] as const;
+      for (const prestigeClassId of casters) {
+        const first = beginPrestigeLevelUp(hero("cleric", 10), prestigeClassId).proposed;
+        expect(getSpellcastingClassLevels(first)).toContainEqual({
+          classId: prestigeClassId, level: 1,
+        });
+      }
+      expect(baseSpellSlots("consecrated-harrier", 10, 4)).toBe(1);
+      expect(baseSpellSlots("divine-crusader", 10, 9)).toBe(1);
+      expect(baseSpellSlots("holy-liberator", 7, 4)).toBe(0);
+      expect(baseSpellSlots("pious-templar", 10, 4)).toBe(1);
+      expect(baseSpellSlots("temple-raider-of-olidammara", 10, 4)).toBe(1);
+      expect(baseSpellSlots("ur-priest", 1, 0)).toBe(4);
+      expect(baseSpellSlots("ur-priest", 10, 9)).toBe(1);
+    });
+
+    it("uses Complete Divine's fixed independent prestige spell lists", () => {
+      expect(getClassSpells("consecrated-harrier")).toContainEqual(
+        expect.objectContaining({ name: "Charm Person", level: 2 }),
+      );
+      expect(getClassSpells("holy-liberator")).toContainEqual(
+        expect.objectContaining({ name: "Freedom of Movement", level: 4 }),
+      );
+      expect(getClassSpells("holy-liberator")).not.toContainEqual(
+        expect.objectContaining({ school: expect.stringContaining("[Law]") }),
+      );
+      expect(getClassSpells("temple-raider-of-olidammara")).toContainEqual(
+        expect.objectContaining({ name: "Hide from Undead", level: 1 }),
+      );
+      expect(getClassSpells("ur-priest")).toContainEqual(
+        expect.objectContaining({ name: "Cure Critical Wounds" }),
+      );
+      const crusader = hero("fighter", 10);
+      crusader.deity = "corellon";
+      crusader.divineCrusaderDomain = "war";
+      expect(getClassSpells(
+        "divine-crusader", "core-35-srd", crusader,
+      ).map((spell) => spell.name).sort()).toEqual([
+        "Blade Barrier", "Divine Power", "Flame Strike", "Magic Vestment",
+        "Magic Weapon", "Power Word Blind", "Power Word Kill",
+        "Power Word Stun", "Spiritual Weapon",
+      ].sort());
+      const templar = hero("fighter", 10);
+      templar.piousTemplarSpellList = "blackguard";
+      expect(getClassSpells(
+        "pious-templar", "core-35-srd", templar,
+      )).toContainEqual(
+        expect.objectContaining({ name: "Corrupt Weapon" }),
+      );
+      const rainbow = hero("sorcerer", 10);
+      rainbow.classLevels.push({
+        classId: "sorcerer", prestigeClassId: "rainbow-servant", level: 7,
+      });
+      expect(getClassSpells(
+        "sorcerer", "core-35-srd", rainbow,
+      )).toContainEqual(
+        expect.objectContaining({ name: "Holy Word", level: 7 }),
+      );
+      rainbow.classLevels[1].level = 10;
+      expect(getClassSpells(
+        "sorcerer", "core-35-srd", rainbow,
+      )).toContainEqual(
+        expect.objectContaining({ name: "Cure Critical Wounds", level: 4 }),
+      );
+      const tenth = Array.from({ length: 10 }).reduce<Character>(
+        (current) => beginPrestigeLevelUp(
+          current, "temple-raider-of-olidammara",
+        ).proposed,
+        hero("rogue", 10),
+      );
+      expect(getClassSpells(
+        "temple-raider-of-olidammara", "core-35-srd", tenth,
+      )).toContainEqual(
+        expect.objectContaining({ name: "Entropic Shield", level: 1 }),
+      );
+    });
+
+    it("enforces the Shugenja element restrictions on its complete spell list", () => {
+      const air = hero("shugenja", 1);
+      air.shugenjaElement = "Air";
+      air.shugenjaOrder = "All-Seeing Eye";
+      const airSpells = getClassSpells("shugenja", air.ruleset, air);
+      expect(airSpells).toContainEqual(
+        expect.objectContaining({ name: "Gust of Wind", level: 3 }),
+      );
+      expect(airSpells).toContainEqual(
+        expect.objectContaining({ name: "Burning Hands", level: 1 }),
+      );
+      expect(airSpells).toContainEqual(
+        expect.objectContaining({ name: "Endure Elements", level: 1 }),
+      );
+      expect(airSpells).not.toContainEqual(
+        expect.objectContaining({ name: "Barkskin" }),
+      );
+      expect(airSpells).toContainEqual(
+        expect.objectContaining({ name: "Divination", level: 4 }),
+      );
+      expect(getKnownSpellLimit(air, "shugenja", 1, 0)).toBe(5);
+      expect(getKnownSpellLimit({ ...air, classLevels: [{ classId: "shugenja", level: 4 }] }, "shugenja", 4, 2)).toBe(2);
+      expect(getKnownSpellLimit(
+        {
+          ...air,
+          abilities: { ...air.abilities, cha: 20 },
+          classLevels: [{ classId: "shugenja", level: 20 }],
+        },
+        "shugenja", 20, 9,
+      )).toBe(4);
+
+      air.shugenjaElement = "Earth";
+      expect(getClassSpells("shugenja", air.ruleset, air)).toContainEqual(
+        expect.objectContaining({ name: "Barkskin", level: 2 }),
+      );
+      expect(getClassSpells("shugenja", air.ruleset, air)).not.toContainEqual(
+        expect.objectContaining({ name: "Gust of Wind" }),
+      );
+      air.shugenjaOrder = "Consuming Flame";
+      air.shugenjaElement = "Fire";
+      expect(getClassSpells("shugenja", air.ruleset, air)).toContainEqual(
+        expect.objectContaining({ name: "Fireball", level: 4 }),
+      );
+      expect(() => parseCharacter({
+        ...air,
+        shugenjaOrder: "All-Seeing Eye",
+        shugenjaElement: "Fire",
+      })).toThrow(/character statistics, selections, or inventory/i);
+    });
+
     it("preserves both Mystic Theurge advancements when either casting target changes", () => {
       const character = hero("wizard", 3);
       character.classLevels.push({ classId: "cleric", level: 3 }, { classId: "druid", level: 1 });

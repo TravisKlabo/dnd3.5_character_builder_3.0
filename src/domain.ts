@@ -8,10 +8,29 @@ export type AbilityName = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
 export type AbilityScores = Record<AbilityName, number>
 export const dragonShamanTotems = ['Black', 'Blue', 'Brass', 'Bronze', 'Copper', 'Gold', 'Green', 'Red', 'Silver', 'White'] as const
 export type DragonShamanTotem = typeof dragonShamanTotems[number]
+export const shugenjaElements = ['Air', 'Earth', 'Fire', 'Water', 'Void'] as const
+export const shugenjaOrders = [
+  'All-Seeing Eye',
+  'Consuming Flame',
+  'Forbidding Wasteland',
+  'Gentle Rain',
+  'Impenetrable Crucible',
+  'Ineffable Mystery',
+] as const
+export const shugenjaOrderElements = {
+  'All-Seeing Eye': ['Air'],
+  'Consuming Flame': ['Fire'],
+  'Forbidding Wasteland': ['Water'],
+  'Gentle Rain': ['Water'],
+  'Impenetrable Crucible': ['Earth'],
+  'Ineffable Mystery': ['Air', 'Earth', 'Fire', 'Water', 'Void'],
+} as const satisfies Record<typeof shugenjaOrders[number], readonly typeof shugenjaElements[number][]>
 export const dragonShamanAuras = ['Energy Shield', 'Power', 'Presence', 'Resistance', 'Senses', 'Toughness', 'Vigor'] as const
 
-export type ClassId = 'barbarian' | 'bard' | 'cleric' | 'druid' | 'fighter' | 'monk' | 'paladin' | 'ranger' | 'rogue' | 'sorcerer' | 'wizard' | 'mystic' | 'noble' | 'beguiler' | 'dragon-shaman' | 'duskblade' | 'knight'
-export type IndependentSpellcastingClassId = 'assassin' | 'blackguard'
+export type ClassId = 'barbarian' | 'bard' | 'cleric' | 'druid' | 'fighter' | 'monk' | 'paladin' | 'ranger' | 'rogue' | 'sorcerer' | 'wizard' | 'mystic' | 'noble' | 'beguiler' | 'dragon-shaman' | 'duskblade' | 'knight' | 'favored-soul' | 'shugenja' | 'spirit-shaman'
+export type IndependentSpellcastingClassId = 'assassin' | 'blackguard' | 'blighter' |
+  'consecrated-harrier' | 'divine-crusader' | 'holy-liberator' | 'pious-templar' |
+  'temple-raider-of-olidammara' | 'ur-priest'
 export type SpellcastingClassId = ClassId | IndependentSpellcastingClassId
 export const dragonDiscipleBonusLevels = [1, 2, 4, 5, 6, 8, 9] as const
 export const dragonDiscipleVarieties = ['Black', 'Blue', 'Green', 'Red', 'White', 'Brass', 'Bronze', 'Copper', 'Gold', 'Silver'] as const
@@ -36,7 +55,10 @@ export function getDragonDiscipleAbilityBoost(level: number): Partial<AbilitySco
 }
 
 export function isIndependentSpellcastingClass(id: unknown): id is IndependentSpellcastingClassId {
-  return id === 'assassin' || id === 'blackguard'
+  return id === 'assassin' || id === 'blackguard' || id === 'blighter' ||
+    id === 'consecrated-harrier' || id === 'divine-crusader' ||
+    id === 'holy-liberator' || id === 'pious-templar' ||
+    id === 'temple-raider-of-olidammara' || id === 'ur-priest'
 }
 export type SkillRankSourceId = ClassId | PrestigeClassId | 'racial-hit-dice'
 export type SkillTrickCategory = 'interaction' | 'manipulation' | 'mental' | 'movement'
@@ -82,9 +104,9 @@ export function getHierophantAbilityOptions(character: Pick<Character, 'classLev
     return prior.filter((selected) => selected === ability).length < (ability === 'Divine Reach' ? 2 : 1)
   })
 }
-export type PrestigeClassId = 'knight-of-the-crown' | 'knight-of-the-sword' | 'knight-of-the-rose' | 'knight-of-the-lily' | 'knight-of-the-skull' | 'knight-of-the-thorn' | 'knight-of-neraka' | 'steel-legionnaire' | 'wizard-of-high-sorcery' | 'white-robed-wizard' | 'red-robed-wizard' | 'black-robed-wizard' | 'dragon-rider' | 'inquisitor' | 'legendary-tactician' | 'righteous-zealot' | 'renegade-hunter' | 'master-of-the-way' | 'arcane-archer' | 'arcane-trickster' | 'archmage' | 'assassin' | 'blackguard' | 'dragon-disciple' | 'duelist' | 'dwarven-defender' | 'eldritch-knight' | 'hierophant' | 'horizon-walker' | 'loremaster' | 'mystic-theurge' | 'red-wizard' | 'shadowdancer' | 'thaumaturgist'
+export type PrestigeClassId = 'knight-of-the-crown' | 'knight-of-the-sword' | 'knight-of-the-rose' | 'knight-of-the-lily' | 'knight-of-the-skull' | 'knight-of-the-thorn' | 'knight-of-neraka' | 'steel-legionnaire' | 'wizard-of-high-sorcery' | 'white-robed-wizard' | 'red-robed-wizard' | 'black-robed-wizard' | 'dragon-rider' | 'inquisitor' | 'legendary-tactician' | 'righteous-zealot' | 'renegade-hunter' | 'master-of-the-way' | 'arcane-archer' | 'arcane-trickster' | 'archmage' | 'assassin' | 'blackguard' | 'dragon-disciple' | 'duelist' | 'dwarven-defender' | 'eldritch-knight' | 'hierophant' | 'horizon-walker' | 'loremaster' | 'mystic-theurge' | 'red-wizard' | 'shadowdancer' | 'thaumaturgist' | 'black-flame-zealot' | 'blighter' | 'church-inquisitor' | 'consecrated-harrier' | 'contemplative' | 'divine-crusader' | 'divine-oracle' | 'entropomancer' | 'evangelist' | 'geomancer' | 'holy-liberator' | 'hospitaler' | 'pious-templar' | 'radiant-servant-of-pelor' | 'rainbow-servant' | 'sacred-exorcist' | 'sacred-fist' | 'seeker-of-the-misty-isle' | 'shining-blade-of-heironeous' | 'stormlord' | 'temple-raider-of-olidammara' | 'ur-priest' | 'void-disciple' | 'warpriest'
 export type FeatId = string
-export type FeatCategory = 'metamagic' | 'item-creation' | 'draconic' | 'luck' | 'domain' | 'divine' | 'reserve' | 'tactical' | 'wild' | 'shifter'
+export type FeatCategory = 'metamagic' | 'item-creation' | 'draconic' | 'luck' | 'domain' | 'divine' | 'reserve' | 'tactical' | 'wild' | 'shifter' | 'faith' | 'epic'
 export type SpellAcquisition = 'starting' | 'level-up' | 'spellbook' | 'scroll' | 'research' | 'reward'
 export interface WizardSpellLearning {
   source: 'scroll' | 'spellbook' | 'research' | 'reward'
@@ -207,6 +229,7 @@ export const deityDefinitions: DeityDefinition[] = [
   { id: 'morgion', name: 'Morgion', alignment: 'Neutral Evil', description: 'God of disease, decay, and secrets.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Lawful Evil', 'Neutral Evil'], clericDomains: ['destruction', 'evil', 'pestilence'] },
   { id: 'nuitari', name: 'Nuitari', alignment: 'Lawful Evil', description: 'God of forbidden magic, darkness, and ambition.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Lawful Evil', 'Lawful Neutral', 'Neutral Evil'], clericDomains: [] },
   { id: 'zeboim', name: 'Zeboim', alignment: 'Chaotic Evil', description: 'Goddess of storms, the sea, and destruction.', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting', clericAlignments: ['Chaotic Evil', 'Chaotic Neutral', 'Neutral Evil'], clericDomains: ['chaos', 'evil', 'storm', 'water'] },
+
 ]
 
 export interface RaceDefinition {
@@ -294,11 +317,12 @@ export interface PrestigeClassDefinition {
     classes?: ClassId[]
     prestigeClasses?: Partial<Record<PrestigeClassId, number>>
     classFeatures?: string[]
-    spellcasting?: { type: 'arcane' | 'divine'; level: number }
-    additionalSpellcasting?: { type: 'arcane' | 'divine'; level: number }[]
+    spellcasting?: { type: 'arcane' | 'divine' | 'either'; level: number }
+    additionalSpellcasting?: { type: 'arcane' | 'divine' | 'either'; level: number }[]
     spellSchoolSpells?: { school: MagicSchool; count: number; minimumLevel: number }
     arcaneSpellRepertoire?: { castableLevel: number; schoolCount: number; minimumSchoolSpellLevel: number }
     spells?: string[]
+    anySpells?: string[]
     races?: string[]
   }
   features: string[]
@@ -317,7 +341,12 @@ export interface PrestigeClassDefinition {
   armorProficiencies?: Array<'light' | 'medium' | 'heavy'>
   shieldProficiency?: boolean
   towerShieldProficiency?: boolean
-  spellcastingProgression?: { type: 'arcane' | 'divine' | 'either'; startsAtLevel?: number; chooseEachLevel?: boolean }
+  spellcastingProgression?: {
+    type: 'arcane' | 'divine' | 'either'
+    startsAtLevel?: number
+    advancingLevels?: readonly number[]
+    chooseEachLevel?: boolean
+  }
   maximumLevel?: number
   levelUpEnabled?: boolean
   roleplayPrerequisite?: string
@@ -527,6 +556,10 @@ export interface Character {
   clericDomainPreparation?: Record<string, import('./data/clericDomains').ClericDomainSpell>
   clericDomainExpended?: number[]
   mysticDomain?: ClericDomainId
+  divineCrusaderDomain?: ClericDomainId
+  piousTemplarSpellList?: "paladin" | "blackguard"
+  contemplativeDomains?: ClericDomainId[]
+  radiantServantDomain?: ClericDomainId
   expendedSpellSlotsByClass?: Partial<Record<SpellcastingClassId, Record<string, number[]>>>
   racialSpellLikeUses?: string[]
   equipment: Record<string, string>
@@ -583,6 +616,8 @@ export interface Character {
   dragonShamanTotem?: DragonShamanTotem
   dragonShamanAuras?: string[]
   beguilerAdvancedLearning?: string[]
+  shugenjaElement?: typeof shugenjaElements[number]
+  shugenjaOrder?: typeof shugenjaOrders[number]
   customItems?: StoreItem[]
   deity?: string
   coreWizardSpecializationSchool?: MagicSchool
@@ -630,6 +665,9 @@ export const classDefinitions: Record<ClassId, ClassDefinition> = {
   'dragon-shaman': { id: 'dragon-shaman', name: 'Dragon Shaman', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 10, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: false },
   duskblade: { id: 'duskblade', name: 'Duskblade', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 8, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: true },
   knight: { id: 'knight', name: 'Knight', source: 'core-35-srd', sourceBook: "Player's Handbook II", hitDie: 12, skillPoints: 2, baseAttackBonus: 'good', fortitude: 'good', reflex: 'poor', will: 'good', spellcasting: false },
+  'favored-soul': { id: 'favored-soul', name: 'Favored Soul', source: 'core-35-srd', sourceBook: 'Complete Divine (3.5)', hitDie: 8, skillPoints: 2, baseAttackBonus: 'medium', fortitude: 'good', reflex: 'good', will: 'good', spellcasting: true },
+  shugenja: { id: 'shugenja', name: 'Shugenja', source: 'core-35-srd', sourceBook: 'Complete Divine (3.5)', hitDie: 6, skillPoints: 4, baseAttackBonus: 'poor', fortitude: 'poor', reflex: 'good', will: 'good', spellcasting: true },
+  'spirit-shaman': { id: 'spirit-shaman', name: 'Spirit Shaman', source: 'core-35-srd', sourceBook: 'Complete Divine (3.5)', hitDie: 8, skillPoints: 4, baseAttackBonus: 'medium', fortitude: 'poor', reflex: 'poor', will: 'good', spellcasting: true },
 }
 
 export const raceDefinitions: Record<string, RaceDefinition> = {
@@ -1252,7 +1290,9 @@ export function getApplicableRaceDefinition(
 
 const dmg35Source = { source: "core-35-srd", sourceBook: "Dungeon Master's Guide (3.5)" } as const;
 
-export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDefinition> = {
+export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDefinition> = Object.assign(
+  {} as Record<PrestigeClassId, PrestigeClassDefinition>,
+  {
   'arcane-archer': {
     id: 'arcane-archer', name: 'Arcane Archer', ...dmg35Source,
     prerequisites: { bab: 6, races: ['elf', 'half-elf', 'qualinesti', 'silvanesti', 'kagonesti'], feats: ['Point Blank Shot', 'Precise Shot'], weaponFocusChoices: ['Longbow', 'Shortbow'], spellcasting: { type: 'arcane', level: 1 } },
@@ -1758,7 +1798,8 @@ export const dragonlancePrestigeClasses: Record<PrestigeClassId, PrestigeClassDe
   'red-robed-wizard': { id: 'red-robed-wizard', name: 'Red-Robed Wizard', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Red robe oath', 'Neutral magic', 'Lunar spell power'] },
   'black-robed-wizard': { id: 'black-robed-wizard', name: 'Black-Robed Wizard', source: 'dragonlance-user-pack', sourceBook: 'Dragonlance Campaign Setting (3.5)', prerequisites: { ability: { int: 13 }, feats: ['Mages of High Sorcery'], classes: ['wizard', 'sorcerer'] }, features: ['Black robe oath', 'Aggressive magic', 'Lunar spell power'] },
   'master-of-the-way': { id: 'master-of-the-way', name: 'Master of the Way', source: 'dragonlance-user-pack', prerequisites: { ability: { wis: 13 }, feats: ['Improved Unarmed Strike'], classes: ['monk'] }, features: ['Monastic discipline', 'Ki strike', 'Way mastery'] },
-}
+  },
+)
 
 export const initialCharacter: Character = {
   name: 'Unnamed Hero', player: 'Player', gender: '', age: '', height: '5 ft. 7 in.', weight: '', hairColor: '', eyeColor: '', skinColor: '', temporaryHitPoints: 0, nonlethalDamage: 0, damageReduction: '', spellResistance: '', notes: '', race: 'Human', ruleset: 'core-35-srd', alignment: 'Neutral Good',

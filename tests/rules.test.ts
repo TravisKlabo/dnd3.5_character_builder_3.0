@@ -42,7 +42,7 @@ import { alternativeClassFeatures } from "../src/data/characterCatalog";
 import { skillTrickCatalog } from "../src/data/skillTricks";
 import { classFeatureDescriptions } from "../src/data/classFeatureDescriptions";
 import { prestigeClassFeatureDescriptions } from "../src/data/prestigeClassFeatureDescriptions";
-import { getClassSpells, loadSpellCatalog, spells } from "../src/data/spellCatalog";
+import { getClassSpells, getSpellLevelForClass, loadSpellCatalog, spells } from "../src/data/spellCatalog";
 import { formatRaceDetails } from "../src/creationRules";
 import { getConstitutionHitPointAdjustment, getEffectiveAbilityScore } from "../src/abilityEquipment";
 import { srdSpells } from "../src/srdSpells";
@@ -552,7 +552,7 @@ describe("provided-book feat inventory", () => {
     )).toHaveLength(26);
     expect(Object.values(clericDomains).filter(
       (domain) => "source" in domain && domain.source === "dragonlance-user-pack",
-    )).toHaveLength(13);
+    )).toHaveLength(10);
     expect(Object.values(dragonlancePrestigeClasses).filter((prestige) =>
       prestige.sourceBook === "Dragonlance Campaign Setting (3.5)" &&
       !["white-robed-wizard", "red-robed-wizard", "black-robed-wizard"].includes(prestige.id),
@@ -665,6 +665,35 @@ describe("provided-book feat inventory", () => {
     expect(getClassFeatureDisplay(barbarian)).not.toContainEqual(expect.objectContaining({
       ability: "Rage",
     }));
+  });
+
+  it("includes the current Complete Divine class, domain, feat, and spell inventory", () => {
+    const completeDivineClasses = Object.values(classDefinitions).filter(
+      (definition) => definition.sourceBook === "Complete Divine (3.5)",
+    );
+    expect(completeDivineClasses.map(({ name }) => name)).toEqual([
+      "Favored Soul", "Shugenja", "Spirit Shaman",
+    ]);
+    expect(Object.values(dragonlancePrestigeClasses).filter(
+      (definition) => definition.sourceBook?.startsWith("Complete Divine (3.5)"),
+    )).toHaveLength(24);
+    const completeDivineSpells = spells.filter(
+      (spell) => spell.sourceBook === "Complete Divine (3.5)",
+    );
+    expect(completeDivineSpells).toHaveLength(127);
+    expect(completeDivineSpells.map((spell) => spell.name)).toEqual(
+      expect.arrayContaining(["Otyugh Swarm", "Plague of Rats", "Scourge", "Unbinding"]),
+    );
+    for (const domainId of [
+      "celerity", "cold", "competition", "creation", "domination", "dream",
+      "force", "glory", "inquisition", "madness", "mind", "mysticism",
+      "oracle", "pact", "purification", "summoner", "weather",
+    ] as const) expect(clericDomains[domainId].spells).toHaveLength(9);
+    expect(featCatalog.filter(
+      (feat) => feat.sourceBook === "Complete Divine (3.5)",
+    ).map((feat) => feat.id)).toEqual(expect.arrayContaining([
+      "extra-wild-shape", "pious-defense", "bonus-domain", "zone-of-animation",
+    ]));
   });
 
   const normalizeFeatName = (name: string) => name.replace(/[’']/g, "'");
@@ -7066,10 +7095,13 @@ describe("provided-book feat inventory", () => {
       "practiced-spellcaster-cleric",
       "practiced-spellcaster-druid",
       "practiced-spellcaster-duskblade",
+      "practiced-spellcaster-favored-soul",
       "practiced-spellcaster-mystic",
       "practiced-spellcaster-paladin",
       "practiced-spellcaster-ranger",
+      "practiced-spellcaster-shugenja",
       "practiced-spellcaster-sorcerer",
+      "practiced-spellcaster-spirit-shaman",
       "practiced-spellcaster-wizard",
     ]);
     for (const feat of practicedSpellcasterFeats) {
@@ -7487,6 +7519,7 @@ describe("provided-book feat inventory", () => {
       "arcane-disciple",
       "augment-healing",
       "boars-ferocity",
+      "bonus-domain",
       "cheetahs-speed",
       "consecrate-spell",
       "corrupt-spell",
@@ -7500,17 +7533,32 @@ describe("provided-book feat inventory", () => {
       "elemental-smiting",
       "elephants-hide",
       "empower-turning",
+      "epic-devotion",
+      "extra-wild-shape",
       "glorious-weapons",
+      "grizzlys-claws",
+      "holy-strike",
       "improved-smiting",
+      "lions-pounce",
+      "magical-beast-wild-shape",
+      "negative-energy-burst",
+      "oaken-resilience",
+      "pious-defense",
+      "pious-soul",
+      "pious-spellsurge",
+      "positive-energy-aura",
       "practiced-spellcaster-bard",
       "practiced-spellcaster-beguiler",
       "practiced-spellcaster-cleric",
       "practiced-spellcaster-druid",
       "practiced-spellcaster-duskblade",
+      "practiced-spellcaster-favored-soul",
       "practiced-spellcaster-mystic",
       "practiced-spellcaster-paladin",
       "practiced-spellcaster-ranger",
+      "practiced-spellcaster-shugenja",
       "practiced-spellcaster-sorcerer",
+      "practiced-spellcaster-spirit-shaman",
       "practiced-spellcaster-wizard",
       "profane-boost",
       "quicken-turning",
@@ -7519,6 +7567,8 @@ describe("provided-book feat inventory", () => {
       "sacred-boost",
       "sacred-healing",
       "sanctify-relic",
+      "serpents-venom",
+      "spectral-strike",
       "spell-focus-chaos",
       "spell-focus-evil",
       "spell-focus-good",
@@ -7526,8 +7576,13 @@ describe("provided-book feat inventory", () => {
       "spontaneous-healer",
       "spontaneous-summoner",
       "spontaneous-wounder",
+      "swim-like-a-fish",
       "transdimensional-spell",
       "true-believer",
+      "undead-mastery",
+      "unholy-strike",
+      "wolverines-rage",
+      "zone-of-animation",
     ]);
   });
 
@@ -11587,9 +11642,21 @@ describe("spell catalog", () => {
     expect(count).toBeGreaterThan(700);
     expect(getClassSpells("wizard")).toEqual(spells.filter((spell) =>
       spell.classes.includes("wizard") && spell.source !== "dragonlance-user-pack",
-    ));
+    ).map((spell) => ({
+      ...spell,
+      level: getSpellLevelForClass(spell, "wizard"),
+    })));
     expect(getClassSpells("wizard")).toBe(getClassSpells("wizard"));
     expect(getClassSpells("cleric").some((spell) => spell.name === "Cure Light Wounds")).toBe(true);
+  });
+
+  it("uses each class's spell level for Complete Divine spells", () => {
+    expect(getClassSpells("wizard")).toContainEqual(
+      expect.objectContaining({ name: "Bestow Curse, Greater", level: 8 }),
+    );
+    expect(getClassSpells("cleric")).toContainEqual(
+      expect.objectContaining({ name: "Bestow Curse, Greater", level: 7 }),
+    );
   });
 
   it("keeps multiclass spell slots tied to class level", () => {

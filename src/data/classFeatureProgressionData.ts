@@ -1,10 +1,12 @@
 import type { ClassId, PrestigeClassId } from "../domain";
+import { completeDivinePrestigeProgression } from "./completeDivinePrestigeProgression";
 
 export type ClassFeatureLevel = { level: number; features: string[] };
 
 export const prestigeClassFeatureProgression: Partial<
   Record<PrestigeClassId, ClassFeatureLevel[]>
 > = {
+  ...(completeDivinePrestigeProgression as Partial<Record<PrestigeClassId, ClassFeatureLevel[]>>),
   "dragon-disciple": [
     { level: 1, features: ["Natural Armor Increase", "Dragon Disciple Bonus Spells"] },
     { level: 2, features: ["Dragon Disciple Strength +2", "Claws and Bite"] },
@@ -491,5 +493,36 @@ export const classFeatureProgression: Partial<
     { level: 17, features: ["Impetuous Endurance"] },
     { level: 19, features: ["Fighting Challenge +4"] },
     { level: 20, features: ["Shield Block +3", "Loyal Beyond Death"] },
+  ],
+  "favored-soul": [
+    { level: 1, features: ["Spontaneous Divine Spellcasting"] },
+    { level: 3, features: ["Deity's Weapon Focus"] },
+    { level: 5, features: ["Energy Resistance 10 (first type)"] },
+    { level: 10, features: ["Energy Resistance 10 (second type)"] },
+    { level: 12, features: ["Deity's Weapon Specialization"] },
+    { level: 15, features: ["Energy Resistance 10 (third type)"] },
+    { level: 17, features: ["Wings"] },
+    { level: 20, features: ["Damage Reduction 10 (alignment)"] },
+  ],
+  shugenja: [
+    { level: 1, features: ["Sense Elements", "Element Focus"] },
+  ],
+  "spirit-shaman": [
+    { level: 1, features: ["Spirit Guide", "Wild Empathy"] },
+    { level: 2, features: ["Chastise Spirits"] },
+    { level: 3, features: ["Detect Spirits"] },
+    { level: 4, features: ["Blessing of the Spirits"] },
+    { level: 5, features: ["Follow the Guide"] },
+    { level: 6, features: ["Ghost Warrior"] },
+    { level: 7, features: ["Warding of the Spirits"] },
+    { level: 8, features: ["Spirit Form 1/day"] },
+    { level: 9, features: ["Guide Magic"] },
+    { level: 11, features: ["Recall Spirit"] },
+    { level: 12, features: ["Spirit Form 2/day"] },
+    { level: 13, features: ["Exorcism"] },
+    { level: 16, features: ["Weaken Spirits"] },
+    { level: 17, features: ["Spirit Journey"] },
+    { level: 19, features: ["Favored of the Spirits"] },
+    { level: 20, features: ["Spirit Form 3/day", "Spirit Who Walks"] },
   ],
 };
